@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.albonyan.quran.app" version="2.5.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>منصة البنيان للتحرير والاستقصاء العددي</name>
+    <description>
+        التطوير والدراسة الهيكلية لعلوم القرآن الكريم والحروف المقطعة وحساب الجمل والميزان التوافي.
+    </description>
+    <author email="k.bonyan7@gmail.com">
+        الأستاذ خالد فؤاد السيد
+    </author>
+    <content src="index.html" />
+    <access origin="*" />
+    <allow-navigation href="*" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+    <preference name="Orientation" value="default" />
+    <preference name="Fullscreen" value="false" />
+    <preference name="BackgroundColor" value="#0f172a" />
+</widget>

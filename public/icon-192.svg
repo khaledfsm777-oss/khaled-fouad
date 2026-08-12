@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="38" fill="#0f172a"/>
+  <rect x="12" y="12" width="168" height="168" rx="28" fill="none" stroke="#d97706" stroke-width="4"/>
+  <circle cx="96" cy="96" r="50" fill="#1e293b" stroke="#fbbf24" stroke-width="3"/>
+  <text x="96" y="108" font-family="sans-serif" font-weight="bold" font-size="32" fill="#fbbf24" text-anchor="middle">ب</text>
+</svg>

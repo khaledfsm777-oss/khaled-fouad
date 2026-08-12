@@ -1,0 +1,9 @@
+{
+  "appId": "com.albonyan.quran.app",
+  "appName": "البنيان",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

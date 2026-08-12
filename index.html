@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>تطبيق البنيان</title>
+    <!-- Fonts are imported locally in index.css for full offline support -->
+    <link rel="manifest" href="./manifest.json" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then((reg) => console.log('Service Worker registered successfully:', reg.scope))
+            .catch((err) => console.error('Service Worker registration failed:', err));
+        });
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Cairo', 'Space Grotesk', sans-serif;
+        background-color: #F8FAFC;
+        color: #1E293B;
+      }
+      .quran-font {
+        font-family: 'Amiri', serif;
+      }
+      .mono-font {
+        font-family: 'JetBrains Mono', monospace;
+      }
+    </style>
+  </head>
+  <body class="bg-[#F8FAFC] text-[#1E293B] antialiased overflow-x-hidden">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

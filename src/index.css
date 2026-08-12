@@ -1,0 +1,99 @@
+@import "tailwindcss";
+@import "./assets/fonts/fonts.css";
+
+:root {
+  --quran-font-scale: 1.25;
+}
+
+/* 1. Force table container to handle horizontal scrolling cleanly on all mobile screens */
+.table-container,
+.overflow-x-auto {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  display: block !important;
+  touch-action: pan-x pan-y !important;
+}
+
+/* 2. Force tables wrapped inside .table-container or .overflow-x-auto to maintain minimum width for readability */
+.table-container table,
+div.overflow-x-auto > table {
+  min-width: 850px !important;
+  width: 100% !important;
+  table-layout: auto !important;
+}
+
+/* 3. Global Quran Font styling with dynamic scaling & Amiri font family */
+.quran-font,
+.quran-verse {
+  font-family: 'Amiri', 'Traditional Arabic', 'Scheherazade New', serif !important;
+  font-size: calc(1.2rem * var(--quran-font-scale, 1.25)) !important;
+  line-height: calc(2.3 * var(--quran-font-scale, 1.25)) !important;
+  letter-spacing: 0px !important;
+}
+
+/* Quran text variants with scaling */
+.quran-font.text-xs,
+.text-xs.quran-font {
+  font-size: calc(1.0rem * var(--quran-font-scale, 1.25)) !important;
+  line-height: calc(2.1 * var(--quran-font-scale, 1.25)) !important;
+}
+
+.quran-font.text-sm,
+.text-sm.quran-font {
+  font-size: calc(1.1rem * var(--quran-font-scale, 1.25)) !important;
+  line-height: calc(2.2 * var(--quran-font-scale, 1.25)) !important;
+}
+
+.quran-font.text-base,
+.text-base.quran-font {
+  font-size: calc(1.25rem * var(--quran-font-scale, 1.25)) !important;
+  line-height: calc(2.3 * var(--quran-font-scale, 1.25)) !important;
+}
+
+.quran-font.text-lg,
+.text-lg.quran-font {
+  font-size: calc(1.4rem * var(--quran-font-scale, 1.25)) !important;
+  line-height: calc(2.4 * var(--quran-font-scale, 1.25)) !important;
+}
+
+.quran-font.text-xl,
+.text-xl.quran-font {
+  font-size: calc(1.6rem * var(--quran-font-scale, 1.25)) !important;
+  line-height: calc(2.5 * var(--quran-font-scale, 1.25)) !important;
+}
+
+/* 4. Verse Column & Quran verse text styling */
+td.verse-column,
+th.verse-column,
+td.verse-text,
+.verse-text,
+td.quran-text {
+  font-family: 'Amiri', 'Traditional Arabic', serif !important;
+  min-width: 280px !important;
+  max-width: 550px !important;
+  width: 42% !important;
+  text-align: right !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  font-size: calc(1.2rem * var(--quran-font-scale, 1.25)) !important;
+  line-height: calc(2.3 * var(--quran-font-scale, 1.25)) !important;
+  font-weight: 700 !important;
+  height: auto !important;
+  padding-top: 0.6rem !important;
+  padding-bottom: 0.6rem !important;
+}
+
+/* 5. Number Column: Fixed compact width */
+td.number-column,
+th.number-column,
+.number-column {
+  width: 55px !important;
+  min-width: 45px !important;
+  max-width: 65px !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+}
+

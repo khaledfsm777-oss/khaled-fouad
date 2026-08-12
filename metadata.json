@@ -1,0 +1,8 @@
+{
+  "name": "Remix Al-Bunyan",
+  "description": "برنامج البنيان المتكامل للتحليل الرقمي والاستقصاء المطور لحساب الجمل وتقسيم آيات القرآن الكريم",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
