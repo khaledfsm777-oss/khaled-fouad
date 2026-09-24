@@ -43,9 +43,9 @@ export default function QuranFontSizeControl({ className = '', compact = false }
 
   if (compact) {
     return (
-      <div className={`inline-flex items-center gap-1.5 bg-[#051c16]/90 border border-amber-500/40 p-1 rounded-xl shadow-sm text-slate-100 ${className}`} dir="rtl">
-        <span className="text-[10px] font-black text-amber-300 px-1 flex items-center gap-1 select-none">
-          <Type className="w-3 h-3 text-amber-400" />
+      <div className={`inline-flex items-center justify-center gap-1.5 bg-[#051c16] border border-amber-500/40 px-2 py-1 rounded-xl shadow-sm text-slate-100 ${className}`} dir="rtl">
+        <span className="text-[11px] font-black text-amber-300 px-1 flex items-center gap-1 select-none">
+          <Type className="w-3.5 h-3.5 text-amber-400" />
           <span>خط الآيات:</span>
         </span>
 
@@ -59,7 +59,7 @@ export default function QuranFontSizeControl({ className = '', compact = false }
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
 
-        <span className="text-[11px] font-mono font-black text-amber-100 min-w-[38px] text-center bg-[#092b22] px-1.5 py-0.5 rounded border border-emerald-800/80">
+        <span className="text-xs font-mono font-black text-amber-100 min-w-[42px] text-center bg-[#092b22] px-1.5 py-0.5 rounded border border-emerald-800/80 shadow-inner">
           {percent}%
         </span>
 
@@ -77,10 +77,10 @@ export default function QuranFontSizeControl({ className = '', compact = false }
           <button
             type="button"
             onClick={handleReset}
-            className="p-1 hover:bg-rose-900/60 text-rose-300 rounded-lg cursor-pointer transition-colors mr-0.5"
+            className="p-1 hover:bg-rose-900/60 text-rose-300 rounded-lg cursor-pointer transition-colors"
             title="إعادة ضبط حجم الخط إلى الافتراضي (125%)"
           >
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
@@ -88,8 +88,8 @@ export default function QuranFontSizeControl({ className = '', compact = false }
   }
 
   return (
-    <div className={`flex flex-wrap items-center gap-2 bg-[#06241c] border border-amber-500/40 px-3.5 py-2 rounded-xl shadow-md text-slate-100 ${className}`} dir="rtl">
-      <div className="flex items-center gap-1.5 ml-1 select-none">
+    <div className={`flex flex-wrap items-center justify-center gap-3 bg-[#06241c] border border-amber-500/40 px-4 py-2 rounded-xl shadow-md text-slate-100 ${className}`} dir="rtl">
+      <div className="flex items-center gap-1.5 select-none">
         <Type className="w-4 h-4 text-amber-400" />
         <span className="text-xs font-black text-amber-300">حجم خط الآيات القرآنية:</span>
       </div>
@@ -149,7 +149,7 @@ export default function QuranFontSizeControl({ className = '', compact = false }
         <button
           type="button"
           onClick={handleReset}
-          className="px-2 py-1 text-[10px] bg-rose-950/80 hover:bg-rose-900 text-rose-200 font-bold rounded border border-rose-800/60 flex items-center gap-1 cursor-pointer transition-all mr-auto"
+          className="px-2 py-1 text-[10px] bg-rose-950/80 hover:bg-rose-900 text-rose-200 font-bold rounded border border-rose-800/60 flex items-center gap-1 cursor-pointer transition-all"
           title="إعادة الضبط"
         >
           <RotateCcw className="w-3 h-3" />

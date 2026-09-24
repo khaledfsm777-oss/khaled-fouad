@@ -214,22 +214,22 @@ export default function SurahCard({ activeSurah }: SurahCardProps) {
       {/* Printable Wrapper */}
       <div id="printableSurahCard" className="space-y-6">
         {/* Top summary grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-slate-50 border border-slate-200 p-4 text-center">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="bg-slate-50 border border-slate-200 p-2.5 sm:p-3 text-center">
             <span className="text-[10px] text-slate-400 font-bold block uppercase">سورة</span>
-            <span className="text-xl font-black text-slate-900 block quran-font mt-1">{meta.name}</span>
+            <span className="text-lg font-black text-slate-900 block quran-font mt-0.5">{meta.name}</span>
           </div>
-          <div className="bg-slate-50 border border-slate-200 p-4 text-center">
+          <div className="bg-slate-50 border border-slate-200 p-2.5 sm:p-3 text-center">
             <span className="text-[10px] text-slate-400 font-bold block uppercase">ترتيب المصحف</span>
-            <span className="text-xl font-black text-slate-900 block font-mono mt-1">{meta.orderInQuran}</span>
+            <span className="text-lg font-black text-slate-900 block font-mono mt-0.5">{meta.orderInQuran}</span>
           </div>
-          <div className="bg-slate-50 border border-slate-200 p-4 text-center">
+          <div className="bg-slate-50 border border-slate-200 p-2.5 sm:p-3 text-center">
             <span className="text-[10px] text-slate-400 font-bold block uppercase">ترتيب السور الـ 29</span>
-            <span className="text-xs font-black text-yellow-700 block mt-1.5">{meta.nooraniOrder}</span>
+            <span className="text-xs font-black text-yellow-700 block mt-1">{meta.nooraniOrder}</span>
           </div>
-          <div className="bg-slate-50 border border-slate-200 p-4 text-center">
+          <div className="bg-slate-50 border border-slate-200 p-2.5 sm:p-3 text-center">
             <span className="text-[10px] text-slate-400 font-bold block uppercase">رقم النزول ومكانه</span>
-            <span className="text-sm font-black text-slate-800 block mt-1.5">{meta.revelationPlace} (نزول {meta.revelationOrder})</span>
+            <span className="text-xs font-black text-slate-800 block mt-1">{meta.revelationPlace} (نزول {meta.revelationOrder})</span>
           </div>
         </div>
 

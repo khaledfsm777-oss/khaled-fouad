@@ -3,15 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>تطبيق البنيان</title>
+    <title>البنيان الرقمي للقرآن الكريم</title>
+    <meta name="description" content="منظومة البنيان للتحليل الرقمي والاستقصاء المطور لحساب الجمل وتقسيم آيات القرآن الكريم" />
+    <meta property="og:title" content="البنيان الرقمي للقرآن الكريم" />
+    <meta property="og:description" content="منظومة البنيان للتحليل الرقمي والاستقصاء المطور لحساب الجمل وتقسيم آيات القرآن الكريم" />
+    <meta name="theme-color" content="#092b22" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="البنيان" />
+    <meta name="author" content="الأستاذ الباحث خالد فؤاد السيد" />
+    <meta name="copyright" content="جميع الحقوق محفوظة للباحث خالد فؤاد السيد ©" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="apple-touch-icon" href="./icon-512.png" />
     <!-- Fonts are imported locally in index.css for full offline support -->
     <link rel="manifest" href="./manifest.json" />
     <script>
-      if ('serviceWorker' in navigator) {
+      // حماية المنظومة ومنع استدعاء أدوات التعديل في وضع التشغيل المستقل
+      if (window.location.protocol === 'file:' || !window.location.hostname.includes('ais-dev')) {
+        document.addEventListener('contextmenu', function(e) {
+          if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+            return;
+          }
+          e.preventDefault();
+        });
+        document.addEventListener('keydown', function(e) {
+          if (
+            e.key === 'F12' || 
+            (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+            (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+          ) {
+            e.preventDefault();
+          }
+        });
+      }
+    </script>
+    <script>
+      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./sw.js')
-            .then((reg) => console.log('Service Worker registered successfully:', reg.scope))
-            .catch((err) => console.error('Service Worker registration failed:', err));
+            .then((reg) => {
+              // Ensure immediate update if worker script changed
+              reg.update();
+            })
+            .catch(() => {});
         });
       }
     </script>

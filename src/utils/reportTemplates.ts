@@ -147,49 +147,14 @@ export function generateLocalAcademicAnalysis(params: {
 
     htmlReport += `---
 
-## الفصل الثالث: دليل درجات التوافق المتوازية وتفسير الألوان
-بناءً على طلب الباحث الكريم، تم تصنيف وتحقيق الألوان والملاحظات لكل آية في مسارين منفصلين ومستقلين لتوضيح أسباب منح درجات التوافق والموازين:\n\n`;
+## الفصل الثالث: المقاصد البلاغية والبيانية والربط الموضوعي
+تتضافر آيات سورة **الشورى** في نسق بياني متفرد لخدمة قضايا الوحي والرسالة والشورى والتوحيد. وتبرز معاني الإعجاز في التوازي الصوتي والبلاغي بين مطلع الحواميم (حم) التي تؤكد على أن القرآن تنزيل من الله العزيز الحكيم، وبين فاتحة (عسق) التي تستكمل بسط سنن الوحي لرسل الله الكرام.
+إن دراسة السورة نصياً وموضوعياً تكشف أن كل مقطع قرآني يحمل في ثناياه إشارات محكمة تربط بين حرية الاختيار الإنساني المنضبطة بالشورى، وبين الإقرار بالهيمنة والربوبية التامة لله رب العالمين.
 
-    versesWithComp.forEach((item, idx) => {
-      const v = item.v;
-      const comp1 = item.comp1;
-      const comp2 = item.comp2;
+---
 
-      let hColor = comp1.score === 6 ? 'الذهبي 🌟' : comp1.score >= 3 ? 'الأخضر 🟢' : comp1.score >= 1 ? 'الأزرق 🔵' : 'الأحمر 🔴';
-      let aColor = comp2.score === 6 ? 'الذهبي 🌟' : comp2.score >= 3 ? 'الأخضر 🟢' : comp2.score >= 1 ? 'الأزرق 🔵' : 'الأحمر 🔴';
-
-      htmlReport += `### الآية رقم [${v.verseNumber}]: « ${v.text} »\n`;
-      htmlReport += `* **بيانات المبنى الحسابي:** الجمل الكلي: **${formatNum(v.jummalValue)}** | الكلمات: **${formatNum(v.wordCount)}** | الحروف: **${formatNum(v.letterCount)}** | المجموع: **${formatNum(v.wordCount + v.letterCount)}**\n`;
-      
-      htmlReport += `* **📈 تحليل مسار حم (معامل 3):**\n`;
-      htmlReport += `  * **درجة التوافق واللون:** ${hColor} (${comp1.score}/6 شروط محققة)\n`;
-      htmlReport += `  * **حالة القسمة والتحقق:** ناتج القسمة: **${(v.jummalValue / 3).toFixed(2)}** (${item.isHameemVerified ? 'متوافقة وقسمة صرفة ✅' : 'كسر بنياني مكمل ❌'})\n`;
-      htmlReport += `  * **التوافقات المحققة:** ${getAchievedCompatibilities(v, s1).join('، ') || 'لا يوجد توافق مباشر'}\n`;
-
-      htmlReport += `* **✨ تحليل مسار عسق (معامل 5):**\n`;
-      htmlReport += `  * **درجة التوافق واللون:** ${aColor} (${comp2.score}/6 شروط محققة)\n`;
-      htmlReport += `  * **حالة القسمة والتحقق:** ناتج القسمة: **${(v.jummalValue / 5).toFixed(2)}** (${item.isAsaqVerified ? 'متوافقة وقسمة صرفة ✅' : 'كسر بنياني مكمل ❌'})\n`;
-      htmlReport += `  * **التوافقات المحققة:** ${getAchievedCompatibilities(v, s2).join('، ') || 'لا يوجد توافق مباشر'}\n`;
-
-      // Custom scholarly observation for this verse
-      let obs = '';
-      if (item.isHameemVerified && item.isAsaqVerified) {
-        obs = `آية كريمة مذهلة! تمثل "بؤرة التحام مزدوجة" فائقة الإعجاز، حيث توافقت مع كوكبة الحروف الأولى (حم) وكوكبة الحروف الثانية (عسق) في آن واحد بالقسمة الصرفة التامة، مما يجعلها ركيزة اتزان كبرى وجوهرة بنيانية في السورة.`;
-      } else if (item.isHameemVerified) {
-        obs = `ترتبط الآية الكريمة بنيوياً بمسار الحواميم (حم)، حيث جاء ميزانها الحسابي مضبوطاً على معامل الرقم 3 بالتمام، مما يوثق انسجامها الصوتي والرياضي مع مطلع السورة الأول.`;
-      } else if (item.isAsaqVerified) {
-        obs = `تتسق الآية الكريمة بالكامل مع مسار "عسق"، حيث استجابت كلماتها ومقاديرها لمعامل الرقم 5 بالتمام، مؤكدةً على الدقة المتناهية لنسج الفواصل والحروف العثمانية على المفتاح الثاني.`;
-      } else {
-        obs = `تتكامل الآية بكسورها البنيوية في المسارين لتشكل جسراً ميزانياً تراكمياً بين الآيات المجاورة، وتخدم المعاني العقائدية والشورية للسورة دون أن تخرج قيد أنملة عن الميزان العام المقدر لها.`;
-      }
-      
-      htmlReport += `  * **ملاحظة استقصائية قيمة:** ${obs}\n\n`;
-    });
-
-    htmlReport += `---
-
-## الفصل الرابع: الخلاصة والتوصيات الاستقصائية لبحوث الشفرات النورانية
-تثبت هذه الدراسة الاستقصائية الفريدة لسورة **الشورى** جدوى منهجية المسارات المتوازية الحقيقية لفك شفرات الحروف المقطعة الـ 29. إن استقلال مسار حم (معامل 3) وعسق (معامل 5) كشف لنا توازناً رياضياً مدهشاً يجري كخطين متوازيين للوحي الشريف دون تداخل عشوائي أو هدم للبنيان، مما يقدم دليلاً إحصائياً دامغاً على الصدور الرباني الحكيم والتصميم المسبق المعجز لحروف سور القرآن الكريم وكلماتها ومقاديرها.`;
+## الفصل الرابع: الخلاصة والتوصيات الاستقصائية
+تثبت هذه الدراسة الاستقصائية الفريدة لسورة **الشورى** أصالة التناسق البياني والموضوعي للقرآن الكريم. إن تكامل مساري الفواتح النورانية الشريفة يعكس اتساقاً مدهشاً يجري كخطين متكاملين لوحي السماء، دون أي تنافر، مما يقدم برهاناً علمياً ونصياً جلياً على الإعجاز الرباني المطلق في كتاب الله العزيز.`;
 
     return htmlReport;
   }
@@ -395,121 +360,20 @@ ${nooraniKeysText}
 
 ---
 
-${(() => {
-  // Generate explanations for all verses in this study
-  let colorsExplanationText = `## الفصل الخامس: دليل درجات التوافق وتفسير الألوان والملاحظات الاستقصائية\n`;
-  colorsExplanationText += `يقوم نظام التحقق الميزاني بتصنيف الآيات إلى **أربع درجات توافقية ملونة** بالإضافة إلى موازين التوحيد، لتسهيل رصد البناء الرقمي والجمال الهندسي للآيات:\n\n`;
-  
-  colorsExplanationText += `1. **🌟 اللون الذهبي (مفتاح بنياني مطلق - 6/6):**\n`;
-  colorsExplanationText += `   * **السبب العلمي:** استيفاء الآية لجميع الشروط الستة لمحرك التوافق (الجمل، الهيكل، الكثافة، المجموع، الأس، رقم الآية).\n`;
-  colorsExplanationText += `   * **الملاحظة البنائية:** الآية تمثل حجر زاوية مطلق للاتزان الرقمي ونقطة التحام محورية تعادل كفتي الميزان بالتمام.\n\n`;
-  
-  colorsExplanationText += `2. **🟢 اللون الأخضر الزمردي (متوافقة تماماً - 3/6 إلى 5/6):**\n`;
-  colorsExplanationText += `   * **السبب العلمي:** توافق أغلب الموازين الهيكلية والعددية مع المعاملات النورانية الحاكمة لسورة **${sName}**.\n`;
-  colorsExplanationText += `   * **الملاحظة البنائية:** تعكس هذه الآيات اتساقاً وثيقاً وتوازناً ذاتياً مستقراً يؤيد وحدة الموضوع وسلاسة التدفق العددي.\n\n`;
-  
-  colorsExplanationText += `3. **🔵 اللون الأزرق السماوي (متوافقة بنيوياً - 1/6 إلى 2/6):**\n`;
-  colorsExplanationText += `   * **السبب العلمي:** تحقق شرط أو شرطين فقط من شروط المطابقة الرياضية، مع بقاء أثر الحروف النورانية ظاهراً.\n`;
-  colorsExplanationText += `   * **الملاحظة البنائية:** تعمل هذه الآيات كروابط هيكلية وجسور بين المقاطع، حيث يتكامل كسرها العشري مع كليات السورة.\n\n`;
-  
-  colorsExplanationText += `4. **🔴 اللون الأحمر الرماني (غير متوافقة - 0/6):**\n`;
-  colorsExplanationText += `   * **السبب العلمي:** عدم انقسام حساب جمل الآية أو موازينها على المعامل النوراني المختار مباشرة دون باقٍ.\n`;
-  colorsExplanationText += `   * **الملاحظة البنائية:** تمثل هذه الآيات بؤر استقطاب وتغاير ميزاني هادف، حيث تدفع القارئ للتأمل في البناء اللفظي المنفرد أو الإحالة للموازين التراكمية العامة للسورة.\n\n`;
+## الفصل الخامس: المقاصد البلاغية والوحدة الموضوعية للسورة
+تتجلى الوحدة الموضوعية لسورة **${sName}** في تناغم مطالعها مع مقاطعها وفواصلها، حيث ترتبط المعاني الإيمانية والتشريعية والقصصية بمحور أصيل يرسخ اليقين بالله تعالى وكمال حكمته في خلقه وأمره.
+وتشير القراءات البلاغية والبيانية إلى أن السورة قد صيغت ألفاظها بتناسب فريد؛ فكل كلمة وكل حرف موضوع بمثقال حق يخدم الفكرة المحورية للسورة، وتتكامل الدلالات اللغوية مع النسق القرآني العام لتبهر العقول وتثبت القلوب على صراط مستقيم.
 
-  colorsExplanationText += `5. **💛 موازين التوافق التوحيدي (توحيدي بنيوي / ذاتي):**\n`;
-  colorsExplanationText += `   * **توحيدي بنيوي (Joint Tawheed):** يعطى للآية إذا بلغ الاختزال الأول لمجموع (الكلمات + الحروف) أو (الكلمات + الحروف + رقم الآية) القيمة العظمى **11**.\n`;
-  colorsExplanationText += `   * **توحيدي ذاتي (Self Tawheed):** يعطى للآية إذا انتهى الاختزال الرقمي لحساب جملها بالرقم التوحيدي الفردي **1**.\n\n`;
+---
 
-  colorsExplanationText += `6. **🔮 ميزان البصمة الأحادية والتحقق المدمج (1-9):**\n`;
-  colorsExplanationText += `   * **السبب العلمي:** الاختزال الرقمي لمعادلة [جمل الآية المختزل] × [رقم الآية + المعامل المختزل] = الناتج.\n`;
-  colorsExplanationText += `   * **الملاحظة البنائية:** تتوافق الآية مدمجاً عند مطابقتها لـ 9 (الذاتي السائد)، المعامل المختزل (المرآة الرقمية)، أو رقم الآية المختزل (بصمة الآية).\n\n`;
-
-  colorsExplanationText += `### 📋 تفصيل موازين وملاحظات الآيات المدروسة في هذا التقرير:\n`;
-  
-  verses.forEach((v, index) => {
-    const dummySurah = {
-      id: activeSurah?.id || 1,
-      name: sName,
-      letters: sLetters,
-      keyValue: sKeyValue,
-      digitalRoot: sDigitalRoot,
-    };
-    
-    const comp = getCompatibilityDetails(v, dummySurah);
-    
-    let colorName = '';
-    let colorHex = '';
-    let whyReason = '';
-    
-    if (comp.score === 6) {
-      colorName = 'الذهبي (مفتاح مطلق 🌟)';
-      colorHex = 'الأصفر الذهبي';
-      whyReason = 'لأن الآية استوفت جميع شروط الميزان الستة (6/6) بالتطابق التام مع المعاملات الحاكمة للسورة.';
-    } else if (comp.score >= 3 && comp.score <= 5) {
-      colorName = 'الأخضر (متوافقة تماماً 🟢)';
-      colorHex = 'الأخضر الزمردي';
-      whyReason = `لأنها حققت ${comp.score} شروط من أصل 6 لشروط الاتزان والمطابقة الرقمية مع سورة ${sName}.`;
-    } else if (comp.score >= 1 && comp.score <= 2) {
-      colorName = 'الأزرق (متوافقة بنيوياً 🔵)';
-      colorHex = 'الأزرق السماوي';
-      whyReason = `لأنها حققت ${comp.score} شروط فقط من أصل 6، وتكاملت موازينها الكسرية هيكلياً مع بقية المقطع.`;
-    } else {
-      colorName = 'الأحمر (غير متوافقة 🔴)';
-      colorHex = 'الأحمر الرماني';
-      whyReason = 'لأن الآية لم تظهر توافقاً ميزانياً مباشراً (0/6) مع المعامل النوراني النشط.';
-    }
-    
-    let tawheedStatus = '';
-    if (comp.isTawheedCompatibleJoint) {
-      tawheedStatus = ' | التوافق التوحيدي: توحيدي بنيوي مشترك 🌟 (مجموع الكلمات والحروف يختزل إلى 11)';
-    } else if (comp.isTawheedCompatibleSelf) {
-      tawheedStatus = ' | التوافق التوحيدي: توحيدي ذاتي 🌟 (الاختزال الفردي للجمل ينتهي بـ 1)';
-    }
-    
-    colorsExplanationText += `${index + 1}. **الآية [${v.verseNumber}]:** « ${v.text} »\n`;
-    colorsExplanationText += `   * **درجة التوافق واللون المعطى:** ${colorName} (${colorHex})${tawheedStatus}\n`;
-    colorsExplanationText += `   * **سبب اختيار هذا اللون:** ${whyReason}\n`;
-    colorsExplanationText += `   * **🔮 البصمة الأحادية للعمود الجديد:** الرقم الأحادي المختزل للناتج هو **${comp.finalSingleDigit}** (المعادلة: ${reduceDigitalRoot(v.jummalValue)} × (${parseInt(v.verseNumber.toString(), 10) || 1} + ${comp.reducedFactor}) = ${comp.newColumnProduct})\n`;
-    if (comp.compactStatus && comp.compactStatus !== 'غير محققة') {
-      const matches: string[] = [];
-      if (comp.isDominantNine) matches.push("الرقم الذاتي السائد (9)");
-      if (comp.isOriginalMatch) matches.push(`الاختزال الأصلي للآية (${comp.verseDigitalRoot})`);
-      if (comp.isDensityMatch) matches.push(`اختزال الكثافة الكلية (${comp.densityReduction})`);
-      if (comp.isDigitalMirror) matches.push(`المرآة الرقمية للمعامل (${comp.reducedFactor})`);
-      if (comp.isVerseFingerprint) matches.push(`بصمة الآية (${comp.verseNumReduced})`);
-      colorsExplanationText += `     - **حالة التوافق المدمج:** ${comp.compactStatus} عبر: ${matches.join(' - ')}\n`;
-    } else {
-      colorsExplanationText += `     - **حالة التوافق المدمج:** غير محققة\n`;
-    }
-
-    if (comp.isDirectMatch) {
-      colorsExplanationText += `   * **🎯 التوافق الجوهري المباشر:** محقق! حساب جمل الآية (${v.jummalValue}) يتطابق تماماً بالتمام والكمال مع المعامل المرجعي الأصلي (${comp.originalFactorValue})\n`;
-    }
-
-    let observation = '';
-    if (comp.score === 6) {
-      observation = `تعتبر هذه الآية نموذجاً خارقاً للإعجاز العددي والترابط اللفظي في السورة، حيث تحكم بوزنها الكلي تفاعلات الحروف والكلمات لخدمة الغاية العقائدية للوحي.`;
-    } else if (comp.isTawheedCompatibleJoint) {
-      observation = `يؤكد الاختزال التوحيدي المشترك (11) في هذه الآية على عمق هندسة الحروف والكلمات، حيث تجتمع مجموعات الكلمات والحروف لتشهد بالوحدانية المطلقة لله الخالق سبحانه.`;
-    } else if (comp.isTawheedCompatibleSelf) {
-      observation = `يمثل انتهاء الاختزال الفردي بالرقم (1) دلالة التوحيد الذاتي، مما يربط هندسة الآية بجوهر التوحيد الخالص لله رب العالمين.`;
-    } else if (v.text && (v.text.includes('اللَّه') || v.text.includes('رب'))) {
-      observation = `تحمل الآية أسماء الجلالة والربوبية، وجاء التنسيق الحسابي والاتزان الكلي مؤيداً ومعززاً لدلالات العظمة والجلال الإلهي الكامن في اللفظ الشريف.`;
-    } else {
-      observation = `موازين الكلم والحروف في هذه الآية تصب في مجرى الميزان العام للسورة، وتدعم انسيابية الفواصل وصوت التلاوة العذب الموزون بمقادير دقيقة.`;
-    }
-    
-    colorsExplanationText += `   * **ملاحظات استقصائية قيمة:** ${observation}\n\n`;
-  });
-
-  return colorsExplanationText;
-})()}
+## الفصل السادس: لطائف الإعجاز البياني والترابط اللفظي
+يكشف التأمل في المفردات القرآنية لسورة **${sName}** عن ترابط لفظي وصوتي عجيب، حيث تتكرر الكلمات والمشتقات الحرفية المتصلة بفاتحتها النورانية في مواضع محورية، مما يبرهن على أن حروف الفواتح ليست مجرد رموز معزولة، بل هي مفاتيح بيانية تفتح آفاق الفهم والتدبر في جمال النظم القرآني وبديع سبكه.
 
 ---
 
 ## الخلاصة والتوصيات الاستقصائية لبحوث الإعجاز
-تثبت هذه الدراسة التحليلية البنيوية المستقلة والكاملة لسورة **${sName}** أن الأعداد والحروف في القرآن الكريم منسوجة معاً بموازين غاية في الإتقان والدقة، حيث لا عشوائية ولا تفاوت.
-إن التناسق والاتساق بين حساب الجمل الكبير للآيات وحروف فواتحها المقطعة، وتكامل كفتي القسمة بدون كسر والكسر المتناهي الدقة، يقدم برهاناً علمياً قاطعاً على الصدور الإلهي المطلق لهذا الكتاب الحكيم، ويفتح آفاقاً جديدة ومنهجية لباحثي الإعجاز الرقمي للتوسع في استقصاء "البنيان الرياضي" للقرآن الكريم.
+تثبت هذه الدراسة التحليلية البنيوية المستقلة والكاملة لسورة **${sName}** أن الأعداد والحروف والكلمات في القرآن الكريم منسوجة معاً بموازين غاية في الإتقان والدقة، حيث لا عشوائية ولا تفاوت.
+إن التناسق البديع بين حساب الجمل للآيات ودلالاتها البلاغية يقدم برهاناً علمياً قاطعاً على الصدور الإلهي المطلق لهذا الكتاب الحكيم، ويفتح آفاقاً جديدة ومنهجية لباحثي الإعجاز القرآني للتوسع في استقصاء "البنيان البياني والعددي" للقرآن الكريم.
 `;
 }
 
@@ -570,7 +434,13 @@ export function generateTripleMatchEliteReport(params: {
     report += `- **حساب الجمل الكلي:** \`${v.jummalValue}\` | **عدد الكلمات:** ${v.wordCount} | **عدد الحروف:** ${v.letterCount}\n`;
     report += `- **درجة التوافق والميزان:** \`${comp.score}/6\` (${comp.statusLabel})\n`;
     report += `- **🔮 البصمة الأحادية للعمود الجديد:** \`${comp.finalSingleDigit}\` (المعادلة: ${comp.verseDigitalRoot} × (${v.verseNumber} + ${comp.reducedFactor}) = ${comp.newColumnProduct})\n`;
-    report += `- **حالة التوافق المدمج:** **${comp.compactStatus}**\n`;
+    const statusText = (comp.compactStatus || '').trim();
+    const subReasons = (Array.isArray(comp.compactReasons) ? comp.compactReasons : []).filter(Boolean);
+    if (subReasons.length > 0) {
+      report += `- **حالة التوافق المدمج:** **${statusText}** عبر: ${subReasons.join(' - ')}\n`;
+    } else {
+      report += `- **حالة التوافق المدمج:** **${statusText}**\n`;
+    }
     report += `- **بيان الشروط الثلاثة المحققة:**\n`;
     report += `  - ✅ **الشرط الأول (درجة التوافق):** ${comp.score}/6 (عالية)\n`;
     report += `  - ✅ **الشرط الثاني (البصمة الذاتية):** محقق (البصمة ${comp.finalSingleDigit} متطابقة)\n`;
@@ -579,3 +449,82 @@ export function generateTripleMatchEliteReport(params: {
 
   return report;
 }
+
+/**
+ * Generates an academic report for Integrated Compatibilities (التوافقات المدمجة المسجلة وغير المسجلة)
+ * and Researcher Notes.
+ */
+export function generateIntegratedCompatibilityReport(params: {
+  activeSurah: SurahInput | null;
+  surahMeta: any;
+  verses: VerseAnalysisInput[];
+  researcherNotes?: Record<string, string>;
+}): string {
+  const { activeSurah, surahMeta, verses, researcherNotes = {} } = params;
+  const sName = activeSurah ? activeSurah.name.replace(/\s*\([^)]*\)/g, '').trim() : 'النطاق الشامل';
+
+  let report = `# 📊 تقرير التوافقات المدمجة والبصمة الأحادية وملاحظات الباحث - ${sName}\n\n`;
+  report += `**تاريخ التقرير:** ${new Date().toLocaleDateString('ar-EG')}\n`;
+  if (activeSurah) {
+    report += `**السورة:** ${activeSurah.name} (رقمها: ${activeSurah.id})\n`;
+  }
+  report += `**إجمالي الآيات المدروسة:** ${verses.length} آية\n\n`;
+  report += `---\n\n`;
+
+  const dummySurah = {
+    id: activeSurah?.id || 1,
+    name: activeSurah?.name || '',
+    letters: activeSurah?.letters || '',
+    keyValue: activeSurah?.keyValue || 0,
+    digitalRoot: activeSurah?.digitalRoot || 1
+  };
+
+  const analyzed = verses.map(v => {
+    const comp = getCompatibilityDetails(v, dummySurah);
+    const surahId = (v as any).surahId || activeSurah?.id || 1;
+    const vKey = `${surahId}:${v.verseNumber}`;
+    const note = researcherNotes[vKey] || '';
+    const isPerfect = comp.score >= 5 || comp.isDirectMatch;
+    return { v, comp, note, isPerfect, vKey };
+  });
+
+  const perfectVerses = analyzed.filter(item => item.isPerfect);
+  const versesWithNotes = analyzed.filter(item => Boolean(item.note.trim()));
+
+  report += `## 📑 ملخص إحصائيات التوافقات المدمجة:\n`;
+  report += `* 🏆 **التوافقات التامة (5/6 إلى 6/6):** ${perfectVerses.length} آية.\n`;
+  report += `* 📝 **الآيات ذات الملاحظات المدونة من الباحث:** ${versesWithNotes.length} آية.\n\n`;
+
+  report += `## 🏆 سجل الآيات ذات التوافق التام (5/6 إلى 6/6):\n\n`;
+  if (perfectVerses.length === 0) {
+    report += `*لا توجد آيات بدرجة توافق تام (5/6 إلى 6/6) في النطاق المحدد.*\n\n`;
+  } else {
+    perfectVerses.forEach((item, idx) => {
+      report += `### ${idx + 1}. الآية (${item.v.verseNumber}): « ${item.v.text} »\n`;
+      report += `- **درجة التوافق:** \`${item.comp.score}/6\` (${item.comp.statusLabel}) - توافق تام ومثبت.\n`;
+      report += `- **حساب الجمل:** \`${item.v.jummalValue}\` | **الكلمات:** ${item.v.wordCount} | **الحروف:** ${item.v.letterCount}\n`;
+      const statusText = (item.comp.compactStatus || 'محقق').trim();
+      const subReasons = (Array.isArray(item.comp.compactReasons) ? item.comp.compactReasons : []).filter(Boolean);
+      if (subReasons.length > 0) {
+        report += `- **البصمة الأحادية للناتج:** \`${item.comp.finalSingleDigit}\` | **التوافق المدمج:** ${statusText} عبر: ${subReasons.join(' - ')}\n`;
+      } else {
+        report += `- **البصمة الأحادية للناتج:** \`${item.comp.finalSingleDigit}\` | **التوافق المدمج:** ${statusText}\n`;
+      }
+      if (item.note) {
+        report += `- 📝 **ملاحظة الباحث:** ${item.note}\n`;
+      }
+      report += `\n`;
+    });
+  }
+
+  if (versesWithNotes.length > 0) {
+    report += `---\n\n## 📝 سجل ملاحظات واستقصاءات الباحث المخصصة:\n\n`;
+    versesWithNotes.forEach((item, idx) => {
+      report += `### ${idx + 1}. الآية (${item.v.verseNumber}): « ${item.v.text} »\n`;
+      report += `> 📌 **الملاحظة المسجلة:** ${item.note}\n\n`;
+    });
+  }
+
+  return report;
+}
+

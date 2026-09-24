@@ -12,6 +12,8 @@ import {
 import quranData from '../utils/quranData';
 import { SURAH_METADATA, getSurahMetadata } from '../utils/surahMetadata';
 import { generateLocalAcademicAnalysis } from '../utils/reportTemplates';
+import { getUniqueExportFileName, handleSafeExport } from '../utils/exportHelper';
+import { copyToClipboard } from '../utils/clipboard';
 import { 
   Sparkles, 
   Brain, 
@@ -251,69 +253,12 @@ export default function AiAnalysis({ verses, activeSurah, history, setHistory }:
       html += `</div>`;
     }
 
-    // 📈 Inject visual drawing & waves for MS Word
-    if (Array.isArray(versesList) && versesList.length > 0) {
-      let maxJummal = 1;
-      let maxWords = 1;
-      let maxLetters = 1;
-      versesList.forEach((v) => {
-        if (v.jummalValue && v.jummalValue > maxJummal) maxJummal = v.jummalValue;
-        if (v.wordCount && v.wordCount > maxWords) maxWords = v.wordCount;
-        if (v.letterCount && v.letterCount > maxLetters) maxLetters = v.letterCount;
-      });
-
-      html += `<h3 style="color: #092b22; margin-top: 30px; margin-bottom: 10px; border-right: 5px solid #b45309; padding-right: 12px; direction: rtl; text-align: right;">📊 الرسوم البيانية والموجات الميزانية للآيات (Waves & Diagrams):</h3>`;
-      html += `<p style="font-size: 11px; color: #475569; margin-bottom: 15px; direction: rtl; text-align: right;">موجات رقمية بيانية متكاملة لخصائص البنيان للآيات المدروسة (حساب الجمل، الكثافة النورانية، والموازين اللفظية):</p>`;
-      
-      html += `<table class="wave-table" border="1">`;
-      html += `<thead><tr>
-        <th style="width: 10%; text-align: center;">الآية</th>
-        <th style="width: 40%; text-align: right;">النص القرآني الكريم</th>
-        <th style="width: 50%; text-align: right;">الرسم الموجي والمؤشرات البيانية</th>
-      </tr></thead><tbody>`;
-
-      versesList.forEach((v) => {
-        const jPercent = Math.max(5, Math.min(100, Math.round((v.jummalValue / maxJummal) * 100)));
-        const oPercent = Math.max(5, Math.min(100, Math.round((v.overlapRatio ?? 0) * 100)));
-        const wPercent = Math.max(5, Math.min(100, Math.round((v.wordCount / maxWords) * 100)));
-        const lPercent = Math.max(5, Math.min(100, Math.round((v.letterCount / maxLetters) * 100)));
-
-        html += `<tr>
-          <td style="text-align: center; font-weight: bold; background-color: #f8fafc;">[${v.verseNumber}]</td>
-          <td style="font-weight: bold; color: #0f172a; text-align: justify; line-height: 1.5;">« ${v.text} »</td>
-          <td style="line-height: 1.6;">
-            <div style="margin-bottom: 5px;">
-              <span style="display: inline-block; width: 110px; font-size: 9.5px; color: #475569;">موجة الجُمّل (${v.jummalValue}):</span>
-              <div style="display: inline-block; background-color: #b45309; height: 10px; width: ${jPercent * 1.5}px; border-radius: 2px;"></div>
-            </div>
-            <div style="margin-bottom: 5px;">
-              <span style="display: inline-block; width: 110px; font-size: 9.5px; color: #475569;">كثافة الحروف (${((v.overlapRatio ?? 0) * 100).toFixed(1)}%):</span>
-              <div style="display: inline-block; background-color: #092b22; height: 10px; width: ${oPercent * 1.5}px; border-radius: 2px;"></div>
-            </div>
-            <div>
-              <span style="display: inline-block; width: 110px; font-size: 9.5px; color: #475569;">بنيان (كلمات/حروف):</span>
-              <div style="display: inline-block; background-color: #0ea5e9; height: 8px; width: ${wPercent * 1.2}px; border-radius: 1px;" title="الكلمات (${v.wordCount})"></div>
-              <div style="display: inline-block; background-color: #10b981; height: 8px; width: ${lPercent * 1.2}px; border-radius: 1px;" title="الحروف (${v.letterCount})"></div>
-            </div>
-          </td>
-        </tr>`;
-      });
-      html += `</tbody></table><br>`;
-    }
-    
     html += contentHtml;
     
     html += `<div class="footer"><p>«مستشار البنيان الذكي» • منصة التحليل والاستقصاء الرقمي والاتزان العددي</p></div>`;
     html += `</body></html>`;
     
-    const blob = new Blob([BOM + html], { type: 'application/msword;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `دراسة_مفسر_البنيان_الذكي_${surahName.replace(/\s+/g, '_')}.doc`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    handleSafeExport(BOM + html, `البنيان_دراسة_مفسر_ذكي_${surahName.replace(/\s+/g, '_')}`, 'doc');
   };
 
   // Reusable export function for MS Excel (.csv with proper BOM & integrated Sparkline drawing waves)
@@ -394,14 +339,7 @@ export default function AiAnalysis({ verses, activeSurah, history, setHistory }:
     });
 
     const csvContent = BOM + csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `دراسة_مفسر_البنيان_الذكي_${surahName.replace(/\s+/g, '_')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    handleSafeExport(csvContent, `البنيان_دراسة_مفسر_ذكي_${surahName.replace(/\s+/g, '_')}`, 'csv');
   };
 
   const handleExportWord = () => {
@@ -565,37 +503,14 @@ export default function AiAnalysis({ verses, activeSurah, history, setHistory }:
               <button
                 type="button"
                 onClick={fetchAnalysis}
-                className="w-full sm:w-auto px-6 py-3.5 text-xs font-black bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-slate-950 border-2 border-amber-300 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer transform hover:scale-105"
+                className="w-full sm:w-auto px-6 py-3 text-xs font-black bg-slate-950 hover:bg-slate-800 text-amber-300 border-2 border-amber-400 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer transform hover:scale-105"
               >
-                <Sparkles className="w-4 h-4 text-slate-950 animate-bounce" />
+                <Sparkles className="w-4 h-4 text-amber-400" />
                 <span>{analysis ? 'إعادة الاستقصاء الذكي 🔄' : 'بدء استقصاء موازين الآيات ✨'}</span>
               </button>
             )}
           </div>
         </div>
-
-        {/* Dedicated prominent callout banner for laptops if analysis not generated yet */}
-        {verses.length > 0 && !analysis && !loading && (
-          <div className="bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-amber-500/20 border-2 border-amber-400 p-5 rounded-lg shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 my-4">
-            <div className="space-y-1 text-right flex-1">
-              <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-600 animate-pulse" />
-                جاهز لتشغيل الاستقصاء الذكي لموازين ({verses.length}) آية سورة {activeSurah ? activeSurah.name : ''}
-              </h4>
-              <p className="text-xs text-slate-700 leading-relaxed font-semibold">
-                يقوم المفسّر الذكي بفك شفرة الأوزان الهندسية واستخلاص معاني الاتزان النوراني فور الضغط على الزر الذهبي.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={fetchAnalysis}
-              className="w-full md:w-auto px-8 py-3.5 text-xs font-black bg-slate-950 hover:bg-slate-800 text-amber-300 border-2 border-amber-400 rounded-lg flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all transform hover:scale-[1.02] shrink-0"
-            >
-              <Sparkles className="w-4 h-4 text-yellow-400 animate-spin" />
-              <span>بدء استقصاء موازين الآيات ✨</span>
-            </button>
-          </div>
-        )}
 
         {/* Dynamic Decryption Keys and Target Verses Dashboard */}
         {verses.length > 0 && (
@@ -823,8 +738,8 @@ export default function AiAnalysis({ verses, activeSurah, history, setHistory }:
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(analysis);
+                onClick={async () => {
+                  await copyToClipboard(analysis);
                   showToast('تم نسخ الدراسة للذاكرة المؤقتة!');
                 }}
                 className="px-4 py-1.5 text-xs font-bold bg-[#0f172a] hover:bg-slate-800 text-white border border-slate-900 rounded-none transition-all cursor-pointer flex items-center gap-1.5"
@@ -1038,8 +953,8 @@ export default function AiAnalysis({ verses, activeSurah, history, setHistory }:
                         </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(item.analysisText);
+                          onClick={async () => {
+                            await copyToClipboard(item.analysisText);
                             showToast('تم نسخ هذه الدراسة الأرشيفية للذاكرة المؤقتة!');
                           }}
                           className="px-3 py-1 text-xs font-bold bg-[#0f172a] hover:bg-slate-800 text-white border border-slate-900 transition-all cursor-pointer flex items-center gap-1"

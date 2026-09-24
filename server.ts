@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 
 // Load environment variables for local testing
@@ -34,6 +34,11 @@ async function startServer() {
     }
     return aiClient;
   }
+
+  // Health check endpoints for Cloud Run / AI Studio Deployment checks
+  app.get(['/api/health', '/health'], (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
 
   // API Endpoints
   // Explaining calculated verses & abjad secrets with Gemini 3.5 Flash
@@ -305,8 +310,62 @@ async function startServer() {
     }
   });
 
+  // Direct download endpoint for the prebuilt Windows Portable Application package (ZIP)
+  app.get('/api/download-windows-app', (req, res) => {
+    const zipPath = path.join(process.cwd(), 'release', 'AlBunyan-Quran-App-Windows.zip');
+    if (fs.existsSync(zipPath)) {
+      res.download(zipPath, 'AlBunyan-Quran-App-Windows.zip');
+    } else {
+      res.status(404).send('ملف ZIP قيد التجهيز، يرجى المحاولة بعد قليل.');
+    }
+  });
+
+  // Endpoints for Standalone Single-File (HTML Only, no BAT)
+  app.get('/api/download-standalone-html', (req, res) => {
+    const candidatePaths = [
+      path.join(process.cwd(), 'dist-standalone', 'index.html'),
+      path.join(process.cwd(), 'public', 'AlBunyan-Standalone.html'),
+      path.join(process.cwd(), 'release', 'index.html'),
+      path.join(process.cwd(), 'dist-standalone', 'AlBunyan-Standalone.html')
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.download(p, 'AlBunyan-Offline.html');
+        return;
+      }
+    }
+    res.status(404).send('ملف HTML المستقل قيد التجهيز.');
+  });
+
+  app.get('/api/download-standalone-bat', (req, res) => {
+    const batPath = path.join(process.cwd(), 'تشغيل_البنيان_أوفلاين.bat');
+    if (fs.existsSync(batPath)) {
+      res.download(batPath, 'تشغيل_البنيان_أوفلاين.bat');
+    } else {
+      res.status(404).send('ملف BAT غير موجود.');
+    }
+  });
+
+  app.get('/api/download-standalone-zip', (req, res) => {
+    const zipPaths = [
+      path.join(process.cwd(), 'release', 'AlBunyan-Standalone-Offline.zip'),
+      path.join(process.cwd(), 'public', 'AlBunyan-Standalone-Offline.zip')
+    ];
+    for (const p of zipPaths) {
+      if (fs.existsSync(p)) {
+        res.download(p, 'AlBunyan-Standalone-Offline.zip');
+        return;
+      }
+    }
+    res.status(404).send('ملف ZIP المستقل قيد التجهيز.');
+  });
+
   // Serve static files in production or hook Vite in development
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

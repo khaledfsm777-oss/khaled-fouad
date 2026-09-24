@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Verse } from './types';
-import { parseAndAnalyzeVerses, NOORANI_SURAHS, NooraniSurah } from './utils/jummal';
+import { parseAndAnalyzeVerses, NOORANI_SURAHS, NooraniSurah, ALL_29_NOORANI_SURAH, getNoorani29Verses, stripBismillah, buildVersesFromReferenceList } from './utils/jummal';
+import quranData from './utils/quranData';
 import HelpSection from './components/HelpSection';
 import Calculator from './components/Calculator';
 import QuranInput from './components/QuranInput';
 import QuranOutput from './components/QuranOutput';
 import AiAnalysis from './components/AiAnalysis';
-import SmartSearch from './components/SmartSearch';
 import NooraniCharts from './components/NooraniCharts';
 import SurahCard from './components/SurahCard';
 import BonyanLogo from './components/BonyanLogo';
-import QuranFontSizeControl from './components/QuranFontSizeControl';
+import NooraniWordExplorer from './components/NooraniWordExplorer';
+import { OfflinePackageModal } from './components/OfflinePackageModal';
 import { defaultAnkabutPresetText } from './utils/presets';
+import { useGlobalProgress } from './context/ProgressContext';
 import { 
   Compass, LayoutGrid, Calculator as CalcIcon, BookOpen, 
-  Sparkles, FileText, Brain, GraduationCap, Search, BarChart2, CheckCircle2,
-  BookOpen as BookIcon, LogOut, Info, RefreshCw, ChevronLeft, Calendar, Mail
+  Sparkles, FileText, Brain, GraduationCap, BarChart2, CheckCircle2,
+  BookOpen as BookIcon, LogOut, Info, RefreshCw, ChevronLeft, Calendar, Mail,
+  Download
 } from 'lucide-react';
 
 export default function App() {
+  const { startProgress, updateProgress, finishProgress, resetProgress } = useGlobalProgress();
   const [showCover, setShowCover] = useState(false);
 
   useEffect(() => {
@@ -29,7 +33,8 @@ export default function App() {
   }, []);
   // Screens: 'portal' (The original tabbed layout) or 'main' (The majestic main portal deck)
   const [currentScreen, setCurrentScreen] = useState<'main' | 'portal'>('main');
-  const [activeTab, setActiveTab] = useState<'verses' | 'search' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide'>('verses');
+  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide'>('verses');
+
   
   // Shared active Surah selection
   const [activeSurah, setActiveSurah] = useState<NooraniSurah | null>(null); // Starts empty
@@ -40,34 +45,160 @@ export default function App() {
   // Exit Modal state
   const [showExitModal, setShowExitModal] = useState(false);
   const [isLoggedOut, setIsLoggedOut] = useState(false);
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
 
   // Toggle state to preview chart inside output screen
   const [previewChartInOutput, setPreviewChartInOutput] = useState(false);
 
-    const [verses, setVerses] = useState<Verse[]>([]);
+  // Table pagination and browsing position preservation across tabs
+  const [tableCurrentPage, setTableCurrentPage] = useState<number>(1);
+  const [tablePageSize, setTablePageSize] = useState<number>(25);
+  const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
+
+  const [verses, setVerses] = useState<Verse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Trigger main extraction analyzer
   const handleAnalyze = (text: string, separator: 'parentheses' | 'curly' | 'auto', excludeBismillah: boolean = true) => {
     setIsLoading(true);
+    const surahName = activeSurah?.name ? `سورة ${activeSurah.name}` : 'الآيات المدخلة';
+    startProgress(`تحليل واستقصاء ${surahName}`, 'جارٍ تجريد وضبط الرسم واستخراج حساب الجُمّل...');
+    
+    updateProgress(25, 'تفكيك الكلمات وإحصاء الحروف بالرسم العثماني...');
+
     setTimeout(() => {
       try {
-        const results = parseAndAnalyzeVerses(text, separator, excludeBismillah);
+        updateProgress(65, 'مقارنة الأوزان الحسابية واستخراج التوافقات...');
+        const results = parseAndAnalyzeVerses(text, separator, excludeBismillah, activeSurah?.id);
         setVerses(results);
+        setTableCurrentPage(1);
+        setSelectedVerseId(results[0]?.id || null);
+        updateProgress(90, 'إعداد جداول المخرجات والرسوم...');
         // Switch view to output verses
         setCurrentScreen('portal');
         setActiveTab('verses');
+        finishProgress(`تم تحليل ${results.length} آية بنجاح تام`);
       } catch (err) {
         console.error('Analysis error:', err);
+        resetProgress();
+      } finally {
+        setIsLoading(false);
+      }
+    }, 400);
+  };
+
+  // Trigger unified batch extraction across all 29 Noorani Surahs
+  const handleAnalyze29 = () => {
+    setIsLoading(true);
+    startProgress('التنقيب والبحث الشامل لـ 29 سورة نورانية', 'جارٍ فحص 2,743 آية قرآنية مع الفواتح...');
+    updateProgress(20, 'تحميل الفهارس وقواعد بيانات السور النورانية...');
+
+    setTimeout(() => {
+      try {
+        updateProgress(55, 'حساب الجُمّل الكبير واستخراج التوافقات المدمجة والبصمة...');
+        const results = getNoorani29Verses();
+        updateProgress(85, 'تنظيم السجلات والمسارات المزدوجة لسورة الشورى...');
+        setVerses(results);
+        setActiveSurah(ALL_29_NOORANI_SURAH);
+        setTableCurrentPage(1);
+        setSelectedVerseId(results[0]?.id || null);
+        setCurrentScreen('portal');
+        setActiveTab('verses');
+        finishProgress(`تم تجهيز وفهرسة ${results.length} آية بنجاح`);
+      } catch (err) {
+        console.error('Batch 29 Noorani analysis error:', err);
+        resetProgress();
       } finally {
         setIsLoading(false);
       }
     }, 450);
   };
 
+  // Open surah from Noorani Word Explorer and immediately show the Output screen table
+  const handleOpenSurahInOutput = (surah: NooraniSurah) => {
+    setActiveSurah(surah);
+    setCurrentScreen('portal');
+    setActiveTab('verses');
+
+    if (surah.id === 0) {
+      handleAnalyze29();
+      return;
+    }
+
+    setIsLoading(true);
+    startProgress(`تحليل واستعراض سورة ${surah.name}`, 'جارٍ جلب الآيات الكريمة وضبط الموازين وفتح جدول المخرجات...');
+
+    const surahVerses = (quranData as any[]).filter((v: any) => v.surahId === surah.id);
+    if (surahVerses && surahVerses.length > 0) {
+      const formatted = surahVerses
+        .map((a: any, idx: number) => {
+          let ayahText = a.text;
+          if (idx === 0) {
+            ayahText = stripBismillah(ayahText);
+          }
+          return `${ayahText} (${a.verseNumber})`;
+        })
+        .join(' ');
+
+      setTimeout(() => {
+        try {
+          const results = parseAndAnalyzeVerses(formatted, 'auto', true, surah.id);
+          setVerses(results);
+          setTableCurrentPage(1);
+          setSelectedVerseId(results[0]?.id || null);
+          finishProgress(`تم فتح جدول شاشة المخرجات لـ سورة ${surah.name} بنجاح (${results.length} آية)`);
+        } catch (err) {
+          console.error('Error opening surah in output table:', err);
+          resetProgress();
+        } finally {
+          setIsLoading(false);
+        }
+      }, 300);
+    } else {
+      setIsLoading(false);
+      resetProgress();
+    }
+  };
+
+  // Transfer filtered verses from Noorani Word Explorer directly to Quran Output table
+  const handleTransferFilteredVersesToOutput = (
+    refs: { surahId: number; verseNumber: number }[],
+    label: string,
+    surah: NooraniSurah
+  ) => {
+    if (!refs || refs.length === 0) return;
+
+    setActiveSurah(surah);
+    setCurrentScreen('portal');
+    setActiveTab('verses');
+
+    setIsLoading(true);
+    startProgress(
+      `نقل ${refs.length} آية إلى شاشة المخرجات`,
+      `جارٍ استخراج وتجهيز الآيات المفلترة لـ ${label}...`
+    );
+
+    setTimeout(() => {
+      try {
+        const results = buildVersesFromReferenceList(refs);
+        setVerses(results);
+        setTableCurrentPage(1);
+        setSelectedVerseId(results[0]?.id || null);
+        finishProgress(`تم بنجاح نقل ${results.length} آية مطابقة إلى شاشة المخرجات! يمكنك الآن تطبيق فلاتر إضافية.`);
+      } catch (err) {
+        console.error('Error transferring filtered verses to output:', err);
+        resetProgress();
+      } finally {
+        setIsLoading(false);
+      }
+    }, 250);
+  };
+
   const handleReset = () => {
     setVerses([]);
     setActiveSurah(null);
+    setTableCurrentPage(1);
+    setSelectedVerseId(null);
     // Direct back to main portal inputs for fresh text
     setCurrentScreen('portal');
     setActiveTab('verses');
@@ -81,15 +212,47 @@ export default function App() {
   const confirmExit = () => {
     setVerses([]);
     setActiveSurah(null);
-    setCurrentScreen('main');
-    setActiveTab('verses');
     setShowExitModal(false);
     setIsLoggedOut(true);
-    setShowCover(true);
-    setTimeout(() => {
-      setIsLoggedOut(false);
-    }, 4000);
   };
+
+  if (isLoggedOut) {
+    return (
+      <div 
+        className="min-h-screen bg-[#04110d] text-white flex flex-col items-center justify-center p-6 text-center select-none relative overflow-hidden"
+        dir="rtl"
+      >
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#FFF 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+        <div className="max-w-md w-full bg-[#061e17] border-2 border-emerald-800/80 p-8 rounded-2xl shadow-2xl space-y-6 text-center z-10">
+          <div className="w-16 h-16 bg-emerald-950/80 border border-emerald-500/40 rounded-2xl flex items-center justify-center mx-auto text-emerald-400 shadow-inner">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-amber-300">تم إنهاء الجلسة وإغلاق البرنامج بنجاح</h2>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              تم تصفير الذاكرة وإفراغ الجداول النشطة بأمان. شكراً لاستخدامكم منظومة «البنيان» للقرآن الكريم.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                setIsLoggedOut(false);
+                setShowCover(false);
+                setCurrentScreen('main');
+                setActiveTab('verses');
+              }}
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-950/30 transition-all cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>إعادة تشغيل البرنامج 🏛️</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (showCover) {
     return (
@@ -181,11 +344,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Core Controls, Quran Font Adjuster & Researcher Name on the Top Left */}
+          {/* Core Controls & Researcher Name on the Top Left */}
           <div className="flex flex-col lg:flex-row items-center gap-3">
-            {/* Quran Verse Font Size Adjuster Control */}
-            <QuranFontSizeControl compact={true} />
-
             {/* Researcher's name raised up high for clear visibility */}
             <div className="bg-[#051c16] border border-amber-500/40 px-3.5 py-1.5 text-right rounded-xl shadow-inner flex flex-col justify-center">
               <span className="text-[9px] text-amber-400 font-black tracking-wide block leading-none mb-0.5">💡 ابتكار وإعداد النموذج البحثي:</span>
@@ -218,6 +378,16 @@ export default function App() {
                 }`}
               >
                 شاشة المدخلات/المخرجات 📖
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOfflineModal(true)}
+                className="px-3.5 py-2 text-xs font-black transition-all border border-amber-400/80 bg-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-300 rounded-xl outline-none cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+                title="تحميل نسخة أوفلاين المستقلة (ملف HTML مدمج يعمل فوراً على اللابتوب والموبايل)"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>تحميل نسخة أوفلاين (HTML)</span>
+                <span className="text-[10px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-black">⚡ مدمج</span>
               </button>
               <button
                 type="button"
@@ -277,46 +447,47 @@ export default function App() {
               </div>
             </div>
 
-            {/* 8-Button Grand Navigation Grid */}
+            {/* Navigation Grid */}
             <div className="space-y-4">
               <h3 className="text-xs font-black text-emerald-800 uppercase tracking-widest block">البوابة الإلكترونية الموحدة - لوحة التحكم والتحليل الاستراتيجي:</h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
-                {/* Button 1: Input Analysis Screen */}
+                {/* Button 1: Master Verses Input & Output & Search */}
                 <button
                   onClick={() => {
                     setCurrentScreen('portal');
                     setActiveTab('verses');
                   }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-40 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
+                  className="bg-white border-2 border-emerald-700/60 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
-                  <div className="absolute top-0 right-0 left-0 h-1 bg-emerald-850 rounded-t-2xl" />
+                  <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-emerald-800 via-amber-500 to-emerald-800 rounded-t-2xl" />
                   <div className="flex justify-between items-start w-full">
-                    <span className="text-2xl group-hover:scale-110 transition-transform">✍️</span>
-                    <span className="text-[10px] bg-emerald-900 text-white font-black px-2 py-0.5 rounded-md">محرك الأدوات</span>
+                    <span className="text-2xl group-hover:scale-110 transition-transform">✍️📖</span>
+                    <span className="text-[10px] bg-emerald-900 text-white font-black px-2 py-0.5 rounded-md">الشاشة الشاملة الموحدة</span>
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">شاشة المدخلات وتحليل السور</h4>
-                    <p className="text-[10px] text-slate-400 mt-1">تفكيك الآيات، عزل البسملة واستخراج نتائج القسمة.</p>
+                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">المدخلات وتحليل السور ومخرجات الجداول والبحث</h4>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">تفكيك الآيات، الفلاتر والبحث الرياضي (114/99/63/23)، ومخرجات الجداول والتقارير في مسار واحد متكامل دون تكرار.</p>
                   </div>
                 </button>
 
-                {/* Button 2: Smart Search */}
+                {/* Button 2: Noorani Words Explorer */}
                 <button
                   onClick={() => {
                     setCurrentScreen('portal');
-                    setActiveTab('search');
+                    setActiveTab('noorani_words');
                   }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-40 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
+                  className="bg-white border-2 border-amber-400/80 hover:border-amber-600 p-6 text-right transition-all group hover:bg-amber-50/40 cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
-                  <div className="absolute top-0 right-0 left-0 h-1 bg-amber-500 rounded-t-2xl" />
+                  <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-amber-500 via-emerald-600 to-amber-500 rounded-t-2xl" />
                   <div className="flex justify-between items-start w-full">
-                    <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
-                    <span className="text-[10px] bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded-md">البحث المتقدم</span>
+                    <span className="text-2xl group-hover:scale-110 transition-transform">✨🔍</span>
+                    <span className="text-[10px] bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded-md">جديد وحصري</span>
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">نظام البحث القرآني الرياضي</h4>
-                    <p className="text-[10px] text-slate-400 mt-1">البحث عن الحروف والكلمات وحصر تكراراتها بدقة.</p>
+                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">مستكشف الكلمات النورانية (29 سورة)</h4>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">حصر واستخراج الكلمات المشتملة على حروف الفواتح النورانية وتوافقها الرياضي التام مع إمكانية التصدير المستقل.</p>
                   </div>
                 </button>
 
@@ -326,7 +497,7 @@ export default function App() {
                     setCurrentScreen('portal');
                     setActiveTab('metadata');
                   }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-40 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
+                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
                   <div className="absolute top-0 right-0 left-0 h-1 bg-teal-600 rounded-t-2xl" />
                   <div className="flex justify-between items-start w-full">
@@ -345,7 +516,7 @@ export default function App() {
                     setCurrentScreen('portal');
                     setActiveTab('charts');
                   }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-40 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
+                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
                   <div className="absolute top-0 right-0 left-0 h-1 bg-indigo-600 rounded-t-2xl" />
                   <div className="flex justify-between items-start w-full">
@@ -364,7 +535,7 @@ export default function App() {
                     setCurrentScreen('portal');
                     setActiveTab('calculator');
                   }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-40 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
+                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
                   <div className="absolute top-0 right-0 left-0 h-1 bg-violet-600 rounded-t-2xl" />
                   <div className="flex justify-between items-start w-full">
@@ -383,7 +554,7 @@ export default function App() {
                     setCurrentScreen('portal');
                     setActiveTab('ai');
                   }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-40 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
+                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
                   <div className="absolute top-0 right-0 left-0 h-1 bg-pink-600 rounded-t-2xl" />
                   <div className="flex justify-between items-start w-full">
@@ -402,7 +573,7 @@ export default function App() {
                     setCurrentScreen('portal');
                     setActiveTab('guide');
                   }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-40 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
+                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
                   <div className="absolute top-0 right-0 left-0 h-1 bg-emerald-600 rounded-t-2xl" />
                   <div className="flex justify-between items-start w-full">
@@ -414,24 +585,23 @@ export default function App() {
                     <p className="text-[10px] text-slate-400 mt-1">ميثاق التوحيد الأبجدي، وقواعد معالجة الحروف.</p>
                   </div>
                 </button>
-
-                {/* Button 8: Soft Exit */}
-                <button
-                  onClick={handleLogoExit}
-                  className="bg-rose-50/50 border border-rose-200 hover:border-rose-800 p-6 text-right transition-all group hover:bg-rose-100/50 cursor-pointer flex flex-col justify-between h-40 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
-                >
-                  <div className="absolute top-0 right-0 left-0 h-1 bg-rose-600 rounded-t-2xl" />
-                  <div className="flex justify-between items-start w-full">
-                    <span className="text-2xl group-hover:scale-110 transition-transform">❌</span>
-                    <span className="text-[10px] bg-rose-600 text-white font-black px-2 py-0.5 rounded-md">صيانة الجلسة</span>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-rose-950 group-hover:text-rose-800 transition-colors">إنهاء الجلسة واستخراج التقارير</h4>
-                    <p className="text-[10px] text-rose-600/80 mt-1">تصفير النصوص المسجلة، حفظ المخرجات والخروج الآمن.</p>
-                  </div>
-                </button>
-
               </div>
+
+
+              {/* Soft Exit Bar */}
+              <button
+                onClick={handleLogoExit}
+                className="w-full bg-rose-50/60 border border-rose-200 hover:border-rose-400 p-4 text-right transition-all group hover:bg-rose-100/60 cursor-pointer flex items-center justify-between rounded-xl shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">❌</span>
+                  <div>
+                    <h4 className="text-xs font-black text-rose-950 group-hover:text-rose-800 transition-colors">صيانة الجلسة وإنهاء العمل</h4>
+                    <p className="text-[10px] text-rose-700/80 mt-0.5">تصفير النصوص المسجلة، حفظ المخرجات والخروج الآمن من الجلسة.</p>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-rose-600 text-white font-black px-2.5 py-1 rounded-md">إنهاء الجلسة</span>
+              </button>
             </div>
 
             
@@ -459,7 +629,10 @@ export default function App() {
                     <strong>منهجية توحيد الحروف والاستيقار:</strong> يعتمد البرنامج نموذجاً بيانياً موحداً للأبجدية العربية، مما يضمن ثبات مخرجات العمل عند إعادة الحساب بغض النظر عن تفاوتات الرسم العثماني الإلكترونية والترميزات.
                   </p>
                   <p>
-                    <strong>قواعد المعالجة الحرفية:</strong> يتم توحيد كافة صور الألف والهمزات (أ، إ، آ، ء، ٱ، ئ) إلى الألف اليابسة الأساسية بقيمتها الحسابية البالغة (1). وتعامل الهاء والتاء المربوطة (ة) ككيان موازن بقيمة (5) في حساب الجمل والاتساق.
+                    <strong>قواعد المعالجة والتوحيد الحرفي:</strong> إزالة كافة علامات التشكيل والحركات، التنوين بأنواعه، الشدّة، السكون، علامات المد، والتطويل (الكشيدة ـ)، بالإضافة إلى علامات الوقف والضبط القرآني والرموز غير الأبجدية.
+                  </p>
+                  <p>
+                    <strong>قاعدة الرسم العثماني للحروف المكتوبة:</strong> تثبيت الألف الخنجرية (\u0670 / ٰ) كألف بقيمة عددية (1)، واحتساب الحرف المشدد كحرف واحد فقط دون مضاعفة. توحيد الهمزات (أ، إ، آ، ٱ، ء) بقيمة (1)، والتاء والتاء المربوطة (ت، ة) بقيمة (400)، والهاء بقيمة (5)، والياء والألف المقصورة (ي، ى، ئ) بقيمة (10).
                   </p>
                 </div>
                 <div className="space-y-3">
@@ -509,11 +682,10 @@ export default function App() {
               </button>
               
               <div className="flex items-center gap-3">
-                <QuranFontSizeControl compact={true} />
                 <div className="text-xs text-slate-500 font-bold hidden md:block">
                   تصفح الآن: <span className="text-emerald-950 font-black">
-                    {activeTab === 'verses' && 'معالجة الآيات وحوسبة الجمل'}
-                    {activeTab === 'search' && 'نظام البحث الرياضي الفوري'}
+                    {activeTab === 'verses' && 'الشاشة المتكاملة للتحليل والبحث ومخرجات الجداول'}
+                    {activeTab === 'noorani_words' && 'مستكشف الكلمات النورانية الشامل (29 سورة)'}
                     {activeTab === 'charts' && 'الرسوم البيانية والموجات'}
                     {activeTab === 'metadata' && 'الوزن والبطاقة التعريفية للـ 29'}
                     {activeTab === 'calculator' && 'حاسبة الجمل المفتوحة'}
@@ -536,20 +708,20 @@ export default function App() {
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>المدخلات والمخرجات (الجداول)</span>
+                <span>المدخلات والمخرجات والبحث الشامل</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setActiveTab('search')}
+                onClick={() => setActiveTab('noorani_words')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-black transition-all rounded-xl whitespace-nowrap cursor-pointer ${
-                  activeTab === 'search'
-                    ? 'bg-emerald-900 text-white shadow-md'
-                    : 'text-slate-600 hover:text-emerald-900 hover:bg-emerald-50'
+                  activeTab === 'noorani_words'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black border border-amber-400'
+                    : 'text-amber-900 hover:bg-amber-100/70 font-black'
                 }`}
               >
-                <Search className="w-3.5 h-3.5" />
-                <span>البحث الرياضي المتقدم</span>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>الكلمات النورانية ✨</span>
               </button>
 
               <button
@@ -575,7 +747,7 @@ export default function App() {
                 }`}
               >
                 <BookIcon className="w-3.5 h-3.5" />
-                <span>بطاقة التعريف بالسورة 📋</span>
+                <span>بطاقة السورة 📋</span>
               </button>
 
               <button
@@ -588,7 +760,7 @@ export default function App() {
                 }`}
               >
                 <CalcIcon className="w-3.5 h-3.5" />
-                <span>الحاسبة الفورية للجمل</span>
+                <span>الحاسبة الفورية</span>
               </button>
 
               <button
@@ -614,7 +786,7 @@ export default function App() {
                 }`}
               >
                 <Info className="w-3.5 h-3.5" />
-                <span>منهج العمل العلمي 📚</span>
+                <span>دليل العمل 📚</span>
               </button>
             </div>
 
@@ -625,6 +797,7 @@ export default function App() {
                   {verses.length === 0 ? (
                     <QuranInput 
                       onAnalyze={handleAnalyze} 
+                      onAnalyze29={handleAnalyze29}
                       isLoading={isLoading} 
                       activeSurah={activeSurah}
                       setActiveSurah={setActiveSurah}
@@ -634,17 +807,29 @@ export default function App() {
                       verses={verses} 
                       onReset={handleReset} 
                       activeSurah={activeSurah}
-                      setActiveSurah={setActiveSurah} 
                       previewChartInOutput={previewChartInOutput}
                       setPreviewChartInOutput={setPreviewChartInOutput}
+                      currentPage={tableCurrentPage}
+                      setCurrentPage={setTableCurrentPage}
+                      pageSize={tablePageSize}
+                      setPageSize={setTablePageSize}
+                      selectedVerseId={selectedVerseId}
+                      setSelectedVerseId={setSelectedVerseId}
                     />
                   )}
                 </div>
               )}
 
-              {activeTab === 'search' && (
-                <SmartSearch verses={verses} activeSurah={activeSurah} />
+              {activeTab === 'noorani_words' && (
+                <div className="space-y-6">
+                  <NooraniWordExplorer
+                    initialSurahId={activeSurah ? activeSurah.id : 2}
+                    onSelectSurahForAnalysis={handleOpenSurahInOutput}
+                    onTransferVersesToOutput={handleTransferFilteredVersesToOutput}
+                  />
+                </div>
               )}
+
 
               {activeTab === 'charts' && (
                 <NooraniCharts 
@@ -748,6 +933,12 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* OFFLINE STANDALONE PACKAGE MODAL */}
+      <OfflinePackageModal 
+        isOpen={showOfflineModal} 
+        onClose={() => setShowOfflineModal(false)} 
+      />
 
       {/* Modern footer built with literal human titles */}
       <footer className="bg-[#061225] text-white mt-12 py-10 border-t-2 border-yellow-600/25 relative overflow-hidden">

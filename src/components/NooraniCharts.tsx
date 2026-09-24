@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Verse } from '../types';
 import { reduceDigitalRoot, NooraniSurah } from '../utils/jummal';
 import { TrendingUp, BarChart2, Activity, Info } from 'lucide-react';
+import { getUniqueExportFileName, handleSafeExport } from '../utils/exportHelper';
 
 interface NooraniChartsProps {
   verses: Verse[];
@@ -65,14 +66,7 @@ export default function NooraniCharts({
     });
 
     const csvContent = BOM + [metaHeader, '', headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `إحداثيات_موجة_سورة_${cleanSurahName}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    handleSafeExport(csvContent, `البنيان_إحداثيات_موجة_سورة_${cleanSurahName}`, 'csv');
   };
 
   // Export Wave drawing + coordinate tables to Word (.doc)
@@ -153,14 +147,7 @@ export default function NooraniCharts({
     html += `<p style="margin-top: 300px; font-size:11px; text-align:center; color:#94a3b8;">«برنامج البنيان للقرآن الكريم» • تم التصدير بنجاح</p>`;
     html += `</body></html>`;
 
-    const blob = new Blob([BOM + html], { type: 'application/msword;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `تقرير_موجة_سورة_${cleanSurahName}.doc`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    handleSafeExport(BOM + html, `البنيان_تقرير_موجة_سورة_${cleanSurahName}`, 'doc');
   };
 
   // Export Wave Chart SVG directly as high-resolution PNG image
@@ -218,8 +205,9 @@ export default function NooraniCharts({
 
           const pngUrl = canvas.toDataURL('image/png');
           const downloadLink = document.createElement('a');
+          const pngFileName = getUniqueExportFileName(`البنيان_مخطط_موجي_سورة_${cleanSurahName}`, 'png');
           downloadLink.href = pngUrl;
-          downloadLink.download = `al-bunyan-chart-${cleanSurahName}.png`;
+          downloadLink.download = pngFileName;
           document.body.appendChild(downloadLink);
           downloadLink.click();
           document.body.removeChild(downloadLink);
@@ -396,8 +384,9 @@ export default function NooraniCharts({
                 stroke="#64748b" 
                 strokeDasharray="4 4" 
                 strokeWidth="1" 
-                title="متوسط حساب الجمل"
-              />
+              >
+                <title>متوسط حساب الجمل</title>
+              </line>
 
               {/* Wave Area Fill */}
               <path d={areaPathData} fill="url(#waveGrad)" />

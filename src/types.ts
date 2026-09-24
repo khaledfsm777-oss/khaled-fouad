@@ -16,6 +16,8 @@ export interface Verse {
   wordCount: number;
   letterCount: number;
   words: WordAnalysis[];
+  surahId?: number;
+  surahName?: string;
 }
 
 export interface AnalysisSummary {
