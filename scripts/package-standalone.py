@@ -49,7 +49,10 @@ def package():
     # 3. Clean serviceWorker block for standalone file:/// mode
     html_content = re.sub(r'<script>\s*if\s*\([\'"]serviceWorker[\'"]\s*in\s*navigator[\s\S]*?</script>\s*', '', html_content)
 
-    # 4. Extract bundle script from <head> and move it to end of <body> (after #root) with type="module"
+    # 4. Remove type="module" from any remaining script tags (so file:/// and content:// run on mobile without CORS errors)
+    html_content = re.sub(r'<script\s+type=["\']module["\']>', '<script>', html_content)
+
+    # 5. Extract bundle script from <head> and move it to end of <body> (after #root) as a classic script
     # Matches the large bundle script tag
     pattern = r'<script(?:\s+[^>]*)?>([\s\S]*?(?:mountApp|function\s+s7|__esModule)[\s\S]*?)</script>'
     m = re.search(pattern, html_content)
@@ -57,12 +60,15 @@ def package():
         bundle_code = m.group(1)
         # Remove from current position
         html_content = html_content[:m.start()] + html_content[m.end():]
-        # Place at bottom before </body> with type="module" so ES modules (import/export) work properly in all browsers
-        module_script = f'<script type="module">\n{bundle_code}\n</script>'
-        html_content = html_content.replace('</body>', f'{module_script}\n</body>')
-        print("Successfully relocated bundle script to end of <body> with type='module'.")
+        # Place at bottom before </body> as classic script so it executes on any Android device and browser without CORS restrictions
+        classic_script = f'<script>\n{bundle_code}\n</script>'
+        html_content = html_content.replace('</body>', f'{classic_script}\n</body>')
+        print("Successfully relocated bundle script to end of <body> as classic script.")
     else:
         print("Bundle script already in place.")
+
+    # 6. Ensure no remaining type="module" remains in any script tag
+    html_content = html_content.replace('<script type="module">', '<script>')
 
     # Write patched index.html
     with open(dist_html, 'w', encoding='utf-8') as f:

@@ -1,4 +1,12 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+const { execSync } = require('child_process');
+
+const publicDir = path.join(__dirname, '..', 'public');
+
+// Master Royal Islamic Emerald Green & Brilliant Gold SVG for Al-Bunyan
+const masterSvg = `<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <!-- Full-Bleed Royal Islamic Emerald Green Background -->
     <radialGradient id="emeraldBg" cx="50%" cy="44%" r="65%">
@@ -186,4 +194,40 @@
     <rect x="176" y="428" width="160" height="34" rx="17" fill="#062920" stroke="url(#goldLight)" stroke-width="2" />
     <text x="256" y="445" fill="url(#goldLight)" font-size="21" font-weight="900" font-family="'Amiri', 'Cairo', serif" text-anchor="middle" dominant-baseline="central" letter-spacing="1">البُنْيَان</text>
   </g>
-</svg>
+</svg>`;
+
+async function run() {
+  console.log('Writing master SVG...');
+  fs.writeFileSync(path.join(publicDir, 'icon.svg'), masterSvg);
+  fs.writeFileSync(path.join(publicDir, 'icon-512.svg'), masterSvg);
+  fs.writeFileSync(path.join(publicDir, 'icon-192.svg'), masterSvg);
+
+  const svgBuffer = Buffer.from(masterSvg);
+
+  console.log('Generating PNG icons with sharp...');
+  
+  // 512x512 standard & maskable
+  await sharp(svgBuffer).resize(512, 512).png().toFile(path.join(publicDir, 'icon-512.png'));
+  await sharp(svgBuffer).resize(512, 512).png().toFile(path.join(publicDir, 'icon-maskable-512.png'));
+  await sharp(svgBuffer).resize(512, 512).png().toFile(path.join(publicDir, 'icon.png'));
+
+  // 192x192 standard & maskable
+  await sharp(svgBuffer).resize(192, 192).png().toFile(path.join(publicDir, 'icon-192.png'));
+  await sharp(svgBuffer).resize(192, 192).png().toFile(path.join(publicDir, 'icon-maskable-192.png'));
+
+  // 180x180 Apple Touch Icon (Required for iOS)
+  await sharp(svgBuffer).resize(180, 180).png().toFile(path.join(publicDir, 'apple-touch-icon.png'));
+
+  console.log('Generating favicon.ico and icon.ico with ImageMagick convert...');
+  try {
+    execSync(`convert ${path.join(publicDir, 'icon-512.png')} -define icon:auto-resize=64,48,32,16 ${path.join(publicDir, 'favicon.ico')}`);
+    execSync(`convert ${path.join(publicDir, 'icon-512.png')} -define icon:auto-resize=64,48,32,16 ${path.join(publicDir, 'icon.ico')}`);
+    console.log('ICO files generated successfully.');
+  } catch (err) {
+    console.warn('ICO generation fallback:', err.message);
+  }
+
+  console.log('All icons generated successfully!');
+}
+
+run().catch(console.error);

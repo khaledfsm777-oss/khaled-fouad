@@ -1,16 +1,29 @@
-const CACHE_NAME = 'al-bunyan-cache-v3';
+const CACHE_NAME = 'al-bunyan-cache-v6';
 
 // Assets to precache immediately on install
 const PRECACHE_ASSETS = [
-  './',
-  './index.html'
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png',
+  '/apple-touch-icon.png',
+  '/icon.svg'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(PRECACHE_ASSETS);
+      .then(async (cache) => {
+        for (const asset of PRECACHE_ASSETS) {
+          try {
+            await cache.add(asset);
+          } catch {
+            // Soft fail for individual assets so installation never fails
+          }
+        }
       })
       .then(() => self.skipWaiting())
   );

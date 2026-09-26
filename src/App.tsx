@@ -18,7 +18,7 @@ import {
   Compass, LayoutGrid, Calculator as CalcIcon, BookOpen, 
   Sparkles, FileText, Brain, GraduationCap, BarChart2, CheckCircle2,
   BookOpen as BookIcon, LogOut, Info, RefreshCw, ChevronLeft, Calendar, Mail,
-  Download
+  Download, Smartphone
 } from 'lucide-react';
 
 export default function App() {
@@ -382,12 +382,12 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowOfflineModal(true)}
-                className="px-3.5 py-2 text-xs font-black transition-all border border-amber-400/80 bg-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-300 rounded-xl outline-none cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
-                title="تحميل نسخة أوفلاين المستقلة (ملف HTML مدمج يعمل فوراً على اللابتوب والموبايل)"
+                className="px-3.5 py-2 text-xs font-black transition-all border border-amber-400/80 bg-gradient-to-r from-amber-500/25 to-emerald-800/40 hover:from-amber-500 hover:to-amber-600 hover:text-slate-950 text-amber-300 rounded-xl outline-none cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+                title="تثبيت التطبيق على هاتف أندرويد أو تحميل النسخة المستقلة أوفلاين"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>تحميل نسخة أوفلاين (HTML)</span>
-                <span className="text-[10px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-black">⚡ مدمج</span>
+                <Smartphone className="w-3.5 h-3.5 text-amber-300" />
+                <span>تطبيق أندرويد & أوفلاين</span>
+                <span className="text-[10px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-black">📲 APK/تطبيق</span>
               </button>
               <button
                 type="button"

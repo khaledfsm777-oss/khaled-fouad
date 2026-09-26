@@ -14,10 +14,10 @@
     <meta name="apple-mobile-web-app-title" content="البنيان" />
     <meta name="author" content="الأستاذ الباحث خالد فؤاد السيد" />
     <meta name="copyright" content="جميع الحقوق محفوظة للباحث خالد فؤاد السيد ©" />
-    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
-    <link rel="apple-touch-icon" href="./icon-512.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-512.png" />
     <!-- Fonts are imported locally in index.css for full offline support -->
-    <link rel="manifest" href="./manifest.json" />
+    <link rel="manifest" href="/manifest.json" />
     <script>
       // حماية المنظومة ومنع استدعاء أدوات التعديل في وضع التشغيل المستقل
       if (window.location.protocol === 'file:' || !window.location.hostname.includes('ais-dev')) {
@@ -39,9 +39,20 @@
       }
     </script>
     <script>
+      window.deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredInstallPrompt = e;
+        window.dispatchEvent(new Event('app-installable-ready'));
+      });
+      window.addEventListener('appinstalled', () => {
+        window.deferredInstallPrompt = null;
+        window.dispatchEvent(new Event('app-installed-done'));
+      });
+
       if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js')
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then((reg) => {
               // Ensure immediate update if worker script changed
               reg.update();

@@ -17,17 +17,19 @@ export default function BonyanLogo({ className = '', size = 80 }: BonyanLogoProp
         className="shrink-0 filter drop-shadow-xl"
       >
         <defs>
-          {/* Deep Luxurious Navy Circular Background Gradient */}
+          {/* Deep Luxurious Islamic Emerald Green Circular Background Gradient */}
           <radialGradient id="navyGoldAura" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#0B1E3B" stopOpacity="1" />
-            <stop offset="65%" stopColor="#071325" stopOpacity="1" />
-            <stop offset="100%" stopColor="#030812" stopOpacity="1" />
+            <stop offset="0%" stopColor="#115543" stopOpacity="1" />
+            <stop offset="45%" stopColor="#0A3C2F" stopOpacity="1" />
+            <stop offset="80%" stopColor="#062920" stopOpacity="1" />
+            <stop offset="100%" stopColor="#041A14" stopOpacity="1" />
           </radialGradient>
 
           {/* Golden Sheen Overlay Glow */}
           <radialGradient id="goldenHubGlow" cx="50%" cy="45%" r="40%">
-            <stop offset="0%" stopColor="#F5DF94" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#071325" stopOpacity="0" />
+            <stop offset="0%" stopColor="#F5DF94" stopOpacity="0.2" />
+            <stop offset="60%" stopColor="#145A48" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#062920" stopOpacity="0" />
           </radialGradient>
 
           {/* Premium Metallic Gold Gradients */}
@@ -154,7 +156,7 @@ export default function BonyanLogo({ className = '', size = 80 }: BonyanLogoProp
           <path d="M 250,395 C 290,395 390,370 425,340 C 390,388 290,418 250,418 Z" fill="url(#goldPure)" />
           <path d="M 250,395 C 290,395 390,370 425,340" stroke="url(#goldLight)" strokeWidth="3.5" fill="none" />
           {/* Delicate fanning sheets of the book */}
-          <path d="M 250,387 C 290,387 380,363 415,335 C 380,378 290,404 250,404 Z" fill="#0C1A30" stroke="url(#goldPure)" strokeWidth="0.75" />
+          <path d="M 250,387 C 290,387 380,363 415,335 C 380,378 290,404 250,404 Z" fill="#062920" stroke="url(#goldPure)" strokeWidth="0.75" />
           <path d="M 250,379 C 290,379 370,356 405,330" stroke="url(#goldLight)" strokeWidth="1" fill="none" opacity="0.8" />
           <path d="M 250,371 C 290,371 360,349 395,325" stroke="url(#goldPure)" strokeWidth="0.75" fill="none" opacity="0.6" />
           <path d="M 250,363 C 290,363 350,342 385,320" stroke="url(#goldLight)" strokeWidth="0.5" fill="none" opacity="0.4" />
@@ -164,7 +166,7 @@ export default function BonyanLogo({ className = '', size = 80 }: BonyanLogoProp
           <path d="M 250,395 C 210,395 110,370 75,340 C 110,388 210,418 250,418 Z" fill="url(#goldPure)" />
           <path d="M 250,395 C 210,395 110,370 75,340" stroke="url(#goldLight)" strokeWidth="3.5" fill="none" />
           {/* Delicate fanning sheets of the book */}
-          <path d="M 250,387 C 210,387 120,363 85,335 C 120,378 210,404 250,404 Z" fill="#0C1A30" stroke="url(#goldPure)" strokeWidth="0.75" />
+          <path d="M 250,387 C 210,387 120,363 85,335 C 120,378 210,404 250,404 Z" fill="#062920" stroke="url(#goldPure)" strokeWidth="0.75" />
           <path d="M 250,379 C 210,379 130,356 95,330" stroke="url(#goldLight)" strokeWidth="1" fill="none" opacity="0.8" />
           <path d="M 250,371 C 210,371 140,349 105,325" stroke="url(#goldPure)" strokeWidth="0.75" fill="none" opacity="0.6" />
           <path d="M 250,363 C 210,363 150,342 115,320" stroke="url(#goldLight)" strokeWidth="0.5" fill="none" opacity="0.4" />
@@ -174,7 +176,7 @@ export default function BonyanLogo({ className = '', size = 80 }: BonyanLogoProp
         {/* Right branch ending in '١٩' (19) */}
         <g filter="url(#vectorShadow)">
           <path d="M 273,130 L 310,130 L 325,115" stroke="url(#goldLight)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-          <circle cx="325" cy="115" r="17" fill="#071325" stroke="url(#goldPure)" strokeWidth="2.5" />
+          <circle cx="325" cy="115" r="17" fill="#062920" stroke="url(#goldPure)" strokeWidth="2.5" />
           <text 
             x="325" 
             y="115" 
@@ -192,7 +194,7 @@ export default function BonyanLogo({ className = '', size = 80 }: BonyanLogoProp
         {/* Left branch ending in '٩' (9) */}
         <g filter="url(#vectorShadow)">
           <path d="M 227,130 L 190,130 L 175,115" stroke="url(#goldLight)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-          <circle cx="175" cy="115" r="17" fill="#071325" stroke="url(#goldPure)" strokeWidth="2.5" />
+          <circle cx="175" cy="115" r="17" fill="#062920" stroke="url(#goldPure)" strokeWidth="2.5" />
           <text 
             x="175" 
             y="115" 
@@ -210,7 +212,7 @@ export default function BonyanLogo({ className = '', size = 80 }: BonyanLogoProp
         {/* Bottom Left branch ending in '٧' (7) */}
         <g filter="url(#vectorShadow)">
           <path d="M 205,210 L 182,210 L 165,193" stroke="url(#goldLight)" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-          <circle cx="165" cy="193" r="17" fill="#071325" stroke="url(#goldPure)" strokeWidth="2.5" />
+          <circle cx="165" cy="193" r="17" fill="#062920" stroke="url(#goldPure)" strokeWidth="2.5" />
           <text 
             x="165" 
             y="193" 

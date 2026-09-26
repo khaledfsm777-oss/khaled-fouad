@@ -330,7 +330,13 @@ async function startServer() {
     ];
     for (const p of candidatePaths) {
       if (fs.existsSync(p)) {
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        const origin = req.headers.origin;
+        if (origin) {
+          res.setHeader('Access-Control-Allow-Origin', origin);
+          res.setHeader('Access-Control-Allow-Credentials', 'true');
+        } else {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+        }
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.download(p, 'AlBunyan-Offline.html');
@@ -356,6 +362,13 @@ async function startServer() {
     ];
     for (const p of zipPaths) {
       if (fs.existsSync(p)) {
+        const origin = req.headers.origin;
+        if (origin) {
+          res.setHeader('Access-Control-Allow-Origin', origin);
+          res.setHeader('Access-Control-Allow-Credentials', 'true');
+        } else {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+        }
         res.download(p, 'AlBunyan-Standalone-Offline.zip');
         return;
       }

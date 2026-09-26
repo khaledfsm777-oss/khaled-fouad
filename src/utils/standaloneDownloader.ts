@@ -11,66 +11,78 @@ export async function downloadStandaloneHtmlFile(
     if (onProgress) onProgress('جارٍ جلب وتجهيز ملف البنيان المستقل (6.5 ميجابايت)...');
 
     // 1. Fetch file using same-origin credentials to carry active session cookies
-    const response = await fetch('/api/download-standalone-html', {
-      method: 'GET',
-      credentials: 'same-origin',
-      headers: {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`تعذر تحميل الملف من الخادم (رمز الحالة: ${response.status})`);
-    }
-
-    const htmlText = await response.text();
-
-    // Verify it is not an error page or cookie check page
-    if (htmlText.includes('Cookie check') || htmlText.includes('Action required to load your app')) {
-      throw new Error('تم حظر التحميل التلقائي بسبب حماية الجلسة. جارٍ فتح رابط التنزيل المباشر...');
-    }
-
-    if (htmlText.length < 100000) {
-      throw new Error('الملف المستلم غير مكتمل الحجم. يرجى إعادة المحاولة.');
-    }
-
-    if (onProgress) onProgress('جارٍ حفظ الملف في جهازك (AlBunyan-Offline.html)...');
-
-    // 2. Create in-memory Blob to trigger download without any secondary network request
-    const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
-    const blobUrl = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = blobUrl;
-    a.download = 'AlBunyan-Offline.html';
-    document.body.appendChild(a);
-    a.click();
-
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    }, 60000);
-
-    if (onProgress) onProgress('تم تنزيل ملف البنيان المستقل بنجاح! جاهز للتشغيل أوفلاين.');
-    return true;
-  } catch (error: any) {
-    console.warn('In-memory Blob download encountered issue, attempting fallback:', error);
-    // Fallback: direct browser navigation to download endpoint
+    let htmlText = '';
     try {
+      const response = await fetch('/api/download-standalone-html', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        }
+      });
+
+      if (response.ok) {
+        htmlText = await response.text();
+      }
+    } catch (fetchErr) {
+      console.warn('Direct fetch failed, falling back to browser navigation download:', fetchErr);
+    }
+
+    // Verify it is not an error page or Google Cloud security cookie check page
+    if (
+      htmlText &&
+      (htmlText.includes('Cookie check') || 
+       htmlText.includes('Action required to load your app') ||
+       htmlText.includes('blocking a required security cookie'))
+    ) {
+      throw new Error(
+        'جلسة متصفح الهاتف غير مصرح لها بتحميل الملف مباشرة من السحابة بسبب حظر الكوكيز.\n' +
+        'البرنامج الأصلي على اللابتوب سليم 100%! لتشغيله على الموبايل: أرسل ملف AlBunyan-Standalone.html الذي نزل على اللابتوب إلى هاتفك عبر الواتساب أو البلوتوث وافتحه مباشرة.'
+      );
+    }
+
+    // If fetch returned valid large HTML (>500KB)
+    if (htmlText && htmlText.length >= 500000) {
+      if (onProgress) onProgress('جارٍ حفظ الملف في جهازك (AlBunyan-Offline.html)...');
+
+      // Create in-memory Blob to trigger download without any secondary network request
+      const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+
       const a = document.createElement('a');
-      a.href = '/api/download-standalone-html';
+      a.style.display = 'none';
+      a.href = blobUrl;
       a.download = 'AlBunyan-Offline.html';
-      a.target = '_blank';
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      }, 60000);
+
+      if (onProgress) onProgress('تم تنزيل ملف البنيان المستقل بنجاح! جاهز للتشغيل أوفلاين.');
       return true;
-    } catch (fallbackError) {
-      console.error('All download mechanisms failed:', fallbackError);
-      if (onProgress) onProgress(error.message || 'حدث خطأ أثناء تنزيل الملف.');
-      return false;
     }
+
+    // Fallback: Direct Anchor Download from /api/download-standalone-html
+    if (onProgress) onProgress('جارٍ بدء التنزيل المباشر من المتصفح...');
+    const a = document.createElement('a');
+    a.href = '/api/download-standalone-html';
+    a.download = 'AlBunyan-Offline.html';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+    }, 1000);
+
+    if (onProgress) onProgress('تم إرسال طلب التنزيل للمتصفح بنجاح!');
+    return true;
+  } catch (error: any) {
+    console.warn('Standalone download handled defensive exception:', error);
+    if (onProgress) onProgress(error.message || 'حدث خطأ أثناء تنزيل الملف.');
+    return false;
   }
 }
 
