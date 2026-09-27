@@ -35,10 +35,9 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'main' | 'portal'>('main');
   const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide'>('verses');
 
-  
   // Shared active Surah selection
-  const [activeSurah, setActiveSurah] = useState<NooraniSurah | null>(null); // Starts empty
-  
+  const [activeSurah, setActiveSurah] = useState<NooraniSurah | null>(null);
+
   // Shared AI Analysis History to persist across tab unmounts
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
   
@@ -322,14 +321,14 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#1E293B] flex flex-col justify-between font-sans selection:bg-emerald-950/10 selection:text-emerald-950 relative">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#FAF8F5] text-[#1E293B] flex flex-col justify-between font-sans selection:bg-emerald-950/10 selection:text-emerald-950 relative">
       
       {/* Subtle background radial grid characteristic of Geometric Balance */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
 
       {/* Premium Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#092b22] border-b border-amber-500/30 shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <header className="bg-[#092b22] border-b border-amber-500/30 shadow-md relative w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
           
           {/* Logo & Identity with Al-Bunyan premium customized branding matching attachment */}
           <div className="flex items-center gap-4 cursor-pointer" onClick={() => setCurrentScreen('main')}>
@@ -355,7 +354,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <button
                 onClick={() => setCurrentScreen('main')}
                 className={`px-4 py-2 text-xs font-black transition-all border rounded-xl outline-none cursor-pointer ${

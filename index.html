@@ -19,26 +19,6 @@
     <!-- Fonts are imported locally in index.css for full offline support -->
     <link rel="manifest" href="/manifest.json" />
     <script>
-      // حماية المنظومة ومنع استدعاء أدوات التعديل في وضع التشغيل المستقل
-      if (window.location.protocol === 'file:' || !window.location.hostname.includes('ais-dev')) {
-        document.addEventListener('contextmenu', function(e) {
-          if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
-            return;
-          }
-          e.preventDefault();
-        });
-        document.addEventListener('keydown', function(e) {
-          if (
-            e.key === 'F12' || 
-            (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
-            (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
-          ) {
-            e.preventDefault();
-          }
-        });
-      }
-    </script>
-    <script>
       window.deferredInstallPrompt = null;
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -62,9 +42,12 @@
       }
     </script>
     <style>
+      html, body {
+        overscroll-behavior-y: contain;
+      }
       body {
         font-family: 'Cairo', 'Space Grotesk', sans-serif;
-        background-color: #F8FAFC;
+        background-color: #FAF8F5;
         color: #1E293B;
       }
       .quran-font {
@@ -75,7 +58,7 @@
       }
     </style>
   </head>
-  <body class="bg-[#F8FAFC] text-[#1E293B] antialiased overflow-x-hidden">
+  <body class="bg-[#FAF8F5] text-[#1E293B] antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

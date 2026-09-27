@@ -1,0 +1,11 @@
+node_modules
+release
+android
+dist-standalone
+.git
+.gitignore
+*.bat
+*.vbs
+coverage
+.DS_Store
+*.log
