@@ -310,14 +310,44 @@ async function startServer() {
     }
   });
 
+  // Direct download endpoint for Windows Portable Application (.EXE)
+  app.get('/api/download-windows-exe', (req, res) => {
+    const candidatePaths = [
+      path.join(process.cwd(), 'release', 'البنيان_الرقمي_محمول_Portable.exe'),
+      path.join(process.cwd(), 'release', 'AlBunyan-Portable.exe'),
+      path.join(process.cwd(), 'البنيان_الرقمي_محمول_Portable.exe'),
+      path.join(process.cwd(), 'release', 'AlBunyan-Standalone-Offline.zip'),
+      path.join(process.cwd(), 'public', 'AlBunyan-Standalone-Offline.zip')
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        if (p.endsWith('.exe')) {
+          res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable');
+          res.download(p, 'البنيان_الرقمي_محمول_Portable.exe');
+        } else {
+          res.download(p, 'AlBunyan-Windows-Portable.zip');
+        }
+        return;
+      }
+    }
+    res.status(404).send('حزمة تشغيل ويندوز قيد التجهيز، يرجى المحاولة بعد قليل.');
+  });
+
   // Direct download endpoint for the prebuilt Windows Portable Application package (ZIP)
   app.get('/api/download-windows-app', (req, res) => {
-    const zipPath = path.join(process.cwd(), 'release', 'AlBunyan-Quran-App-Windows.zip');
-    if (fs.existsSync(zipPath)) {
-      res.download(zipPath, 'AlBunyan-Quran-App-Windows.zip');
-    } else {
-      res.status(404).send('ملف ZIP قيد التجهيز، يرجى المحاولة بعد قليل.');
+    const candidatePaths = [
+      path.join(process.cwd(), 'release', 'AlBunyan-Windows-Portable-EXE.zip'),
+      path.join(process.cwd(), 'release', 'AlBunyan-Quran-App-Windows.zip'),
+      path.join(process.cwd(), 'release', 'AlBunyan-Standalone-Offline.zip'),
+      path.join(process.cwd(), 'public', 'AlBunyan-Standalone-Offline.zip')
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        res.download(p, path.basename(p));
+        return;
+      }
     }
+    res.status(404).send('ملف حزمة ويندوز قيد التجهيز، يرجى المحاولة بعد قليل.');
   });
 
   // Endpoints for Standalone Single-File (HTML Only, no BAT)

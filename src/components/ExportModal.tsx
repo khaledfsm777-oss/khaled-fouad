@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, FileSpreadsheet, BookOpen, FileText, Image as ImageIcon, X, RefreshCw, Check } from 'lucide-react';
+import { sanitizeBaseFileName } from '../utils/exportHelper';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -17,9 +18,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onCancel,
 }) => {
   const cleanExt = (format || 'xlsx').toLowerCase().replace(/^\./, '');
-  const cleanInitialName = defaultFileName
-    .replace(new RegExp(`\\.${cleanExt}$`, 'i'), '')
-    .trim();
+  const cleanInitialName = sanitizeBaseFileName(defaultFileName);
 
   const [fileName, setFileName] = useState(cleanInitialName);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,9 +26,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   // Sync initial filename when modal opens or defaultFileName changes
   useEffect(() => {
     if (isOpen) {
-      const clean = defaultFileName
-        .replace(new RegExp(`\\.${cleanExt}$`, 'i'), '')
-        .trim();
+      const clean = sanitizeBaseFileName(defaultFileName);
       setFileName(clean);
       // Auto focus and select input after modal opens
       setTimeout(() => {
@@ -45,7 +42,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleSaveCustom = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const finalName = fileName.trim() || cleanInitialName;
+    const finalName = sanitizeBaseFileName(fileName.trim() || cleanInitialName);
     onConfirm(finalName);
   };
 

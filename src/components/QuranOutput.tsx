@@ -28,6 +28,7 @@ import { generateLocalAcademicAnalysis, generateTripleMatchEliteReport, generate
 import QuranFontSizeControl from './QuranFontSizeControl';
 import { ExportModal } from './ExportModal';
 import { generateDefaultExportFileName, getUniqueExportFileName, handleSafeExport } from '../utils/exportHelper';
+import { generateTableExcelBlob } from '../utils/excelExportHelper';
 import { generateTableDocxBlob, generateComprehensiveReportDocxBlob } from '../utils/docxExportHelper';
 import AdvancedFilterBar, { AdvancedFilterState, initialFilterState } from './AdvancedFilterBar';
 import { copyToClipboard } from '../utils/clipboard';
@@ -1114,30 +1115,35 @@ export default function QuranOutput({
     );
   }
 
-  // Export to Excel (.xlsx) using handleSafeExport
+  // Export to Excel (.xlsx) using native OpenXML binary Blob with generous columns
   const handleExportExcel = async () => {
     if (tableRows.length === 0 || !activeSurah) return;
-    const BOM = '\uFEFF';
-    let tableHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40" dir="rtl">
-    <head><meta charset="utf-8"/><title>${dynamicDefaultFileName}</title>
-    <style>
-      body { font-family: Calibri, Arial, sans-serif; direction: rtl; }
-      table { border-collapse: collapse; width: 100%; direction: rtl; }
-      th { background-color: #0f172a; color: #ffffff; font-weight: bold; border: 1px solid #94a3b8; padding: 6px; }
-      td { border: 1px solid #cbd5e1; padding: 6px; text-align: center; }
-      .exact { background-color: #d1fae5; color: #065f46; font-weight: bold; }
-    </style></head><body>
-    <h2>برنامج البنيان للقرآن الكريم - جدول مخرجات سورة ${cleanSurahName}</h2>
-    <table>
-    <thead><tr>
-      <th>م</th><th>رقم الآية</th><th>الآية الكريمة</th><th>حساب الجمل</th>
-      <th>المعامل النشط</th><th>ناتج القسمة</th><th>حالة القسمة بدون باقٍ</th><th>عمود التحقق</th>
-      <th>البصمة الأحادية</th><th>معادلة البصمة الأحادية</th><th>حالة التوافق المدمج</th>
-      <th>اختزال الجمّل</th><th>الكلمات</th><th>اختزال الكلمات</th><th>الحروف</th><th>اختزال الحروف</th><th>المجموع</th><th>اختزال المجموع</th>
-      <th>التوافقات الستة المحققة</th>
-    </tr></thead><tbody>`;
 
-    tableRows.forEach((rowItem, idx) => {
+    const headers = [
+      'م',
+      'رقم الآية',
+      'الآية الكريمة',
+      'حساب الجمل',
+      'المعامل النشط',
+      'ناتج القسمة',
+      'حالة القسمة بدون باقٍ',
+      'عمود التحقق والنتيجة',
+      'البصمة الأحادية',
+      'معادلة البصمة الأحادية',
+      'حالة التوافق المدمج',
+      'اختزال الجمّل',
+      'عدد الكلمات',
+      'اختزال الكلمات',
+      'عدد الحروف',
+      'اختزال الحروف',
+      'المجموع (كلمات+حروف)',
+      'اختزال المجموع',
+      'التوافقات الستة المحققة'
+    ];
+
+    const colWidths = [6, 12, 55, 14, 18, 16, 25, 24, 14, 28, 20, 14, 14, 14, 14, 14, 18, 14, 35];
+
+    const rows = tableRows.map((rowItem, idx) => {
       const v = rowItem.v;
       const track = rowItem.track;
       const reduction = reduceDigitalRoot(v.jummalValue);
@@ -1151,43 +1157,50 @@ export default function QuranOutput({
       const divisor = isNoorani ? (track.digitalRoot || 1) : getSurahCoefficient(activeSurah.id);
       const divisionResult = divisor > 0 ? (v.jummalValue / divisor) : 0;
       const isExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
-      const quotientStr = isExact ? divisionResult.toString() : divisionResult.toFixed(4);
+      const quotientVal = isExact ? divisionResult : Number(divisionResult.toFixed(4));
       const checkedText = isExact ? 'متوافقة تماماً (قسمة بلا باقٍ)' : 'غير متوافقة';
       const coeffLabel = isNoorani ? track.label : `سورة (${activeSurah.id})`;
-      const equationStr = `${reduction} &times; (${parseInt(v.verseNumber, 10) || v.id} + ${comp.reducedFactor}) = ${comp.newColumnProduct}`;
+      const equationStr = `${reduction} × (${parseInt(v.verseNumber, 10) || v.id} + ${comp.reducedFactor}) = ${comp.newColumnProduct}`;
       const intTawheedStr = comp.isIntegratedTawheed ? 'متوافقة مدمجاً' : 'غير متوافقة مدمجاً';
       const achieved = getAchievedCompatibilities(v, dummySurah).join(' - ');
 
-      tableHtml += `<tr>
-        <td>${idx + 1}</td>
-        <td>${v.verseNumber}</td>
-        <td style="text-align: right;">( ${v.text} )</td>
-        <td>${v.jummalValue}</td>
-        <td>${coeffLabel}</td>
-        <td>${quotientStr}</td>
-        <td class="${isExact ? 'exact' : ''}">${checkedText}</td>
-        <td>${comp.statusLabel} (${comp.score}/6)</td>
-        <td>${comp.finalSingleDigit}</td>
-        <td>${equationStr}</td>
-        <td>${intTawheedStr}</td>
-        <td>${reduction}</td>
-        <td>${v.wordCount}</td>
-        <td>${wordsReduction}</td>
-        <td>${v.letterCount}</td>
-        <td>${lettersReduction}</td>
-        <td>${sum}</td>
-        <td>${sumReduction}</td>
-        <td>${achieved || 'لا يوجد'}</td>
-      </tr>`;
+      return [
+        idx + 1,
+        parseInt(v.verseNumber, 10) || v.verseNumber,
+        v.text,
+        v.jummalValue,
+        coeffLabel,
+        quotientVal,
+        checkedText,
+        `${comp.statusLabel} (${comp.score}/6)`,
+        comp.finalSingleDigit,
+        equationStr,
+        intTawheedStr,
+        reduction,
+        v.wordCount,
+        wordsReduction,
+        v.letterCount,
+        lettersReduction,
+        sum,
+        sumReduction,
+        achieved || 'لا يوجد'
+      ];
     });
 
-    tableHtml += `</tbody></table></body></html>`;
+    const excelBlob = generateTableExcelBlob({
+      sheetTitle: `سورة ${cleanSurahName}`,
+      headers,
+      rows,
+      colWidths,
+      rightToLeft: true
+    });
+
     setExportModalState({
       isOpen: true,
       format: 'xlsx',
       defaultFileName: dynamicDefaultFileName,
-      data: BOM + tableHtml,
-      onSuccessToast: 'تم تصدير ملف Excel بنجاح! 📊'
+      data: excelBlob,
+      onSuccessToast: 'تم تصدير ملف Excel (.xlsx) الأصلي بنجاح مع ضبط الأعمدة والجداول! 📊'
     });
   };
 

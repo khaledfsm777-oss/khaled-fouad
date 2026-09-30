@@ -45,6 +45,7 @@ import {
 import quranData from '../utils/quranData';
 import { SURAH_METADATA, getSurahMetadata } from '../utils/surahMetadata';
 import { generateDefaultExportFileName, getUniqueExportFileName, handleSafeExport } from '../utils/exportHelper';
+import { generateTableExcelBlob } from '../utils/excelExportHelper';
 import QuranOutput from './QuranOutput';
 import { ExportModal } from './ExportModal';
 
@@ -546,52 +547,60 @@ export default function SmartSearch({ verses, activeSurah }: SmartSearchProps) {
     }, 120);
   };
 
-  // Export to Excel (.xlsx)
+  // Export to Excel (.xlsx) using native OpenXML binary Blob with generous columns
   const handleExportExcel = async () => {
     if (matchedVerses.length === 0) return;
-    const BOM = '\uFEFF';
 
-    let tableHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40" dir="rtl">
-    <head><meta charset="utf-8"/><title>${dynamicSearchFileName}</title>
-    <style>
-      body { font-family: Calibri, Arial, sans-serif; direction: rtl; }
-      table { border-collapse: collapse; width: 100%; direction: rtl; }
-      th { background-color: #0f172a; color: #ffffff; font-weight: bold; border: 1px solid #94a3b8; padding: 6px; }
-      td { border: 1px solid #cbd5e1; padding: 6px; text-align: center; }
-    </style></head><body>
-    <h2>برنامج البنيان للقرآن الكريم - تقرير البحث والاستقصاء الرقمي</h2>
-    <table>
-    <thead><tr>
-      <th>م</th><th>رقم الآية</th><th>السورة</th><th>الآية الكريمة</th><th>حساب الجمل</th><th>الهيكل البنياني</th><th>الكثافة اللفظية</th><th>الاختزال الرقمي</th><th>الكلمات</th><th>الحروف</th><th>التحقق</th>
-    </tr></thead><tbody>`;
+    const headers = [
+      'م',
+      'رقم الآية',
+      'السورة',
+      'الآية الكريمة',
+      'حساب الجمل',
+      'الهيكل البنياني',
+      'الكثافة اللفظية',
+      'الاختزال الرقمي',
+      'عدد الكلمات',
+      'عدد الحروف',
+      'حالة التحقق والتوافق'
+    ];
 
-    sortedAndFilteredVerses.forEach((v, idx) => {
+    const colWidths = [6, 12, 18, 55, 14, 16, 16, 14, 14, 14, 25];
+
+    const rows = sortedAndFilteredVerses.map((v, idx) => {
       const compLabel = v.compatibility ? v.compatibility.statusLabel : 'N/A';
       const structuralVal = v.compatibility ? v.compatibility.structuralVal : v.jummalValue;
       const densityVal = v.compatibility ? v.compatibility.densityVal : (v.wordCount + v.letterCount);
       const sName = v.surahName || (activeSurah ? activeSurah.name : '');
-      tableHtml += `<tr>
-        <td>${idx + 1}</td>
-        <td>${v.verseNumber}</td>
-        <td>${sName}</td>
-        <td style="text-align: right;">( ${v.rawText || v.text} )</td>
-        <td>${v.jummalValue}</td>
-        <td>${structuralVal}</td>
-        <td>${densityVal}</td>
-        <td>${reduceDigitalRoot(v.jummalValue)}</td>
-        <td>${v.wordCount}</td>
-        <td>${v.letterCount}</td>
-        <td>${compLabel}</td>
-      </tr>`;
+      return [
+        idx + 1,
+        parseInt(v.verseNumber, 10) || v.verseNumber,
+        sName,
+        v.rawText || v.text,
+        v.jummalValue,
+        structuralVal,
+        densityVal,
+        reduceDigitalRoot(v.jummalValue),
+        v.wordCount,
+        v.letterCount,
+        compLabel
+      ];
     });
 
-    tableHtml += `</tbody></table></body></html>`;
+    const excelBlob = generateTableExcelBlob({
+      sheetTitle: 'نتائج البحث',
+      headers,
+      rows,
+      colWidths,
+      rightToLeft: true
+    });
+
     setExportModalState({
       isOpen: true,
       format: 'xlsx',
       defaultFileName: dynamicSearchFileName,
-      data: BOM + tableHtml,
-      onSuccessToast: 'تم تصدير ملف Excel بنجاح! 📊'
+      data: excelBlob,
+      onSuccessToast: 'تم تصدير ملف Excel (.xlsx) الأصلي بنجاح مع ضبط الأعمدة والجداول! 📊'
     });
   };
 

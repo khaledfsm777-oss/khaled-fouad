@@ -33,6 +33,21 @@ export function generateDefaultExportFileName(
 }
 
 /**
+ * Sanitize base filename and strip all known trailing extensions
+ * to prevent duplicate extensions like (.xls.xlsx or .xlsx.xlsx)
+ */
+export function sanitizeBaseFileName(baseName: string): string {
+  let clean = (baseName || '').trim();
+  // Strip ALL known trailing extensions repeatedly (.xlsx, .xls, .csv, .docx, .doc, .png, etc.)
+  clean = clean.replace(/(\.(xlsx|xls|csv|docx|doc|json|png|pdf|txt))+$/gi, '').trim();
+  // Remove Windows and filesystem invalid characters: \ / : * ? " < > |
+  clean = clean.replace(/[\\/:*?"<>|]/g, '_').trim();
+  // Remove leading and trailing dots/underscores
+  clean = clean.replace(/^[._]+|[._]+$/g, '').trim();
+  return clean || 'تقرير_البنيان';
+}
+
+/**
  * Get unique filename with sequential counter if already exported in current session
  * e.g. "البنيان_الفاتحة_آية_1-7.xlsx" or "البنيان_الفاتحة_آية_1-7_(1).xlsx"
  */
@@ -43,12 +58,7 @@ export function getUniqueExportFileName(
   const ext = extension.startsWith('.') ? extension.slice(1).toLowerCase() : extension.toLowerCase();
   
   // Clean base name: remove trailing extension if user typed it in the modal
-  let cleanBase = baseName.trim().replace(new RegExp(`\\.${ext}$`, 'i'), '').trim();
-  cleanBase = cleanBase.replace(/[\\/:*?"<>|]/g, '_').trim();
-  
-  if (!cleanBase) {
-    cleanBase = 'تقرير_البنيان';
-  }
+  const cleanBase = sanitizeBaseFileName(baseName);
 
   const key = `${cleanBase}.${ext}`;
   const currentCount = exportHistoryCounter[key] || 0;
@@ -81,8 +91,29 @@ export async function generateExportBlob(
   }
 
   if (ext === 'xlsx' || ext === 'xls') {
+    if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
+      return new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    }
+    // If an HTML table string or text was passed, convert to genuine XLSX workbook using SheetJS
+    try {
+      const XLSX = await import('xlsx');
+      if (typeof data === 'string' && (data.includes('<table') || data.includes('<html'))) {
+        const wb = XLSX.read(data, { type: 'string' });
+        const firstSheet = wb.SheetNames[0];
+        if (firstSheet && wb.Sheets[firstSheet]) {
+          wb.Sheets[firstSheet]['!views'] = [{ rightToLeft: true }];
+        }
+        if (!wb.Workbook) wb.Workbook = {};
+        wb.Workbook.Views = [{ RTL: true }];
+        const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      }
+    } catch (parseErr) {
+      console.warn('XLSX conversion fallback:', parseErr);
+    }
+
     const content = typeof data === 'string' ? (data.startsWith(BOM) ? data : BOM + data) : String(data);
-    return new Blob([content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    return new Blob([content], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   }
 
   if (ext === 'docx') {
@@ -140,7 +171,7 @@ export const handleSafeExport = async (
 ): Promise<boolean> => {
   try {
     const cleanExt = format.toLowerCase().replace(/^\./, '');
-    let cleanBase = defaultFileName.replace(new RegExp(`\\.${cleanExt}$`, 'i'), '').trim();
+    let cleanBase = sanitizeBaseFileName(defaultFileName);
 
     // في حال تفعيل طلب الاسم، يتم سؤال المستخدم مع حماية كاملة من تعليق الـ iframe
     if (showNamePrompt && typeof window !== 'undefined' && typeof window.prompt === 'function') {
@@ -150,7 +181,7 @@ export const handleSafeExport = async (
           cleanBase
         );
         if (prompted && prompted.trim()) {
-          cleanBase = prompted.trim();
+          cleanBase = sanitizeBaseFileName(prompted);
         }
       } catch {
         // إذا كان المتصفح يحظر الـ prompt في الـ iframe نستمر بالاسم الافتراضي دون توقف

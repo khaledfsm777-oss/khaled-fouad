@@ -237,6 +237,50 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
             </div>
           )}
 
+          {/* Windows Portable & Flash Drive Card */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 border-2 border-amber-400 text-white p-5 rounded-2xl shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md">
+                  <Laptop className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-amber-300 flex items-center gap-1.5">
+                    <span>💻 حزمة تشغيل ويندوز المحمولة للفلاش ميموري (USB Portable Package)</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-300">
+                    تعمل على أي كمبيوتر أو لابتوب من الفلاشة مباشرة بدون تثبيت وبدون إنترنت
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 bg-amber-400 text-slate-950 text-[10px] font-black rounded-lg hidden sm:inline-block shadow-sm">
+                نسخة الفلاشة 💾
+              </span>
+            </div>
+
+            <div className="bg-slate-950/70 border border-amber-400/40 p-3.5 rounded-xl text-xs space-y-2 text-slate-200">
+              <div className="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
+                <span>✨ مميزات تشغيل البرنامج من الفلاشة (USB Flash Drive):</span>
+              </div>
+              <ul className="space-y-1 text-[11px] text-slate-300 list-disc list-inside leading-relaxed">
+                <li>لا يحتاج إلى تثبيت (Zero Installation)؛ انقله على أي فلاشة وشغله في أي مكان فوراً.</li>
+                <li>يحتوي على مشغل صامت مباشر ومشغل نوافذ مكتبية مستقلة بأيقونة البنيان.</li>
+                <li>يحتوي على كافة النصوص القرآنية وخوارزميات الحساب مع الدعم الكامل للتصدير والطباعة.</li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+              <a
+                href="/api/download-windows-app"
+                download="AlBunyan-Windows-Portable.zip"
+                className="flex-1 py-3.5 px-4 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
+              >
+                <Download className="w-4 h-4 stroke-[2.5]" />
+                <span>تحميل حزمة الفلاشة المحمولة لويندوز (ZIP فوري خفيف 2 ميجابايت) 🚀</span>
+              </a>
+            </div>
+          </div>
+
           {/* Overview Note */}
           <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl space-y-2">
             <div className="flex items-center gap-2 text-emerald-950 font-black text-xs sm:text-sm">

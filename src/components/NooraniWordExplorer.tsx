@@ -21,6 +21,7 @@ import { NOORANI_SURAHS, NooraniSurah, getNooraniWordMatches, NooraniMatchedWord
 import quranData, { QuranVerse } from '../utils/quranData';
 import { copyToClipboard } from '../utils/clipboard';
 import { generateNooraniWordsDocxBlob } from '../utils/docxExportHelper';
+import { generateTableExcelBlob } from '../utils/excelExportHelper';
 import { handleSafeExport } from '../utils/exportHelper';
 import { ExportModal } from './ExportModal';
 
@@ -417,32 +418,39 @@ export default function NooraniWordExplorer({
     }
   };
 
-  // Export to CSV / Excel
+  // Export to Excel (.xlsx) with table columns
   const handleExportCsv = () => {
     if (filteredWords.length === 0) return;
-    const headers = ['م', 'السورة', 'رقم الآية', 'الكلمة القرآنية', 'الحروف النورانية', 'حساب جمل الكلمة', 'جمل الحروف', 'ناتج القسمة', 'المعامل', 'حالة التوافق', 'نص الآية'];
+    const headers = ['م', 'السورة', 'رقم الآية', 'الكلمة القرآنية', 'الحروف النورانية', 'حساب جمل الكلمة', 'جمل الحروف', 'ناتج القسمة', 'المعامل', 'حالة التوافق', 'نص الآية الكريمة'];
+    const colWidths = [6, 16, 12, 18, 18, 16, 16, 16, 12, 16, 50];
     const rows = filteredWords.map((w, idx) => [
       idx + 1,
-      `"${w.surahName}"`,
+      w.surahName,
       w.verseNumber,
-      `"${w.word}"`,
-      `"${w.matchedLetters.join(' ')}"`,
+      w.word,
+      w.matchedLetters.join(' '),
       w.wordJummal,
       w.lettersJummal,
-      `"${w.quotientStr}"`,
+      w.quotientStr,
       activeSurah.digitalRoot,
       w.isExact ? 'متوافقة' : 'غير متوافقة',
-      `"${w.verseText.replace(/"/g, '""')}"`
+      w.verseText
     ]);
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const excelBlob = generateTableExcelBlob({
+      sheetTitle: 'كلمات نورانية',
+      headers,
+      rows,
+      colWidths,
+      rightToLeft: true
+    });
+
     setExportModalState({
       isOpen: true,
-      format: 'csv',
+      format: 'xlsx',
       defaultFileName: `كلمات_الحروف_النورانية_${activeSurah.letters}_${activeSurah.name}`,
-      data: blob,
-      onSuccessToast: 'تم تصدير ملف Excel (CSV) بنجاح! 📊'
+      data: excelBlob,
+      onSuccessToast: 'تم تصدير ملف Excel (.xlsx) الأصلي بنجاح مع ضبط الأعمدة والجداول! 📊'
     });
   };
 
