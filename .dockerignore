@@ -1,11 +1,11 @@
 node_modules
-release
-android
 dist-standalone
+android
 .git
 .gitignore
-*.bat
-*.vbs
 coverage
 .DS_Store
 *.log
+release/win-unpacked
+release/*.nsis.7z
+release/builder-debug.yml

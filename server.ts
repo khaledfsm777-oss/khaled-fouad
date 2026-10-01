@@ -313,24 +313,37 @@ async function startServer() {
   // Direct download endpoint for Windows Portable Application (.EXE)
   app.get('/api/download-windows-exe', (req, res) => {
     const candidatePaths = [
+      path.join(process.cwd(), 'release', 'AlBunyan-Quran-Desktop.exe'),
       path.join(process.cwd(), 'release', 'البنيان_الرقمي_محمول_Portable.exe'),
       path.join(process.cwd(), 'release', 'AlBunyan-Portable.exe'),
-      path.join(process.cwd(), 'البنيان_الرقمي_محمول_Portable.exe'),
-      path.join(process.cwd(), 'release', 'AlBunyan-Standalone-Offline.zip'),
-      path.join(process.cwd(), 'public', 'AlBunyan-Standalone-Offline.zip')
+      path.join(process.cwd(), 'AlBunyan-Quran-Desktop.exe')
     ];
+
     for (const p of candidatePaths) {
       if (fs.existsSync(p)) {
-        if (p.endsWith('.exe')) {
-          res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable');
-          res.download(p, 'البنيان_الرقمي_محمول_Portable.exe');
-        } else {
-          res.download(p, 'AlBunyan-Windows-Portable.zip');
+        try {
+          const stat = fs.statSync(p);
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Disposition');
+          res.setHeader('Content-Type', 'application/octet-stream');
+          res.setHeader('Content-Disposition', 'attachment; filename="AlBunyan-Quran-Desktop.exe"');
+          res.setHeader('Content-Length', stat.size);
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          const stream = fs.createReadStream(p);
+          stream.on('error', (err) => {
+            console.error('Stream error during exe download:', err);
+            if (!res.headersSent) {
+              res.status(500).send('خطأ أثناء تحميل الملف.');
+            }
+          });
+          stream.pipe(res);
+          return;
+        } catch (e) {
+          console.error('Error serving EXE:', e);
         }
-        return;
       }
     }
-    res.status(404).send('حزمة تشغيل ويندوز قيد التجهيز، يرجى المحاولة بعد قليل.');
+    res.status(404).send('ملف البرنامج التنفيذي قيد التجهيز، يرجى المحاولة بعد قليل.');
   });
 
   // Direct download endpoint for the prebuilt Windows Portable Application package (ZIP)

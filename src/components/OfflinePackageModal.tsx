@@ -18,6 +18,30 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
 
   const currentAppUrl = typeof window !== 'undefined' ? window.location.href : '';
 
+  const handleDownloadExe = () => {
+    setIsDownloading(true);
+    setDownloadStatus('جارٍ بدء تحميل ملف البرنامج التنفيذي لويندوز (AlBunyan-Quran-Desktop.exe)...');
+
+    // Trigger direct top-level download to bypass iframe download restrictions
+    try {
+      const a = document.createElement('a');
+      a.href = '/api/download-windows-exe';
+      a.download = 'AlBunyan-Quran-Desktop.exe';
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      window.open('/api/download-windows-exe', '_blank');
+    }
+
+    setTimeout(() => {
+      setIsDownloading(false);
+      setDownloadStatus('بدأ تحميل ملف البرنامج (.EXE). إذا ظهر لك تنبيه أمان، اضغط على «الاحتفاظ بالملف / Keep» لحفظه.');
+    }, 1500);
+  };
+
   const handleDownloadHtml = async () => {
     if (isDownloading) return;
     setIsDownloading(true);
@@ -237,166 +261,91 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
             </div>
           )}
 
-          {/* Windows Portable & Flash Drive Card */}
+          {/* PRIMARY: Windows Native Portable Executable (.EXE) for USB Flash Drives & PC */}
           <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 border-2 border-amber-400 text-white p-5 rounded-2xl shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md">
-                  <Laptop className="w-6 h-6" />
+                <div className="w-12 h-12 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md shrink-0">
+                  <Laptop className="w-7 h-7" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-amber-300 flex items-center gap-1.5">
-                    <span>💻 حزمة تشغيل ويندوز المحمولة للفلاش ميموري (USB Portable Package)</span>
+                  <h4 className="text-base font-black text-amber-300 flex items-center gap-2">
+                    <span>💻 برنامج ويندوز الأصلي للكمبيوتر واللابتوب والفلاش ميموري (.EXE)</span>
                   </h4>
-                  <p className="text-[11px] text-slate-300">
-                    تعمل على أي كمبيوتر أو لابتوب من الفلاشة مباشرة بدون تثبيت وبدون إنترنت
+                  <p className="text-xs text-slate-300">
+                    نفس التطبيق المكتبي المستقل؛ يمكنك وضعه على فلاشة وتشغيله على أي جهاز بدون إنترنت وبدون متصفح
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 bg-amber-400 text-slate-950 text-[10px] font-black rounded-lg hidden sm:inline-block shadow-sm">
-                نسخة الفلاشة 💾
+              <span className="px-3 py-1 bg-amber-400 text-slate-950 text-xs font-black rounded-lg hidden sm:inline-block shadow-sm">
+                ملف تنفيذي EXE 💾
               </span>
             </div>
 
-            <div className="bg-slate-950/70 border border-amber-400/40 p-3.5 rounded-xl text-xs space-y-2 text-slate-200">
+            <div className="bg-slate-950/70 border border-amber-400/40 p-4 rounded-xl text-xs space-y-2.5 text-slate-200">
               <div className="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
-                <span>✨ مميزات تشغيل البرنامج من الفلاشة (USB Flash Drive):</span>
+                <span>✨ كيفية تشغيل وتسطيب البرنامج على أي لابتوب أو كمبيوتر آخر:</span>
               </div>
-              <ul className="space-y-1 text-[11px] text-slate-300 list-disc list-inside leading-relaxed">
-                <li>لا يحتاج إلى تثبيت (Zero Installation)؛ انقله على أي فلاشة وشغله في أي مكان فوراً.</li>
-                <li>يحتوي على مشغل صامت مباشر ومشغل نوافذ مكتبية مستقلة بأيقونة البنيان.</li>
-                <li>يحتوي على كافة النصوص القرآنية وخوارزميات الحساب مع الدعم الكامل للتصدير والطباعة.</li>
+              <ul className="space-y-1.5 text-[11px] text-slate-300 list-disc list-inside leading-relaxed">
+                <li>حمّل هذا الملف التنفيذي المباشر (<strong>.EXE</strong>) وانسخه على فلاش ميموري (USB).</li>
+                <li>انقله إلى أي كمبيوتر أو لابتوب (Windows 10 / 11) وضعه على سطح المكتب أو في أي مجلد.</li>
+                <li>انقر عليه نقراً مزدوجاً ليعمل معك فوراً كنافذة برنامج مستقلة كاملة بأيقونة البنيان الذهبية.</li>
+                <li>يعمل 100% بدون اتصال بالإنترنت، وبدون الحاجة لمتصفح، ويدعم كامل مميزات البحث والتحليل والطباعة والتصدير.</li>
               </ul>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
-              <a
-                href="/api/download-windows-app"
-                download="AlBunyan-Windows-Portable.zip"
-                className="flex-1 py-3.5 px-4 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
-              >
-                <Download className="w-4 h-4 stroke-[2.5]" />
-                <span>تحميل حزمة الفلاشة المحمولة لويندوز (ZIP فوري خفيف 2 ميجابايت) 🚀</span>
-              </a>
-            </div>
-          </div>
-
-          {/* Overview Note */}
-          <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl space-y-2">
-            <div className="flex items-center gap-2 text-emerald-950 font-black text-xs sm:text-sm">
-              <ShieldCheck className="w-4 h-4 text-emerald-700" />
-              <span>خيار التشغيل أوفلاين المستقل (100% Inlined Standalone Architecture):</span>
-            </div>
-            <p className="text-xs text-slate-700 leading-relaxed font-medium">
-              تم تجميع ودمج كافة ملفات المشروع: نصوص القرآن الكريم كاملة (6236 آية)، محرك حساب الجمل، خوارزميات السور الـ 29 النورانية، الخطوط العربية (Amiri)، وتنسيقات CSS وأكواد الـ JavaScript <strong>داخل ملف HTML مستقل واحد فقط</strong>، مع أيقونة البرنامج المدمجة ليعمل بدون إنترنت نهائياً.
-            </p>
-          </div>
-
-          {/* Download Action Card - Single Direct HTML Button */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-              التحميل المباشر للتشغيل على حاسوبك وهاتفك أوفلاين:
-            </h4>
-
-            {/* In-Memory Safe Download Trigger */}
-            <button
-              type="button"
-              onClick={handleDownloadHtml}
-              disabled={isDownloading}
-              className="w-full text-right block p-5 bg-gradient-to-r from-emerald-600/10 via-amber-500/10 to-white border-2 border-emerald-600 hover:border-emerald-700 disabled:opacity-60 rounded-xl transition-all group hover:shadow-lg cursor-pointer text-slate-900"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                    {isDownloading ? (
-                      <Loader2 className="w-6 h-6 animate-spin text-amber-300" />
-                    ) : (
-                      <FileCode className="w-6 h-6" />
-                    )}
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-slate-900 group-hover:text-emerald-950 transition-colors">
-                        تحميل ملف البنيان المستقل (HTML أوفلاين فوري)
-                      </span>
-                      <span className="px-2 py-0.5 bg-emerald-700 text-white text-[10px] font-black rounded">
-                        جاهز ومضمون
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium">
-                      ملف واحد متكامل (يعمل بالنقر المزدوج على أي متصفح بالكمبيوتر أو الموبايل بدون إنترنت وبدون فك ضغط)
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-700 group-hover:bg-emerald-800 text-white font-black text-xs rounded-lg shrink-0 shadow-md">
-                  {isDownloading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>جارٍ التنزيل...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4" />
-                      <span>تنزيل ملف HTML الآن</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </button>
-
-            {/* Important Tip for opening HTML on Android to avoid Samsung viewer issue */}
-            <div className="p-3 bg-emerald-50 border border-emerald-300/80 rounded-xl text-xs space-y-1 text-emerald-950">
-              <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                <span>💡 نصيحة هامة لمستخدمي هواتف أندرويد عند فتح ملف HTML:</span>
-              </div>
-              <p className="text-[11px] text-emerald-900/90 leading-relaxed">
-                إذا قمت بفتح الملف المحمل وظهرت لك شاشة بيضاء تدور فيها دائرة انتظار (عارض المستندات الافتراضي)، اضغط مطولاً على الملف داخل تطبيق الملفات أو التنزيلات واختر: <strong>«فتح باستخدام» ثم اختر متصفح (Google Chrome)</strong>، وسيعمل معك فوراً أوفلاين بكامل مميزاته.
-              </p>
-            </div>
-
-            {/* Secondary Direct Link for Browsers with Pop-up/Download Restrictions */}
-            <div className="flex items-center justify-between px-2 text-[11px] text-slate-500">
-              <span>إذا تعذر التنزيل التلقائي في متصفحك:</span>
-              <a
-                href="/api/download-standalone-html"
-                download="AlBunyan-Offline.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer flex items-center gap-1"
-              >
-                <ArrowDownToLine className="w-3.5 h-3.5" />
-                <span>رابط تنزيل مباشر لملف HTML 📥</span>
-              </a>
-            </div>
-
-            {/* Secondary Option: ZIP Package */}
-            <div className="pt-1">
+            <div className="pt-1 space-y-2">
               <button
                 type="button"
-                onClick={handleDownloadZip}
+                onClick={handleDownloadExe}
                 disabled={isDownloading}
-                className="w-full text-right p-3 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl transition-all flex items-center justify-between gap-3 text-xs font-bold text-slate-700 cursor-pointer"
+                className="w-full py-4 px-5 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-black text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl transition-all cursor-pointer active:scale-98 disabled:opacity-75"
               >
-                <div className="flex items-center gap-2">
-                  <Archive className="w-4 h-4 text-emerald-700" />
-                  <span>خيار بديل: تحميل كملف مضغوط (ZIP) بحجم 1.8 ميجابايت</span>
-                </div>
-                <span className="text-emerald-800 underline text-[11px] font-black">تحميل ZIP ⬇️</span>
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>جارٍ إرسال الملف...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5 stroke-[2.5]" />
+                    <span>تحميل برنامج ويندوز التنفيذي الأصلي (AlBunyan-Quran-Desktop.exe) للفلاشة 🚀</span>
+                  </>
+                )}
               </button>
-              <div className="flex items-center justify-between px-2 pt-1 text-[11px] text-slate-500">
-                <span>رابط مباشر للملف المضغوط:</span>
+
+              <div className="flex items-center justify-between px-2 text-[11px] text-slate-300">
+                <span>رابط التنزيل المباشر الصريح:</span>
                 <a
-                  href="/api/download-standalone-zip"
-                  download="AlBunyan-Standalone-Offline.zip"
+                  href="/api/download-windows-exe"
+                  download="AlBunyan-Quran-Desktop.exe"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer flex items-center gap-1"
+                  className="text-amber-300 hover:text-amber-200 underline font-bold flex items-center gap-1 cursor-pointer"
                 >
                   <ArrowDownToLine className="w-3.5 h-3.5" />
-                  <span>تنزيل ZIP مباشر 📦</span>
+                  <span>تنزيل مباشر في نافذة جديدة 📥</span>
                 </a>
               </div>
             </div>
+          </div>
+
+          {/* Secondary Option: Flash Drive Compressed Package */}
+          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <Archive className="w-5 h-5 text-emerald-700 shrink-0" />
+              <div>
+                <span className="font-bold text-slate-800 block">خيار بديل: حزمة الفلاشة المضغوطة (ZIP)</span>
+                <span className="text-[11px] text-slate-500">تحتوي على مشغل صامت مباشر ومشغلات مستقلة سريعة</span>
+              </div>
+            </div>
+            <a
+              href="/api/download-windows-app"
+              download="AlBunyan-Windows-Portable.zip"
+              className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
+            >
+              تحميل ZIP 📦
+            </a>
           </div>
 
           {/* Simple Setup Guide */}
