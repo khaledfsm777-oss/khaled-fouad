@@ -420,10 +420,9 @@ async function startServer() {
     res.status(404).send('ملف ZIP المستقل قيد التجهيز.');
   });
 
-  // Support root access by redirecting to /khaled-fouad/ when base is /khaled-fouad/
-  app.get('/', (req, res, next) => {
-    // If not requesting an api endpoint, redirect to the base path
-    res.redirect('/khaled-fouad/');
+  // Support both root / and /khaled-fouad/ seamlessly
+  app.get(['/khaled-fouad', '/khaled-fouad/'], (req, res) => {
+    res.redirect('/');
   });
 
   // Serve static files in production or hook Vite in development

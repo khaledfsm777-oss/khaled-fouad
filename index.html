@@ -14,10 +14,10 @@
     <meta name="apple-mobile-web-app-title" content="البنيان" />
     <meta name="author" content="الأستاذ الباحث خالد فؤاد السيد" />
     <meta name="copyright" content="جميع الحقوق محفوظة للباحث خالد فؤاد السيد ©" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="apple-touch-icon" href="/icon-512.png" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="apple-touch-icon" href="./icon-512.png" />
     <!-- Fonts are imported locally in index.css for full offline support -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="./manifest.json" />
     <script>
       window.deferredInstallPrompt = null;
       window.addEventListener('beforeinstallprompt', (e) => {
@@ -32,7 +32,7 @@
 
       if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          navigator.serviceWorker.register('./sw.js')
             .then((reg) => {
               // Ensure immediate update if worker script changed
               reg.update();
@@ -60,7 +60,7 @@
   </head>
   <body class="bg-[#FAF8F5] text-[#1E293B] antialiased">
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
 
