@@ -420,6 +420,12 @@ async function startServer() {
     res.status(404).send('ملف ZIP المستقل قيد التجهيز.');
   });
 
+  // Support root access by redirecting to /khaled-fouad/ when base is /khaled-fouad/
+  app.get('/', (req, res, next) => {
+    // If not requesting an api endpoint, redirect to the base path
+    res.redirect('/khaled-fouad/');
+  });
+
   // Serve static files in production or hook Vite in development
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -431,7 +437,11 @@ async function startServer() {
     console.log('In development mode: Mounted Vite middleware.');
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    app.use('/khaled-fouad', express.static(distPath));
     app.use(express.static(distPath));
+    app.get('/khaled-fouad*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
