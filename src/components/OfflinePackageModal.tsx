@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Download, FileCode, Archive, CheckCircle2, X, Sparkles, Laptop, ShieldCheck, Loader2, Smartphone, ArrowDownToLine, RefreshCw, ExternalLink } from 'lucide-react';
-import { downloadStandaloneHtmlFile, downloadStandaloneZipFile } from '../utils/standaloneDownloader';
+import { CheckCircle2, X, Sparkles, Laptop, Smartphone, ArrowDownToLine, RefreshCw, ExternalLink } from 'lucide-react';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 
 interface OfflinePackageModalProps {
@@ -9,62 +8,13 @@ interface OfflinePackageModalProps {
 }
 
 export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen, onClose }) => {
-  const [isDownloading, setIsDownloading] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
   const [isCleaning, setIsCleaning] = useState(false);
-  const { isInstallable, isInstalled, isInIframe, isMobile, triggerInstall, cleanOldCaches, resetInstallState } = usePwaInstall();
+  const { isInstallable, isInstalled, isInIframe, isMobile, triggerInstall, resetInstallState } = usePwaInstall();
 
   if (!isOpen) return null;
 
   const currentAppUrl = typeof window !== 'undefined' ? window.location.href : '';
-
-  const handleDownloadExe = () => {
-    setIsDownloading(true);
-    setDownloadStatus('جارٍ بدء تحميل ملف البرنامج التنفيذي لويندوز (AlBunyan-Quran-Desktop.exe)...');
-
-    // Trigger direct top-level download to bypass iframe download restrictions
-    try {
-      const a = document.createElement('a');
-      a.href = '/api/download-windows-exe';
-      a.download = 'AlBunyan-Quran-Desktop.exe';
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch {
-      window.open('/api/download-windows-exe', '_blank');
-    }
-
-    setTimeout(() => {
-      setIsDownloading(false);
-      setDownloadStatus('بدأ تحميل ملف البرنامج (.EXE). إذا ظهر لك تنبيه أمان، اضغط على «الاحتفاظ بالملف / Keep» لحفظه.');
-    }, 1500);
-  };
-
-  const handleDownloadHtml = async () => {
-    if (isDownloading) return;
-    setIsDownloading(true);
-    try {
-      await downloadStandaloneHtmlFile((msg) => setDownloadStatus(msg));
-    } catch (err: any) {
-      setDownloadStatus(err.message || 'حدث خطأ أثناء التنزيل.');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  const handleDownloadZip = async () => {
-    if (isDownloading) return;
-    setIsDownloading(true);
-    try {
-      await downloadStandaloneZipFile((msg) => setDownloadStatus(msg));
-    } catch (err: any) {
-      setDownloadStatus(err.message || 'حدث خطأ أثناء التنزيل.');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
   const handleInstallClick = async () => {
     // Trigger native installation prompt immediately within user gesture
@@ -74,7 +24,7 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
     } else if (res === 'dismissed') {
       setDownloadStatus('تم إلغاء التثبيت من نافذة المتصفح.');
     } else if (res === 'iframe') {
-      setDownloadStatus('أنت داخل إطار المعاينة؛ يرجى الضغط على زر «الانتقال إلى صفحة البرنامج المنعزلة» أعلاه للتسطيب الفوري.');
+      setDownloadStatus('أنت داخل إطار المعاينة؛ يرجى الضغط على زر «الانتقال إلى صفحة البرنامج المنعزلة» للتسطيب الفوري.');
     } else {
       if (isMobile) {
         setDownloadStatus('لتثبيت التطبيق على الهاتف: اضغط على قائمة متصفح Chrome (الثلاث نقاط ⋮ أعلى الشاشة) ثم اختر «تثبيت التطبيق» (Install app) أو «إضافة إلى الشاشة الرئيسية».');
@@ -102,7 +52,7 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in"
       dir="rtl"
     >
-      <div className="bg-white border-2 border-emerald-700/80 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden relative text-right">
+      <div className="bg-white border-2 border-emerald-700/80 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden relative text-right">
         
         {/* Top Header Banner */}
         <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-[#05231c] text-white p-5 px-6 relative border-b-2 border-amber-500/50">
@@ -117,7 +67,7 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
                   <Sparkles className="w-4 h-4 text-amber-400 inline" />
                 </h3>
                 <p className="text-xs text-slate-300 mt-0.5 font-semibold">
-                  تسطيب وتثبيت مباشر كتطبيق مستقل + تحميل ملف HTML الشامل
+                  تسطيب وتثبيت مباشر كتطبيق مستقل بأيقونة خاصة
                 </p>
               </div>
             </div>
@@ -133,7 +83,7 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+        <div className="p-5 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto">
           
           {/* Main App Direct Install Card */}
           <div className="bg-gradient-to-r from-emerald-900 to-teal-950 border-2 border-amber-400/80 text-white p-5 rounded-2xl shadow-lg space-y-4">
@@ -163,10 +113,10 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
               <div className="bg-emerald-950/90 border-2 border-amber-400/70 p-4 rounded-xl space-y-2 text-slate-200">
                 <div className="flex items-center gap-2 text-amber-300 font-black text-xs sm:text-sm">
                   <ExternalLink className="w-4 h-4" />
-                  <span>الخطوة الأولى: الانتقال إلى صفحة البرنامج المنعزلة (Google App)</span>
+                  <span>الخطوة الأولى: الانتقال إلى صفحة البرنامج المنعزلة</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  أنت تتصفح حالياً من داخل إطار المعاينة؛ لتتمكن من تسطيب التطبيق بنقرة واحدة بدون أي تداخل، اضغط على الرابط التالي لفتح البرنامج في صفحة جوجل المستقلة:
+                  أنت تتصفح حالياً من داخل إطار المعاينة؛ لتتمكن من تسطيب التطبيق بنقرة واحدة، اضغط على الرابط التالي لفتح البرنامج في صفحة مستقلة:
                 </p>
                 <div className="pt-1">
                   <a
@@ -260,111 +210,6 @@ export const OfflinePackageModal: React.FC<OfflinePackageModalProps> = ({ isOpen
               <span className="leading-relaxed">{downloadStatus}</span>
             </div>
           )}
-
-          {/* PRIMARY: Windows Native Portable Executable (.EXE) for USB Flash Drives & PC */}
-          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 border-2 border-amber-400 text-white p-5 rounded-2xl shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black shadow-md shrink-0">
-                  <Laptop className="w-7 h-7" />
-                </div>
-                <div>
-                  <h4 className="text-base font-black text-amber-300 flex items-center gap-2">
-                    <span>💻 برنامج ويندوز الأصلي للكمبيوتر واللابتوب والفلاش ميموري (.EXE)</span>
-                  </h4>
-                  <p className="text-xs text-slate-300">
-                    نفس التطبيق المكتبي المستقل؛ يمكنك وضعه على فلاشة وتشغيله على أي جهاز بدون إنترنت وبدون متصفح
-                  </p>
-                </div>
-              </div>
-              <span className="px-3 py-1 bg-amber-400 text-slate-950 text-xs font-black rounded-lg hidden sm:inline-block shadow-sm">
-                ملف تنفيذي EXE 💾
-              </span>
-            </div>
-
-            <div className="bg-slate-950/70 border border-amber-400/40 p-4 rounded-xl text-xs space-y-2.5 text-slate-200">
-              <div className="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
-                <span>✨ كيفية تشغيل وتسطيب البرنامج على أي لابتوب أو كمبيوتر آخر:</span>
-              </div>
-              <ul className="space-y-1.5 text-[11px] text-slate-300 list-disc list-inside leading-relaxed">
-                <li>حمّل هذا الملف التنفيذي المباشر (<strong>.EXE</strong>) وانسخه على فلاش ميموري (USB).</li>
-                <li>انقله إلى أي كمبيوتر أو لابتوب (Windows 10 / 11) وضعه على سطح المكتب أو في أي مجلد.</li>
-                <li>انقر عليه نقراً مزدوجاً ليعمل معك فوراً كنافذة برنامج مستقلة كاملة بأيقونة البنيان الذهبية.</li>
-                <li>يعمل 100% بدون اتصال بالإنترنت، وبدون الحاجة لمتصفح، ويدعم كامل مميزات البحث والتحليل والطباعة والتصدير.</li>
-              </ul>
-            </div>
-
-            <div className="pt-1 space-y-2">
-              <button
-                type="button"
-                onClick={handleDownloadExe}
-                disabled={isDownloading}
-                className="w-full py-4 px-5 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-black text-sm rounded-xl flex items-center justify-center gap-3 shadow-xl transition-all cursor-pointer active:scale-98 disabled:opacity-75"
-              >
-                {isDownloading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>جارٍ إرسال الملف...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5 stroke-[2.5]" />
-                    <span>تحميل برنامج ويندوز التنفيذي الأصلي (AlBunyan-Quran-Desktop.exe) للفلاشة 🚀</span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-between px-2 text-[11px] text-slate-300">
-                <span>رابط التنزيل المباشر الصريح:</span>
-                <a
-                  href="/api/download-windows-exe"
-                  download="AlBunyan-Quran-Desktop.exe"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-amber-300 hover:text-amber-200 underline font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <ArrowDownToLine className="w-3.5 h-3.5" />
-                  <span>تنزيل مباشر في نافذة جديدة 📥</span>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Secondary Option: Flash Drive Compressed Package */}
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <Archive className="w-5 h-5 text-emerald-700 shrink-0" />
-              <div>
-                <span className="font-bold text-slate-800 block">خيار بديل: حزمة الفلاشة المضغوطة (ZIP)</span>
-                <span className="text-[11px] text-slate-500">تحتوي على مشغل صامت مباشر ومشغلات مستقلة سريعة</span>
-              </div>
-            </div>
-            <a
-              href="/api/download-windows-app"
-              download="AlBunyan-Windows-Portable.zip"
-              className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
-            >
-              تحميل ZIP 📦
-            </a>
-          </div>
-
-          {/* Simple Setup Guide */}
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2.5">
-            <h5 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-              <span>طريقة التشغيل المباشرة لملف HTML:</span>
-            </h5>
-            <ol className="space-y-2 text-xs text-slate-700 font-medium list-decimal list-inside pr-1 leading-relaxed">
-              <li>
-                قم بتحميل ملف <code className="bg-white px-1.5 py-0.5 border border-slate-300 font-mono text-emerald-800 rounded font-bold">AlBunyan-Offline.html</code> وحفظه في أي مكان على جهازك أو هاتفك.
-              </li>
-              <li>
-                على الكمبيوتر أو الموبايل: انقر فوق الملف ليفتح في المتصفح (Chrome، Edge، Firefox، أو Safari).
-              </li>
-              <li>
-                يعمل البرنامج بكافة مزاياه الحسابية والقرآنية وشاشاته <strong>أوفلاين بنسبة 100% دون الحاجة لأي اتصال بالإنترنت</strong>.
-              </li>
-            </ol>
-          </div>
 
         </div>
 
