@@ -41,13 +41,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   if (!isOpen) return null;
 
   const handleSaveCustom = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const finalName = sanitizeBaseFileName(fileName.trim() || cleanInitialName);
-    onConfirm(finalName);
+    try {
+      if (e) e.preventDefault();
+      const finalName = sanitizeBaseFileName(fileName.trim() || cleanInitialName);
+      onConfirm(finalName);
+    } catch (err) {
+      console.error('Save custom error:', err);
+    }
   };
 
   const handleSaveDefault = () => {
-    onConfirm(cleanInitialName);
+    try {
+      onConfirm(cleanInitialName);
+    } catch (err) {
+      console.error('Save default error:', err);
+    }
   };
 
   // Determine format badge and icon

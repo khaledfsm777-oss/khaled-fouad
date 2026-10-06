@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ZoomIn, ZoomOut, RotateCcw, Type } from 'lucide-react';
+import { safeStorage } from '../utils/safeStorage';
 
 interface QuranFontSizeControlProps {
   className?: string;
@@ -8,22 +9,28 @@ interface QuranFontSizeControlProps {
 
 export default function QuranFontSizeControl({ className = '', compact = false }: QuranFontSizeControlProps) {
   const [scale, setScale] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('quran_font_scale');
+    try {
+      const saved = safeStorage.getItem('quran_font_scale');
       if (saved) {
         const parsed = parseFloat(saved);
         if (!isNaN(parsed) && parsed >= 0.8 && parsed <= 2.5) {
           return parsed;
         }
       }
+    } catch {
+      // Safe fallback
     }
     return 1.25; // Default 125%
   });
 
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.documentElement.style.setProperty('--quran-font-scale', scale.toString());
-      localStorage.setItem('quran_font_scale', scale.toString());
+    try {
+      if (typeof document !== 'undefined') {
+        document.documentElement.style.setProperty('--quran-font-scale', scale.toString());
+      }
+      safeStorage.setItem('quran_font_scale', scale.toString());
+    } catch (e) {
+      console.warn('Failed to apply or save font scale:', e);
     }
   }, [scale]);
 

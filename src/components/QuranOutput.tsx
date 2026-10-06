@@ -33,6 +33,7 @@ import { generateTableDocxBlob, generateComprehensiveReportDocxBlob } from '../u
 import AdvancedFilterBar, { AdvancedFilterState, initialFilterState } from './AdvancedFilterBar';
 import { copyToClipboard } from '../utils/clipboard';
 import { useGlobalProgress } from '../context/ProgressContext';
+import { safeStorage } from '../utils/safeStorage';
 
 interface QuranOutputProps {
   verses: Verse[];
@@ -134,8 +135,7 @@ export default function QuranOutput({
   // Researcher Notes State (ملاحظات الباحث المخصصة)
   const [researcherNotes, setResearcherNotes] = useState<Record<string, string>>(() => {
     try {
-      const saved = localStorage.getItem('bonyan_researcher_notes');
-      return saved ? JSON.parse(saved) : {};
+      return safeStorage.getJSON<Record<string, string>>('bonyan_researcher_notes', {});
     } catch {
       return {};
     }
@@ -174,7 +174,7 @@ export default function QuranOutput({
     }
     setResearcherNotes(updated);
     try {
-      localStorage.setItem('bonyan_researcher_notes', JSON.stringify(updated));
+      safeStorage.setJSON('bonyan_researcher_notes', updated);
     } catch (e) {
       console.error('Failed to save note:', e);
     }
@@ -187,7 +187,7 @@ export default function QuranOutput({
     delete updated[activeNoteVerse.verseKey];
     setResearcherNotes(updated);
     try {
-      localStorage.setItem('bonyan_researcher_notes', JSON.stringify(updated));
+      safeStorage.setJSON('bonyan_researcher_notes', updated);
     } catch (e) {
       console.error('Failed to delete note:', e);
     }
@@ -213,16 +213,12 @@ export default function QuranOutput({
 
   useEffect(() => {
     if (!activeSurah) return;
-    const currentKey = `banyan_cache_${activeSurah.id}`;
-    // Gather all keys first to avoid modification during iteration issues
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('banyan_cache_') && key !== currentKey) {
-        keysToRemove.push(key);
-      }
+    try {
+      const currentKey = `banyan_cache_${activeSurah.id}`;
+      safeStorage.removePrefix('banyan_cache_', currentKey);
+    } catch (e) {
+      console.warn('Cache cleanup error:', e);
     }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
   }, [activeSurah]);
 
   const showToast = (msg: string) => {
@@ -1529,20 +1525,17 @@ export default function QuranOutput({
       completedChunks: {},
     };
 
-    // Try to restore previous progress
-    const cachedStr = localStorage.getItem(cacheKey);
-    if (cachedStr) {
-      try {
-        const parsed = JSON.parse(cachedStr);
-        if (parsed.surahId === activeSurah.id && parsed.totalVerses === processedVerses.length && parsed.completedChunks) {
-          cache = parsed;
-          showToast('🔄 تم استئناف تحليل مخرجات البنيان من الحسابات المحفوظة سابقاً...');
-        } else {
-          localStorage.removeItem(cacheKey);
-        }
-      } catch (e) {
-        console.error('Failed to parse cache', e);
+    // Try to restore previous progress safely
+    try {
+      const parsed = safeStorage.getJSON<any>(cacheKey, null);
+      if (parsed && parsed.surahId === activeSurah.id && parsed.totalVerses === processedVerses.length && parsed.completedChunks) {
+        cache = parsed;
+        showToast('🔄 تم استئناف تحليل مخرجات البنيان من الحسابات المحفوظة سابقاً...');
+      } else if (parsed) {
+        safeStorage.removeItem(cacheKey);
       }
+    } catch (e) {
+      console.warn('Failed to parse cache', e);
     }
 
     const chunkSize = 5;
@@ -1611,7 +1604,9 @@ export default function QuranOutput({
 
         // Save chunk to cache immediately
         cache.completedChunks[c] = chunkAnalysis;
-        localStorage.setItem(cacheKey, JSON.stringify(cache));
+        try {
+          safeStorage.setJSON(cacheKey, cache);
+        } catch {}
 
         const pct = Math.round(((c + 1) / totalChunks) * 85);
         updateProgress(pct, `تحليل المقطع ${c + 1} من ${totalChunks} (${pct}%)...`);
@@ -1820,7 +1815,9 @@ export default function QuranOutput({
       });
 
       // Clean the cache upon successful completion
-      localStorage.removeItem(cacheKey);
+      try {
+        safeStorage.removeItem(cacheKey);
+      } catch {}
       setReportProgress(null);
     } catch (err: any) {
       console.error(err);
