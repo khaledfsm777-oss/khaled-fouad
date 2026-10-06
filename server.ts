@@ -9,7 +9,8 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  // Dev server must always listen on port 3000 to match the AI Studio runtime environment
+  const PORT = 3000;
 
   // Middleware with increased limits to support large Surahs (e.g., Al-Baqarah/Ali-Imran)
   app.use(express.json({ limit: '10mb' }));

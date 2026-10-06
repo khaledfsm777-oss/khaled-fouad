@@ -632,12 +632,13 @@ export default function QuranOutput({
       };
       const comp = getCompatibilityDetails(v, dummySurah);
       
-      // STRICT RULE: Green (Exact) compatibility requires ZERO remainder (v.jummalValue % divisor === 0)
-      const isGreen = isNoorani 
-        ? (track.digitalRoot > 0 && v.jummalValue > 0 && v.jummalValue % track.digitalRoot === 0)
-        : (surahCoeff > 0 && v.jummalValue > 0 && v.jummalValue % surahCoeff === 0);
+      // STRICT RULE: Green (Exact) compatibility requires ZERO remainder (v.jummalValue % divisor === 0) or (value % 6 === 0)
+      const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
+      const isCoeffExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
+      const isMod6Exact = v.jummalValue > 0 && v.jummalValue % 6 === 0;
+      const isGreen = isCoeffExact || isMod6Exact;
       
-      if (v.jummalValue > 0 && surahCoeff > 0 && v.jummalValue % surahCoeff === 0) {
+      if (isCoeffExact) {
         verified_exact++;
       }
       const isPerfectMatch = comp.score >= 5 || comp.isDirectMatch;
@@ -932,9 +933,10 @@ export default function QuranOutput({
         } else if (activeColor === 'golden') {
           if (comp.score < 5 && !comp.isDirectMatch) return false;
         } else if (activeColor === 'exact') {
-          const isGreen = isNoorani 
-            ? (track.digitalRoot > 0 && v.jummalValue > 0 && v.jummalValue % track.digitalRoot === 0)
-            : (surahCoeff > 0 && v.jummalValue > 0 && v.jummalValue % surahCoeff === 0);
+          const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
+          const isCoeffExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
+          const isMod6Exact = v.jummalValue > 0 && v.jummalValue % 6 === 0;
+          const isGreen = isCoeffExact || isMod6Exact;
           if (!isGreen) return false;
         } else if (activeColor === 'structural') {
           if (comp.score < 1 || comp.score > 2) return false;
@@ -2364,6 +2366,8 @@ export default function QuranOutput({
                   const divisor = isNoorani ? (track.digitalRoot || 1) : getSurahCoefficient(surahId);
                   const divisionResult = divisor > 0 ? (v.jummalValue / divisor) : 0;
                   const isExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
+                  const isMod6Exact = v.jummalValue > 0 && (v.jummalValue % 6 === 0);
+                  const isGreen = isExact || isMod6Exact;
                   const quotientStr = isExact ? divisionResult.toString() : divisionResult.toFixed(4);
                   const coeffLabel = isNoorani ? track.label : `سورة (${surahId})`;
                   
@@ -2372,32 +2376,65 @@ export default function QuranOutput({
                   const lettersReduction = reduceDigitalRoot(v.letterCount);
                   const sumValue = v.wordCount + v.letterCount;
                   const sumReduction = reduceDigitalRoot(sumValue);
+                  const verseNumVal = parseInt(v.verseNumber, 10) || v.id || 1;
+
+                  // ربط مؤشرات المصفوفة الستة دون أدنى إزاحة:
+                  // 1. الميزان الأكبر: قسمة الجمل على المعامل بدون باقٍ أو توافق 6 الصارم
+                  const m1 = isGreen;
+                  // 2. الميزان الهيكلي: (الجمل + رقم الآية) ÷ المعامل بدون باقٍ
+                  const m2 = divisor > 0 && ((v.jummalValue + verseNumVal) % divisor === 0);
+                  // 3. ميزان الكثافة: (الكلمات + الحروف) ÷ المعامل بدون باقٍ
+                  const m3 = divisor > 0 && ((v.wordCount + v.letterCount) % divisor === 0);
+                  // 4. الميزان التراكمي الشامل ÷ المعامل بدون باقٍ
+                  const m4 = divisor > 0 && ((v.jummalValue + (v.jummalValue + verseNumVal) + (v.wordCount + v.letterCount)) % divisor === 0);
+                  // 5. ميزان الاختزال الذاتي: أس الآية = أس المعامل أو الأس السيادي 9
+                  const m5 = (divisor > 0 && reduceDigitalRoot(v.jummalValue) === reduceDigitalRoot(divisor)) || reduceDigitalRoot(v.jummalValue) === 9;
+                  // 6. ميزان رقم الآية السنني: رقم الآية ÷ المعامل بدون باقٍ أو تطابق أس الآية
+                  const m6 = (divisor > 0 && verseNumVal % divisor === 0) || (divisor > 0 && reduceDigitalRoot(verseNumVal) === reduceDigitalRoot(divisor));
+
+                  const strictConditions = [m1, m2, m3, m4, m5, m6];
+                  const strictScore = strictConditions.filter(Boolean).length;
+
+                  let rowStatusLabel = 'غير متوافقة';
+                  let rowStatusColor = 'bg-rose-50 text-rose-700 border-rose-100';
+
+                  if (strictScore === 6) {
+                    rowStatusLabel = 'توافق تام مطلق (6/6) 🌟';
+                    rowStatusColor = 'bg-amber-100 text-amber-950 border-amber-400 font-black';
+                  } else if (strictScore === 5) {
+                    rowStatusLabel = 'توافق تام (5/6) 🌟';
+                    rowStatusColor = 'bg-amber-100 text-amber-950 border-amber-400 font-black';
+                  } else if (isExact) {
+                    rowStatusLabel = 'متوافقة تماماً (قسمة بلا باق) ✅';
+                    rowStatusColor = 'bg-emerald-100 text-emerald-950 border-emerald-300 font-black';
+                  } else if (strictScore >= 1) {
+                    rowStatusLabel = 'متوافقة بنيوياً';
+                    rowStatusColor = 'bg-blue-50 text-blue-700 border-blue-100';
+                  }
                   
+                  const isDirectMatch = comp?.isDirectMatch;
+
                   let rowColorClass = 'hover:bg-slate-50';
                   let sideBorderClass = '';
                   
                   if (isSelected) {
                     rowColorClass = 'bg-amber-200/90 font-bold ring-2 ring-amber-500';
                     sideBorderClass = 'border-r-4 border-amber-600';
-                  } else if (comp) {
-                    if (isPerfectMatch) {
-                      // التوافق التام (من 5/6 إلى 6/6) - لون ذهبي ملكي مميز
-                      rowColorClass = 'bg-gradient-to-r from-amber-100/90 via-yellow-100/70 to-amber-50/60 hover:bg-amber-200/80 font-semibold text-amber-950';
-                      sideBorderClass = 'border-r-4 border-amber-500 shadow-xs';
-                    } else if (isExact) {
-                      // STRICT REQUIREMENT: Only verses with remainder === 0 get green color
-                      rowColorClass = 'bg-emerald-500/10 hover:bg-emerald-500/15 font-medium';
-                      sideBorderClass = 'border-r-4 border-emerald-500';
-                    } else if (comp.score >= 1) {
-                      rowColorClass = 'bg-blue-500/5 hover:bg-blue-500/10';
-                      sideBorderClass = 'border-r-4 border-blue-400';
-                    } else {
-                      rowColorClass = 'bg-rose-500/5 hover:bg-rose-500/10 text-slate-500';
-                      sideBorderClass = 'border-r-4 border-rose-300';
-                    }
+                  } else if (strictScore >= 5 || isDirectMatch) {
+                    // التوافق التام (من 5/6 إلى 6/6) - لون ذهبي ملكي مميز
+                    rowColorClass = 'bg-gradient-to-r from-amber-100/90 via-yellow-100/70 to-amber-50/60 hover:bg-amber-200/80 font-semibold text-amber-950';
+                    sideBorderClass = 'border-r-4 border-amber-500 shadow-xs';
+                  } else if (isGreen) {
+                    // STRICT REQUIREMENT: Only verses with remainder === 0 or (value % 6 === 0) get green color
+                    rowColorClass = 'bg-emerald-500/10 hover:bg-emerald-500/15 font-medium';
+                    sideBorderClass = 'border-r-4 border-emerald-500';
+                  } else if (strictScore >= 1) {
+                    rowColorClass = 'bg-blue-500/5 hover:bg-blue-500/10';
+                    sideBorderClass = 'border-r-4 border-blue-400';
+                  } else {
+                    rowColorClass = 'bg-rose-500/5 hover:bg-rose-500/10 text-slate-500';
+                    sideBorderClass = 'border-r-4 border-rose-300';
                   }
-
-                  const isDirectMatch = comp?.isDirectMatch;
 
                   return (
                     <tr 
@@ -2492,39 +2529,36 @@ export default function QuranOutput({
 
                       {/* COLUMN CELL: عمود التحقق والتوافقات الستة */}
                       <td className="p-2 border border-slate-100 align-middle">
-                        {comp && (
-                          <div className="flex flex-col items-center justify-center gap-1.5 p-1 min-w-[130px]">
-                            {/* Score indicator */}
-                            <span className={`px-2 py-0.5 text-[9px] border font-extrabold rounded-none block text-center whitespace-nowrap ${
-                              isExact ? 'bg-emerald-100 text-emerald-950 border-emerald-300 font-black' : comp.statusColor
-                            }`}>
-                              {comp.statusLabel} ({comp.score}/6)
-                            </span>
+                        <div className="flex flex-col items-center justify-center gap-1.5 p-1 min-w-[130px]">
+                          {/* Score indicator */}
+                          <span className={`px-2 py-0.5 text-[9px] border font-extrabold rounded-none block text-center whitespace-nowrap ${rowStatusColor}`}>
+                            {rowStatusLabel} ({strictScore}/6)
+                          </span>
 
-                            {/* 6 Conditions Small Dots/Indicators */}
-                            <div className="flex gap-0.5 justify-center mt-0.5">
-                              {comp.conditions.map((c, i) => {
-                                const names = [
-                                  `1. الميزان الأكبر: قسمة الجمل (${v.jummalValue}) على المعامل (${divisor}) بدون باقٍ [${isExact ? 'متحقق ✅' : 'غير متحقق'}]`,
-                                  `2. الميزان الهيكلي: (الجمل + رقم الآية = ${v.jummalValue + (parseInt(v.verseNumber, 10)||v.id)}) ÷ المعامل [${comp.conditions[1] ? 'متحقق ✅' : 'غير متحقق'}]`,
-                                  `3. ميزان الكثافة: (الكلمات + الحروف = ${v.wordCount + v.letterCount}) ÷ المعامل [${comp.conditions[2] ? 'متحقق ✅' : 'غير متحقق'}]`,
-                                  `4. الميزان التراكمي الشامل ÷ المعامل [${comp.conditions[3] ? 'متحقق ✅' : 'غير متحقق'}]`,
-                                  `5. ميزان الاختزال الذاتي: أس الآية (${comp.verseDigitalRoot}) = أس المعامل (${reduceDigitalRoot(divisor)}) [${comp.conditions[4] ? 'متحقق ✅' : 'غير متحقق'}]`,
-                                  `6. ميزان رقم الآية السنني [${comp.conditions[5] ? 'متحقق ✅' : 'غير متحقق'}]`
-                                ];
-                                return (
-                                  <span 
-                                    key={i} 
-                                    title={names[i]}
-                                    className={`w-4 h-4 flex items-center justify-center rounded-none text-[8px] font-black text-white ${
-                                      c ? (i === 0 ? 'bg-emerald-600 font-black ring-1 ring-emerald-400' : 'bg-emerald-700') : 'bg-slate-300 text-slate-500'
-                                    }`}
-                                  >
-                                    {i + 1}
-                                  </span>
-                                );
-                              })}
-                            </div>
+                          {/* 6 Conditions Small Dots/Indicators */}
+                          <div className="flex gap-0.5 justify-center mt-0.5" dir="rtl">
+                            {strictConditions.map((c, i) => {
+                              const names = [
+                                `1. الميزان الأكبر: قسمة الجمل (${v.jummalValue}) على المعامل (${divisor}) [${m1 ? 'متحقق بدون باقٍ ✅' : 'غير متحقق (يوجد باقٍ) ❌'}]`,
+                                `2. الميزان الهيكلي: (الجمل + رقم الآية = ${v.jummalValue + verseNumVal}) ÷ المعامل (${divisor}) [${m2 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                `3. ميزان الكثافة: (الكلمات + الحروف = ${v.wordCount + v.letterCount}) ÷ المعامل (${divisor}) [${m3 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                `4. الميزان التراكمي الشامل ÷ المعامل (${divisor}) [${m4 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                `5. ميزان الاختزال الذاتي: أس الآية (${reduceDigitalRoot(v.jummalValue)}) = أس المعامل (${reduceDigitalRoot(divisor)}) [${m5 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                `6. ميزان رقم الآية السنني: الآية (${verseNumVal}) ÷ (${divisor}) [${m6 ? 'متحقق ✅' : 'غير متحقق ❌'}]`
+                              ];
+                              return (
+                                <span 
+                                  key={i} 
+                                  title={names[i]}
+                                  className={`w-4 h-4 flex items-center justify-center rounded-none text-[8px] font-black text-white ${
+                                    c ? (i === 0 ? 'bg-emerald-600 font-black ring-1 ring-emerald-400' : 'bg-emerald-700') : 'bg-slate-300 text-slate-500'
+                                  }`}
+                                >
+                                  {i + 1}
+                                </span>
+                              );
+                            })}
+                          </div>
 
                             {/* Tawheed Indicators */}
                             {comp.isTawheedCompatibleJoint && (
@@ -2538,7 +2572,6 @@ export default function QuranOutput({
                               </span>
                             )}
                           </div>
-                        )}
                       </td>
                       
                       {/* COLUMN CELL: البصمة الأحادية والتحقق المدمج */}
