@@ -76,10 +76,29 @@ export default function QuranOutput({
 
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [selectedShuraTab, setSelectedShuraTab] = useState<'hameem' | 'asaq'>('hameem');
-  const [mizanFilter, setMizanFilter] = useState<'all' | 'verified_exact' | 'golden' | 'exact' | 'structural' | 'not_compatible' | 'tawheed' | 'triple_match'>('all');
+  const [mizanFilter, setMizanFilter] = useState<'all' | 'verified_exact' | 'golden' | 'exact' | 'structural' | 'not_compatible' | 'tawheed' | 'triple_match'>(() => {
+    return safeStorage.getJSON('bonyan_output_mizan_filter', 'all');
+  });
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterState>(initialFilterState);
-  const [sortField, setSortField] = useState<'id' | 'jummal' | 'letters' | 'words'>('id');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortField, setSortField] = useState<'id' | 'jummal' | 'letters' | 'words'>(() => {
+    return safeStorage.getJSON('bonyan_output_sort_field', 'id');
+  });
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
+    return safeStorage.getJSON('bonyan_output_sort_order', 'asc');
+  });
+
+  useEffect(() => {
+    try {
+      safeStorage.setJSON('bonyan_output_mizan_filter', mizanFilter);
+    } catch {}
+  }, [mizanFilter]);
+
+  useEffect(() => {
+    try {
+      safeStorage.setJSON('bonyan_output_sort_field', sortField);
+      safeStorage.setJSON('bonyan_output_sort_order', sortOrder);
+    } catch {}
+  }, [sortField, sortOrder]);
   const [isCopied, setIsCopied] = useState(false);
   const [isTableCopied, setIsTableCopied] = useState(false);
   const [copiedVerseId, setCopiedVerseId] = useState<number | null>(null);
