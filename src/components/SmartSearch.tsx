@@ -587,7 +587,7 @@ export default function SmartSearch({ verses, activeSurah }: SmartSearchProps) {
       ];
     });
 
-    const excelBlob = generateTableExcelBlob({
+    const excelBlob = await generateTableExcelBlob({
       sheetTitle: 'نتائج البحث',
       headers,
       rows,

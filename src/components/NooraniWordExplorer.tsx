@@ -419,7 +419,7 @@ export default function NooraniWordExplorer({
   };
 
   // Export to Excel (.xlsx) with table columns
-  const handleExportCsv = () => {
+  const handleExportCsv = async () => {
     if (filteredWords.length === 0) return;
     const headers = ['م', 'السورة', 'رقم الآية', 'الكلمة القرآنية', 'الحروف النورانية', 'حساب جمل الكلمة', 'جمل الحروف', 'ناتج القسمة', 'المعامل', 'حالة التوافق', 'نص الآية الكريمة'];
     const colWidths = [6, 16, 12, 18, 18, 16, 16, 16, 12, 16, 50];
@@ -437,7 +437,7 @@ export default function NooraniWordExplorer({
       w.verseText
     ]);
 
-    const excelBlob = generateTableExcelBlob({
+    const excelBlob = await generateTableExcelBlob({
       sheetTitle: 'كلمات نورانية',
       headers,
       rows,

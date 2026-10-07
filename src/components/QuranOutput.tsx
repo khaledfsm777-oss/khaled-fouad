@@ -1158,7 +1158,7 @@ export default function QuranOutput({
       'التوافقات الستة المحققة'
     ];
 
-    const colWidths = [6, 12, 55, 14, 18, 16, 25, 24, 14, 28, 20, 14, 14, 14, 14, 14, 18, 14, 35];
+    const colWidths = [8, 8, 62, 12, 14, 13, 16, 16, 12, 20, 15, 12, 11, 12, 11, 12, 14, 12, 50];
 
     const rows = tableRows.map((rowItem, idx) => {
       const v = rowItem.v;
@@ -1204,7 +1204,7 @@ export default function QuranOutput({
       ];
     });
 
-    const excelBlob = generateTableExcelBlob({
+    const excelBlob = await generateTableExcelBlob({
       sheetTitle: `سورة ${cleanSurahName}`,
       headers,
       rows,

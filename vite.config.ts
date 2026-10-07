@@ -20,16 +20,13 @@ export default defineConfig(() => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
-              if (id.includes('react') || id.includes('react-dom')) {
+              if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
                 return 'vendor-react';
               }
-              if (id.includes('lucide-react')) {
-                return 'vendor-icons';
+              if (id.includes('/exceljs/') || id.includes('/docx/')) {
+                return 'vendor-export';
               }
-              if (id.includes('motion')) {
-                return 'vendor-motion';
-              }
-              return 'vendor-libs';
+              return 'vendor';
             }
             if (id.includes('quranData')) {
               return 'quran-data';
