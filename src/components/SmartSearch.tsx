@@ -565,7 +565,7 @@ export default function SmartSearch({ verses, activeSurah }: SmartSearchProps) {
       'حالة التحقق والتوافق'
     ];
 
-    const colWidths = [6, 12, 18, 55, 14, 16, 16, 14, 14, 14, 25];
+    const colWidths = [6, 10, 18, 68, 14, 16, 16, 14, 12, 12, 22];
 
     const rows = sortedAndFilteredVerses.map((v, idx) => {
       const compLabel = v.compatibility ? v.compatibility.statusLabel : 'N/A';

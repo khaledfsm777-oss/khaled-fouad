@@ -1023,12 +1023,6 @@ export default function QuranOutput({
         if (comp.score < 5 && !comp.isDirectMatch) return false;
       }
 
-      // 18. Unregistered Candidates Filter (توافقات غير مسجلة مسبقاً)
-      if (advancedFilters.unregisteredOnly) {
-        const intEval = IntegratedCompatibilityManager.evaluate(v, comp, dummySurah);
-        if (!intEval.hasUnregistered) return false;
-      }
-
       // 19. With Researcher Notes Filter (آيات تحوي ملاحظات الباحث)
       if (advancedFilters.withNotesOnly) {
         const vKey = `${surahId}:${v.verseNumber || v.id}`;
@@ -1158,7 +1152,7 @@ export default function QuranOutput({
       'التوافقات الستة المحققة'
     ];
 
-    const colWidths = [8, 8, 62, 12, 14, 13, 16, 16, 12, 20, 15, 12, 11, 12, 11, 12, 14, 12, 50];
+    const colWidths = [6, 10, 68, 12, 14, 13, 16, 16, 12, 18, 14, 11, 11, 11, 11, 11, 14, 11, 46];
 
     const rows = tableRows.map((rowItem, idx) => {
       const v = rowItem.v;
@@ -2723,37 +2717,6 @@ export default function QuranOutput({
                               <span className="px-1.5 py-0.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black text-[8px] rounded-sm shadow-xs border border-amber-600 block mt-1 whitespace-nowrap">
                                 🏆 توافق تام ({comp.score}/6)
                               </span>
-                            )}
-
-                            {/* Unregistered Candidate Alert Icon with Interactive Tooltip */}
-                            {intEval.hasUnregistered && (
-                              <div className="relative group inline-block mt-1">
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 border border-amber-400 text-[8px] font-black rounded-sm cursor-help shadow-xs transition-colors">
-                                  <AlertTriangle className="w-3 h-3 text-amber-600 animate-bounce" />
-                                  <span>غير مسجل ({intEval.unregisteredMatches.length})</span>
-                                </span>
-
-                                {/* Interactive Tooltip upon hover */}
-                                <div className="hidden group-hover:block absolute bottom-full mb-2 right-1/2 translate-x-1/2 w-80 p-3 bg-slate-950 text-white rounded-md shadow-2xl border-2 border-amber-500 z-50 text-right">
-                                  <div className="flex items-center gap-1.5 text-amber-400 font-black text-[11px] mb-1.5 pb-1 border-b border-slate-800">
-                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                                    <span>توافق غير مسجل بقاعدة البيانات (مرشح استقصائي)</span>
-                                  </div>
-                                  <p className="text-[10px] text-slate-300 mb-2 leading-relaxed">
-                                    تحقق الآية ظاهرة توافقية عددية خاصة مع معاملات السورة أو الثوابت لم تسجل سابقاً ضمن الأنماط الجاهزة.
-                                  </p>
-                                  <div className="text-[9px] text-amber-300 font-bold mb-1">📋 خطوات منهجية البنيان المقترحة للتعامل:</div>
-                                  <ol className="text-[9px] text-slate-200 space-y-1 list-decimal list-inside pr-1 font-sans">
-                                    <li>التحقق من صحة الرسم العثماني للآية وألفاظها وإحصاء حروفها وكلماتها.</li>
-                                    <li>مقارنة الناتج مع أس المعامل النوراني وترتيب نزول السورة وترتيبها بالمصحف.</li>
-                                    <li>فحص الارتباط مع الثوابت القرآنية (114 سور، 99 أسماء، 63 عمر شريف، 28 حروف، 23 تنزيل).</li>
-                                    <li>تدوين ملاحظة استقصائية عبر زر الملاحظات (📝) لتوثيق الكشف في سجل الباحث.</li>
-                                  </ol>
-                                  <div className="mt-2 pt-1.5 border-t border-slate-800 text-[8px] text-amber-400/90 font-mono">
-                                    💡 تفاصيل المرشحات: {intEval.unregisteredMatches.map(u => u.name).join(' • ')}
-                                  </div>
-                                </div>
-                              </div>
                             )}
                           </div>
                         );

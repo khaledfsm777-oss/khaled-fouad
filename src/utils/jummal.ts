@@ -1009,7 +1009,21 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const isTanzeel23LetterMatch = (letterCount === 23);
   const isTanzeel23Match = isTanzeel23DensityMatch || isTanzeel23EquationMatch || isTanzeel23WordMatch || isTanzeel23LetterMatch;
 
-  const isSpecialConstantsMatch = isQuran114Match || isAsma99Match || isAge63Match || isAlphabet28Match || isTanzeel23Match;
+  // F) 29 (عدد السور النورانية ذات الفواتح بالقرآن الكريم)
+  const isNoorani29DensityMatch = (densityVal === 29);
+  const isNoorani29EquationMatch = (newColumnProduct === 29);
+  const isNoorani29WordMatch = (wordCount === 29);
+  const isNoorani29LetterMatch = (letterCount === 29);
+  const isNoorani29Match = isNoorani29DensityMatch || isNoorani29EquationMatch || isNoorani29WordMatch || isNoorani29LetterMatch;
+
+  // G) 14 (عدد الحروف النورانية المقطعة / نصف حروف الهجاء)
+  const isNoorani14DensityMatch = (densityVal === 14);
+  const isNoorani14EquationMatch = (newColumnProduct === 14);
+  const isNoorani14WordMatch = (wordCount === 14);
+  const isNoorani14LetterMatch = (letterCount === 14);
+  const isNoorani14Match = isNoorani14DensityMatch || isNoorani14EquationMatch || isNoorani14WordMatch || isNoorani14LetterMatch;
+
+  const isSpecialConstantsMatch = isQuran114Match || isAsma99Match || isAge63Match || isAlphabet28Match || isTanzeel23Match || isNoorani29Match || isNoorani14Match;
 
   // 3. SURAH NUMBER (رقم السورة بالقيم الأصلية غير المختزلة):
   const surahIdRaw = surahId;
@@ -1031,6 +1045,8 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const isOriginalMatch = finalSingleDigit === verseDigitalRoot;
   const densityReduction = reduceDigitalRoot(densityVal);
   const isDensityMatch = finalSingleDigit === densityReduction;
+  const isSelfReductionMatch = verseDigitalRoot === reducedFactor;
+  const isDensityCoeffMatch = densityReduction === reducedFactor;
 
   let compactStatus = 'غير محققة';
   let isCompactBasic = false;
@@ -1045,6 +1061,12 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   }
   if (isDensityMatch) {
     compactReasons.push(`اختزال كثيفي (${densityReduction})`);
+  }
+  if (isSelfReductionMatch) {
+    compactReasons.push(`توافق اختزال الجمل مع المعامل (${reducedFactor})`);
+  }
+  if (isDensityCoeffMatch) {
+    compactReasons.push(`توافق اختزال الكثافة مع المعامل (${reducedFactor})`);
   }
   if (isDigitalMirror) {
     compactReasons.push('مرآة رقمية');
@@ -1116,6 +1138,28 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     compactReasons.push(`بصمة سنوات التنزيل حروف (23)`);
   }
 
+  // 29 (Noorani Surahs):
+  if (isNoorani29DensityMatch) {
+    compactReasons.push(`بصمة السور النورانية كثافة (29)`);
+  } else if (isNoorani29EquationMatch) {
+    compactReasons.push(`بصمة السور النورانية معادلة (29)`);
+  } else if (isNoorani29WordMatch) {
+    compactReasons.push(`بصمة السور النورانية كلمات (29)`);
+  } else if (isNoorani29LetterMatch) {
+    compactReasons.push(`بصمة السور النورانية حروف (29)`);
+  }
+
+  // 14 (Noorani Letters):
+  if (isNoorani14DensityMatch) {
+    compactReasons.push(`بصمة الحروف النورانية كثافة (14)`);
+  } else if (isNoorani14EquationMatch) {
+    compactReasons.push(`بصمة الحروف النورانية معادلة (14)`);
+  } else if (isNoorani14WordMatch) {
+    compactReasons.push(`بصمة الحروف النورانية كلمات (14)`);
+  } else if (isNoorani14LetterMatch) {
+    compactReasons.push(`بصمة الحروف النورانية حروف (14)`);
+  }
+
   // Surah Match:
   if (isSurahDensityMatch) {
     compactReasons.push(`رقم السورة كثافة (${surahIdRaw})`);
@@ -1144,12 +1188,12 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   if (finalSingleDigit === 9 || isOriginalMatch || isDigitalMirror || isNooraniRankMatch || isVerseFingerprint || isSpecialConstantsMatch || isSurahIdMatch) {
     compactStatus = '[✨ توافق مدمج محقق]';
     isCompactBasic = true;
-  } else if (isDensityMatch) {
+  } else if (isDensityMatch || isSelfReductionMatch || isDensityCoeffMatch) {
     compactStatus = '[✨ توافق مدمج]';
     isCompactDense = true;
   }
 
-  const isIntegratedTawheed = isCompactBasic || isCompactDense || isDominantNine || isDigitalMirror || isVerseFingerprint || isSpecialConstantsMatch || isNooraniRankMatch || isSurahIdMatch;
+  const isIntegratedTawheed = isCompactBasic || isCompactDense || isDominantNine || isDigitalMirror || isVerseFingerprint || isSpecialConstantsMatch || isNooraniRankMatch || isSurahIdMatch || isSelfReductionMatch || isDensityCoeffMatch;
 
   const originalFactorValue = isNoorani ? (N || surahId) : surahId;
   const isDirectMatch = jummal === originalFactorValue;
@@ -1298,6 +1342,16 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     isTanzeel23EquationMatch,
     isTanzeel23WordMatch,
     isTanzeel23LetterMatch,
+    isNoorani29Match,
+    isNoorani29DensityMatch,
+    isNoorani29EquationMatch,
+    isNoorani29WordMatch,
+    isNoorani29LetterMatch,
+    isNoorani14Match,
+    isNoorani14DensityMatch,
+    isNoorani14EquationMatch,
+    isNoorani14WordMatch,
+    isNoorani14LetterMatch,
     isSpecialConstantsMatch,
     isOriginalMatch,
     isDensityMatch,
@@ -1315,6 +1369,8 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     isNooraniRankLetterMatch,
     isCompactBasic,
     isCompactDense,
+    isSelfReductionMatch,
+    isDensityCoeffMatch,
     compactStatus,
     compactReasons,
     isIntegratedTawheed,
@@ -1651,6 +1707,30 @@ export class IntegratedCompatibilityManager {
       });
     }
 
+    if (comp.isNoorani29Match) {
+      registered.push({
+        id: 'noorani_29',
+        name: 'بصمة السور النورانية الـ 29 (29)',
+        category: 'registered',
+        type: 'constant',
+        matchedValue: 29,
+        description: 'توافق مباشر مع الثابت النوراني الجامع لسور الفواتح (29 سورة نورانية).',
+        status: 'achieved'
+      });
+    }
+
+    if (comp.isNoorani14Match) {
+      registered.push({
+        id: 'noorani_14',
+        name: 'بصمة الحروف النورانية المقطعة (14)',
+        category: 'registered',
+        type: 'constant',
+        matchedValue: 14,
+        description: 'توافق مباشر مع عدد الحروف النورانية الفريدة (نص حكيم قاطع له سر = 14 حرفاً).',
+        status: 'achieved'
+      });
+    }
+
     if (comp.isVerseFingerprint) {
       registered.push({
         id: 'verse_num',
@@ -1711,6 +1791,30 @@ export class IntegratedCompatibilityManager {
       });
     }
 
+    if (comp.isSelfReductionMatch) {
+      registered.push({
+        id: 'self_reduction_coeff',
+        name: `توافق اختزال الجُمّل مع المعامل (${comp.reducedFactor})`,
+        category: 'registered',
+        type: 'digital_root',
+        matchedValue: comp.reducedFactor,
+        description: `تطابق اختزال الجُمّل الأبجدي للآية الكريمة (أس الآية) مع المعامل المختزل للسورة (${comp.reducedFactor}).`,
+        status: 'achieved'
+      });
+    }
+
+    if (comp.isDensityCoeffMatch) {
+      registered.push({
+        id: 'density_reduction_coeff',
+        name: `توافق اختزال الكثافة مع المعامل (${comp.reducedFactor})`,
+        category: 'registered',
+        type: 'digital_root',
+        matchedValue: comp.reducedFactor,
+        description: `تطابق اختزال مجموع الكلمات والحروف (الكثافة اللفظية والحرفية) مع المعامل المختزل للسورة (${comp.reducedFactor}).`,
+        status: 'achieved'
+      });
+    }
+
     if (comp.isTawheedCompatible) {
       registered.push({
         id: 'tawheed_compat',
@@ -1753,42 +1857,13 @@ export class IntegratedCompatibilityManager {
       });
     }
 
-    // 2. Unregistered Candidates (توافقات غير مسجلة مسبقاً)
-    // Only flag if NO registered matches exist AND the verse is not already a high match
-    const isUnregisteredCandidate = Boolean(
-      registered.length === 0 &&
-      !isPerfectMatch &&
-      !tripleRes.isTripleMatch &&
-      ((!comp.isGreenExact && comp.score === 0 && (
-        (comp.cumulativeVal && comp.cumulativeVal % 7 === 0) ||
-        (comp.structuralVal && comp.structuralVal % 19 === 0) ||
-        comp.densityVal === 19 || comp.densityVal === 7 || comp.densityVal === 40
-      )) ||
-      (comp.finalSingleDigit !== 9 && !comp.isDigitalMirror && !comp.isOriginalMatch && (
-        (comp.newColumnProduct && comp.newColumnProduct % 10 === 0) ||
-        comp.newColumnProduct === 77 || comp.newColumnProduct === 313
-      )))
-    );
-
-    if (isUnregisteredCandidate) {
-      unregistered.push({
-        id: 'unregistered_symmetry',
-        name: 'توافق بنياني غير مسجل مسبقاً (قيد التحقيق والتوثيق)',
-        category: 'unregistered',
-        type: 'unregistered_pattern',
-        matchedValue: comp.newColumnProduct || comp.densityVal || 'نمط استثنائي',
-        description: 'رصد تناسق عددي أو توازن كثيفي متميز خارج الفئات المسجلة مسبقاً في المنظومة.',
-        status: 'investigating',
-        actionRecommendation: 'الخطوات المقترحة للتعامل وفق منهجية البنيان: 1) التحقق من صحة الرسم العثماني للآية وألفاظها 2) موازنة الحروف مع مفتاح السورة النزولي وترتيبها 3) فحص المضاعفات والكسور مع الثوابت القرآنية (114، 99، 63، 28، 23) 4) حفظ الملاحظة وتوثيقها في سجل الباحث.'
-      });
-    }
-
+    // Unregistered candidates eliminated per researcher directive - only verified registered matches are retained
     return {
-      allMatches: [...registered, ...unregistered],
+      allMatches: registered,
       registeredMatches: registered,
-      unregisteredMatches: unregistered,
+      unregisteredMatches: [],
       hasRegistered: registered.length > 0,
-      hasUnregistered: unregistered.length > 0,
+      hasUnregistered: false,
       isPerfectMatch
     };
   }

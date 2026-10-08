@@ -23,11 +23,12 @@ export interface AdvancedFilterState {
   asma99Only: boolean;
   age63Only: boolean;
   alphabet28Only: boolean; // 28 - حروف الهجاء والثوابت
-  tanzeel23Only: boolean;
+  tanzeel23Only: boolean;  // 23 - سنوات التنزيل
+  noorani29Only: boolean;  // 29 - السور النورانية
+  noorani14Only: boolean;  // 14 - الحروف النورانية المقطعة
   surahMatchOnly: boolean;
   nooraniRankOnly: boolean;
   perfectMatchOnly?: boolean; // التوافق التام 5/6 إلى 6/6
-  unregisteredOnly?: boolean; // توافقات غير مسجلة مسبقاً
   withNotesOnly?: boolean;    // آيات مدوّن بها ملاحظات الباحث
 }
 
@@ -50,10 +51,11 @@ export const initialFilterState: AdvancedFilterState = {
   age63Only: false,
   alphabet28Only: false,
   tanzeel23Only: false,
+  noorani29Only: false,
+  noorani14Only: false,
   surahMatchOnly: false,
   nooraniRankOnly: false,
   perfectMatchOnly: false,
-  unregisteredOnly: false,
   withNotesOnly: false
 };
 
@@ -72,10 +74,11 @@ export interface FilterCounts {
   age_63: number;
   alphabet_28: number;
   tanzeel_23: number;
+  noorani_29?: number;
+  noorani_14?: number;
   surah_match: number;
   noorani_rank: number;
   perfect_matches?: number;
-  unregistered_matches?: number;
   researcher_notes?: number;
 }
 
@@ -439,26 +442,6 @@ export default function AdvancedFilterBar({
               <span>التوافقات المدمجة ✨</span>
             </button>
 
-            {/* Unregistered Matches Button */}
-            <button
-              type="button"
-              onClick={() => onFilterChange({ ...filters, unregisteredOnly: !filters.unregisteredOnly })}
-              className={`px-3 py-1.5 text-xs font-black border transition-all cursor-pointer flex items-center gap-1.5 rounded-none ${
-                filters.unregisteredOnly
-                  ? 'bg-orange-600 text-white border-orange-800 shadow-md ring-2 ring-orange-300'
-                  : 'bg-orange-50 text-orange-950 border-orange-300 hover:bg-orange-100'
-              }`}
-              title="عرض التوافقات غير المسجلة مسبقاً (قيد التحقيق والتوثيق المنهجي)"
-            >
-              <span className="text-xs">⚠️</span>
-              <span>غير مسجلة مسبقاً</span>
-              {filterCounts?.unregistered_matches !== undefined && (
-                <span className="text-[10px] px-1 bg-orange-900 text-white rounded-xs">
-                  {filterCounts.unregistered_matches}
-                </span>
-              )}
-            </button>
-
             {/* Researcher Notes Button */}
             <button
               type="button"
@@ -577,7 +560,7 @@ export default function AdvancedFilterBar({
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 pt-1 text-right">
+        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 pt-1 text-right">
           {/* 1. Verse Fingerprint */}
           <button
             type="button"
@@ -634,7 +617,7 @@ export default function AdvancedFilterBar({
             <div className="text-[9px] opacity-80 mt-0.5">العمر الشريف ({filterCounts?.age_63 || 0})</div>
           </button>
 
-          {/* 5. Alphabet 28 (NEW!) */}
+          {/* 5. Alphabet 28 */}
           <button
             type="button"
             onClick={() => onFilterChange({ ...filters, alphabet28Only: !filters.alphabet28Only })}
@@ -662,7 +645,35 @@ export default function AdvancedFilterBar({
             <div className="text-[9px] opacity-80 mt-0.5">سنوات البعثة ({filterCounts?.tanzeel_23 || 0})</div>
           </button>
 
-          {/* 7. Surah Match */}
+          {/* 7. Noorani 29 Surahs */}
+          <button
+            type="button"
+            onClick={() => onFilterChange({ ...filters, noorani29Only: !filters.noorani29Only })}
+            className={`p-2 rounded-none border text-right transition-all cursor-pointer ${
+              filters.noorani29Only
+                ? 'bg-yellow-700 text-white border-yellow-900 shadow-sm font-black ring-2 ring-yellow-300'
+                : 'bg-white text-yellow-950 border-slate-300 hover:bg-yellow-50'
+            }`}
+          >
+            <div className="text-xs font-black flex items-center gap-1">✨ السور (29)</div>
+            <div className="text-[9px] opacity-80 mt-0.5">السور النورانية ({filterCounts?.noorani_29 || 0})</div>
+          </button>
+
+          {/* 8. Noorani 14 Letters */}
+          <button
+            type="button"
+            onClick={() => onFilterChange({ ...filters, noorani14Only: !filters.noorani14Only })}
+            className={`p-2 rounded-none border text-right transition-all cursor-pointer ${
+              filters.noorani14Only
+                ? 'bg-amber-800 text-white border-amber-950 shadow-sm font-black ring-2 ring-amber-300'
+                : 'bg-white text-amber-950 border-slate-300 hover:bg-amber-50'
+            }`}
+          >
+            <div className="text-xs font-black flex items-center gap-1">⚡ الحروف (14)</div>
+            <div className="text-[9px] opacity-80 mt-0.5">حروف الفواتح ({filterCounts?.noorani_14 || 0})</div>
+          </button>
+
+          {/* 9. Surah Match */}
           <button
             type="button"
             onClick={() => onFilterChange({ ...filters, surahMatchOnly: !filters.surahMatchOnly })}
@@ -676,7 +687,7 @@ export default function AdvancedFilterBar({
             <div className="text-[9px] opacity-80 mt-0.5">رقم السورة ({filterCounts?.surah_match || 0})</div>
           </button>
 
-          {/* 8. Noorani Rank */}
+          {/* 10. Noorani Rank */}
           <button
             type="button"
             onClick={() => onFilterChange({ ...filters, nooraniRankOnly: !filters.nooraniRankOnly })}
