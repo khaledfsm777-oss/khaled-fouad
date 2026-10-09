@@ -1009,21 +1009,23 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const isTanzeel23LetterMatch = (letterCount === 23);
   const isTanzeel23Match = isTanzeel23DensityMatch || isTanzeel23EquationMatch || isTanzeel23WordMatch || isTanzeel23LetterMatch;
 
-  // F) 29 (عدد السور النورانية ذات الفواتح بالقرآن الكريم)
-  const isNoorani29DensityMatch = (densityVal === 29);
-  const isNoorani29EquationMatch = (newColumnProduct === 29);
-  const isNoorani29WordMatch = (wordCount === 29);
-  const isNoorani29LetterMatch = (letterCount === 29);
-  const isNoorani29Match = isNoorani29DensityMatch || isNoorani29EquationMatch || isNoorani29WordMatch || isNoorani29LetterMatch;
+  // F) 29 (عدد السور النورانية المباركة في القرآن الكريم)
+  const isNooraniSurahs29DensityMatch = (densityVal === 29);
+  const isNooraniSurahs29EquationMatch = (newColumnProduct === 29);
+  const isNooraniSurahs29WordMatch = (wordCount === 29);
+  const isNooraniSurahs29LetterMatch = (letterCount === 29);
+  const isNooraniSurahs29Match = isNooraniSurahs29DensityMatch || isNooraniSurahs29EquationMatch || isNooraniSurahs29WordMatch || isNooraniSurahs29LetterMatch;
 
-  // G) 14 (عدد الحروف النورانية المقطعة / نصف حروف الهجاء)
-  const isNoorani14DensityMatch = (densityVal === 14);
-  const isNoorani14EquationMatch = (newColumnProduct === 14);
-  const isNoorani14WordMatch = (wordCount === 14);
-  const isNoorani14LetterMatch = (letterCount === 14);
-  const isNoorani14Match = isNoorani14DensityMatch || isNoorani14EquationMatch || isNoorani14WordMatch || isNoorani14LetterMatch;
+  // G) 14 (عدد الحروف النورانية المقطعة الفريدة)
+  const isNooraniLetters14DensityMatch = (densityVal === 14);
+  const isNooraniLetters14EquationMatch = (newColumnProduct === 14);
+  const isNooraniLetters14WordMatch = (wordCount === 14);
+  const isNooraniLetters14LetterMatch = (letterCount === 14);
+  const isNooraniLetters14Match = isNooraniLetters14DensityMatch || isNooraniLetters14EquationMatch || isNooraniLetters14WordMatch || isNooraniLetters14LetterMatch;
 
-  const isSpecialConstantsMatch = isQuran114Match || isAsma99Match || isAge63Match || isAlphabet28Match || isTanzeel23Match || isNoorani29Match || isNoorani14Match;
+  // STRICT RULE: Only Noorani constants (29 and 14) are authorized to grant integrated compatibility
+  const isNooraniConstantsMatch = isNooraniSurahs29Match || isNooraniLetters14Match;
+  const isSpecialConstantsMatch = isNooraniConstantsMatch;
 
   // 3. SURAH NUMBER (رقم السورة بالقيم الأصلية غير المختزلة):
   const surahIdRaw = surahId;
@@ -1083,80 +1085,25 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     compactReasons.push(`بصمة آية حروف (${verseNumRaw})`);
   }
 
-  // 114 (Quran):
-  if (isQuran114DensityMatch) {
-    compactReasons.push(`بصمة قرآنية كثافة (114)`);
-  } else if (isQuran114EquationMatch) {
-    compactReasons.push(`بصمة قرآنية معادلة (114)`);
-  } else if (isQuran114WordMatch) {
-    compactReasons.push(`بصمة قرآنية كلمات (114)`);
-  } else if (isQuran114LetterMatch) {
-    compactReasons.push(`بصمة قرآنية حروف (114)`);
-  }
-
-  // 99 (Asma Allah):
-  if (isAsma99DensityMatch) {
-    compactReasons.push(`بصمة الأسماء الحسنى كثافة (99)`);
-  } else if (isAsma99EquationMatch) {
-    compactReasons.push(`بصمة الأسماء الحسنى معادلة (99)`);
-  } else if (isAsma99WordMatch) {
-    compactReasons.push(`بصمة الأسماء الحسنى كلمات (99)`);
-  } else if (isAsma99LetterMatch) {
-    compactReasons.push(`بصمة الأسماء الحسنى حروف (99)`);
-  }
-
-  // 63 (Age of Prophet):
-  if (isAge63DensityMatch) {
-    compactReasons.push(`بصمة العمر الشريف كثافة (63)`);
-  } else if (isAge63EquationMatch) {
-    compactReasons.push(`بصمة العمر الشريف معادلة (63)`);
-  } else if (isAge63WordMatch) {
-    compactReasons.push(`بصمة العمر الشريف كلمات (63)`);
-  } else if (isAge63LetterMatch) {
-    compactReasons.push(`بصمة العمر الشريف حروف (63)`);
-  }
-
-  // 28 (Alphabet / Letters):
-  if (isAlphabet28DensityMatch) {
-    compactReasons.push(`بصمة حروف الهجاء كثافة (28)`);
-  } else if (isAlphabet28EquationMatch) {
-    compactReasons.push(`بصمة حروف الهجاء معادلة (28)`);
-  } else if (isAlphabet28WordMatch) {
-    compactReasons.push(`بصمة حروف الهجاء كلمات (28)`);
-  } else if (isAlphabet28LetterMatch) {
-    compactReasons.push(`بصمة حروف الهجاء حروف (28)`);
-  }
-
-  // 23 (Years of Revelation):
-  if (isTanzeel23DensityMatch) {
-    compactReasons.push(`بصمة سنوات التنزيل كثافة (23)`);
-  } else if (isTanzeel23EquationMatch) {
-    compactReasons.push(`بصمة سنوات التنزيل معادلة (23)`);
-  } else if (isTanzeel23WordMatch) {
-    compactReasons.push(`بصمة سنوات التنزيل كلمات (23)`);
-  } else if (isTanzeel23LetterMatch) {
-    compactReasons.push(`بصمة سنوات التنزيل حروف (23)`);
-  }
-
-  // 29 (Noorani Surahs):
-  if (isNoorani29DensityMatch) {
+  // 29 (Noorani Surahs - الثابت النوراني المعتمد للتوافق المدمج):
+  if (isNooraniSurahs29DensityMatch) {
     compactReasons.push(`بصمة السور النورانية كثافة (29)`);
-  } else if (isNoorani29EquationMatch) {
+  } else if (isNooraniSurahs29EquationMatch) {
     compactReasons.push(`بصمة السور النورانية معادلة (29)`);
-  } else if (isNoorani29WordMatch) {
+  } else if (isNooraniSurahs29WordMatch) {
     compactReasons.push(`بصمة السور النورانية كلمات (29)`);
-  } else if (isNoorani29LetterMatch) {
+  } else if (isNooraniSurahs29LetterMatch) {
     compactReasons.push(`بصمة السور النورانية حروف (29)`);
   }
 
-  // 14 (Noorani Letters):
-  if (isNoorani14DensityMatch) {
+  // 14 (Noorani Letters - الثابت النوراني المعتمد للتوافق المدمج):
+  if (isNooraniLetters14DensityMatch) {
     compactReasons.push(`بصمة الحروف النورانية كثافة (14)`);
-  } else if (isNoorani14EquationMatch) {
+  } else if (isNooraniLetters14EquationMatch) {
     compactReasons.push(`بصمة الحروف النورانية معادلة (14)`);
-  } else if (isNoorani14WordMatch) {
+  } else if (isNooraniLetters14WordMatch) {
     compactReasons.push(`بصمة الحروف النورانية كلمات (14)`);
-  } else if (isNoorani14LetterMatch) {
+  } else if (isNooraniLetters14LetterMatch) {
     compactReasons.push(`بصمة الحروف النورانية حروف (14)`);
   }
 
@@ -1171,21 +1118,9 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     compactReasons.push(`رقم السورة حروف (${surahIdRaw})`);
   }
 
-  // Noorani Rank:
-  if (isNooraniRankMatch && nooraniRank) {
-    if (isNooraniRankDensityMatch) {
-      compactReasons.push(`ترتيب نوراني كثافة (${nooraniRank})`);
-    } else if (isNooraniRankEquationMatch) {
-      compactReasons.push(`ترتيب نوراني معادلة (${nooraniRank})`);
-    } else if (isNooraniRankWordMatch) {
-      compactReasons.push(`ترتيب نوراني كلمات (${nooraniRank})`);
-    } else if (isNooraniRankLetterMatch) {
-      compactReasons.push(`ترتيب نوراني حروف (${nooraniRank})`);
-    }
-  }
-
   // Two-stage Tawheed / Integrated match condition
-  if (finalSingleDigit === 9 || isOriginalMatch || isDigitalMirror || isNooraniRankMatch || isVerseFingerprint || isSpecialConstantsMatch || isSurahIdMatch) {
+  // STRICT RULE: Only genuine Noorani properties (root 9, original match, digital mirror, verse fingerprint, Noorani constants 14 & 29, or Surah ID) are authorized
+  if (finalSingleDigit === 9 || isOriginalMatch || isDigitalMirror || isVerseFingerprint || isSpecialConstantsMatch || isSurahIdMatch) {
     compactStatus = '[✨ توافق مدمج محقق]';
     isCompactBasic = true;
   } else if (isDensityMatch || isSelfReductionMatch || isDensityCoeffMatch) {
@@ -1193,7 +1128,7 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     isCompactDense = true;
   }
 
-  const isIntegratedTawheed = isCompactBasic || isCompactDense || isDominantNine || isDigitalMirror || isVerseFingerprint || isSpecialConstantsMatch || isNooraniRankMatch || isSurahIdMatch || isSelfReductionMatch || isDensityCoeffMatch;
+  const isIntegratedTawheed = isCompactBasic || isCompactDense || isDominantNine || isDigitalMirror || isVerseFingerprint || isSpecialConstantsMatch || isSurahIdMatch || isSelfReductionMatch || isDensityCoeffMatch;
 
   const originalFactorValue = isNoorani ? (N || surahId) : surahId;
   const isDirectMatch = jummal === originalFactorValue;
@@ -1208,9 +1143,6 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     if (surahCoeff > 0 && val % surahCoeff === 0) return true;
     if (localR && val % localR === 0) return true;
     if (localN && val % localN === 0) return true;
-    if (localSurahId && val % localSurahId === 0) return true;
-    if (collectiveR && val % collectiveR === 0) return true;
-    if (collectiveN && val % collectiveN === 0) return true;
     return false;
   };
 
@@ -1231,17 +1163,14 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const cond5 =
     (R > 0 && verseDigitalRoot === R) ||
     (localR && verseDigitalRoot === localR) ||
-    (collectiveR && verseDigitalRoot === collectiveR) ||
     (activeDivisor > 0 && verseDigitalRoot === reduceDigitalRoot(activeDivisor)) ||
-    (localSurahId && verseDigitalRoot === reduceDigitalRoot(localSurahId)) ||
     verseDigitalRoot === 9;
   
   // Condition 6: Verse number balance (Verse number divisible by coefficient or shares same digital root)
   const cond6 =
     checkDivisor(verseNum) ||
     (R > 0 && reduceDigitalRoot(verseNum) === R) ||
-    (localR && reduceDigitalRoot(verseNum) === localR) ||
-    (collectiveR && reduceDigitalRoot(verseNum) === collectiveR);
+    (localR && reduceDigitalRoot(verseNum) === localR);
 
   const sixConditions = [
     { id: 1, name: 'الميزان الرقمي الأكبر (الجمل ÷ المعامل بدون باق)', achieved: Boolean(cond1) },
@@ -1342,16 +1271,16 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     isTanzeel23EquationMatch,
     isTanzeel23WordMatch,
     isTanzeel23LetterMatch,
-    isNoorani29Match,
-    isNoorani29DensityMatch,
-    isNoorani29EquationMatch,
-    isNoorani29WordMatch,
-    isNoorani29LetterMatch,
-    isNoorani14Match,
-    isNoorani14DensityMatch,
-    isNoorani14EquationMatch,
-    isNoorani14WordMatch,
-    isNoorani14LetterMatch,
+    isNooraniSurahs29Match,
+    isNooraniSurahs29DensityMatch,
+    isNooraniSurahs29EquationMatch,
+    isNooraniSurahs29WordMatch,
+    isNooraniSurahs29LetterMatch,
+    isNooraniLetters14Match,
+    isNooraniLetters14DensityMatch,
+    isNooraniLetters14EquationMatch,
+    isNooraniLetters14WordMatch,
+    isNooraniLetters14LetterMatch,
     isSpecialConstantsMatch,
     isOriginalMatch,
     isDensityMatch,
@@ -1647,86 +1576,27 @@ export class IntegratedCompatibilityManager {
     const unregistered: IntegratedMatchItem[] = [];
 
     // 1. Registered Matches (التوافقات المسجلة)
-    if (comp.isQuran114Match) {
+    // STRICT RULE: Only Noorani constants (29 and 14) are authorized for Noorani integrated compatibility
+    if (comp.isNooraniSurahs29Match) {
       registered.push({
-        id: 'quran_114',
-        name: 'البصمة القرآنية (114)',
-        category: 'registered',
-        type: 'constant',
-        matchedValue: 114,
-        description: 'توافق مباشر مع عدد سور القرآن الكريم (114) سواء في الكثافة أو المعادلة أو الكلمات أو الحروف.',
-        status: 'achieved'
-      });
-    }
-
-    if (comp.isAsma99Match) {
-      registered.push({
-        id: 'asma_99',
-        name: 'بصمة أسماء الله الحسنى (99)',
-        category: 'registered',
-        type: 'constant',
-        matchedValue: 99,
-        description: 'توافق مباشر مع أسماء الله الحسنى التسعة والتسعين (99).',
-        status: 'achieved'
-      });
-    }
-
-    if (comp.isAge63Match) {
-      registered.push({
-        id: 'age_63',
-        name: 'بصمة العمر النبوي الشريف (63)',
-        category: 'registered',
-        type: 'constant',
-        matchedValue: 63,
-        description: 'توافق مع عمر المصطفى ﷺ عند انتقاله للرفيق الأعلى (63).',
-        status: 'achieved'
-      });
-    }
-
-    if (comp.isAlphabet28Match) {
-      registered.push({
-        id: 'alphabet_28',
-        name: 'بصمة حروف الهجاء العربية (28)',
-        category: 'registered',
-        type: 'constant',
-        matchedValue: 28,
-        description: 'توافق مع عدد حروف الهجاء العربية الكاملة وثوابت البنيان (28).',
-        status: 'achieved'
-      });
-    }
-
-    if (comp.isTanzeel23Match) {
-      registered.push({
-        id: 'tanzeel_23',
-        name: 'بصمة سنوات التنزيل والبعثة (23)',
-        category: 'registered',
-        type: 'constant',
-        matchedValue: 23,
-        description: 'توافق مع سنوات النبوة والتنزيل المبارك للقرآن الكريم (23 سنة).',
-        status: 'achieved'
-      });
-    }
-
-    if (comp.isNoorani29Match) {
-      registered.push({
-        id: 'noorani_29',
-        name: 'بصمة السور النورانية الـ 29 (29)',
+        id: 'noorani_surahs_29',
+        name: 'بصمة السور النورانية (29)',
         category: 'registered',
         type: 'constant',
         matchedValue: 29,
-        description: 'توافق مباشر مع الثابت النوراني الجامع لسور الفواتح (29 سورة نورانية).',
+        description: 'توافق نوراني مباشر مع عدد السور النورانية المباركة الـ 29 المفتتحة بالحروف المقطعة في المصحف الشريف.',
         status: 'achieved'
       });
     }
 
-    if (comp.isNoorani14Match) {
+    if (comp.isNooraniLetters14Match) {
       registered.push({
-        id: 'noorani_14',
-        name: 'بصمة الحروف النورانية المقطعة (14)',
+        id: 'noorani_letters_14',
+        name: 'بصمة الحروف النورانية (14)',
         category: 'registered',
         type: 'constant',
         matchedValue: 14,
-        description: 'توافق مباشر مع عدد الحروف النورانية الفريدة (نص حكيم قاطع له سر = 14 حرفاً).',
+        description: 'توافق نوراني مباشر مع عدد الحروف النورانية المقطعة الفريدة (14 حرفاً) أصول فواتح التنزيل.',
         status: 'achieved'
       });
     }
@@ -1857,7 +1727,6 @@ export class IntegratedCompatibilityManager {
       });
     }
 
-    // Unregistered candidates eliminated per researcher directive - only verified registered matches are retained
     return {
       allMatches: registered,
       registeredMatches: registered,

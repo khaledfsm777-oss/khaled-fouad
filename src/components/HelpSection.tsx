@@ -230,6 +230,14 @@ export default function HelpSection() {
                   تطابق فترات الوحي مع 23
                 </div>
                 <div className="bg-white p-2 border border-amber-200 rounded-lg text-emerald-950">
+                  <span className="block text-amber-700">السور النورانية (29)</span>
+                  تطابق المقادير أو الكثافة مع عدد السور النورانية (29)
+                </div>
+                <div className="bg-white p-2 border border-amber-200 rounded-lg text-emerald-950">
+                  <span className="block text-amber-700">الحروف النورانية (14)</span>
+                  تطابق المقادير أو الكثافة مع الحروف المقطعة الفريدة (14)
+                </div>
+                <div className="bg-white p-2 border border-amber-200 rounded-lg text-emerald-950">
                   <span className="block text-amber-700">رقم السورة النشطة</span>
                   تطابق مقادير الآية مع ترتيب السورة بالمصحف
                 </div>

@@ -601,6 +601,8 @@ export default function QuranOutput({
     let age_63 = 0;
     let alphabet_28 = 0;
     let tanzeel_23 = 0;
+    let noorani_surahs_29 = 0;
+    let noorani_letters_14 = 0;
     let surah_match = 0;
     let noorani_rank = 0;
     let perfect_matches = 0;
@@ -647,22 +649,19 @@ export default function QuranOutput({
       };
       const comp = getCompatibilityDetails(v, dummySurah);
       
-      // STRICT RULE: Green (Exact) compatibility requires ZERO remainder (v.jummalValue % divisor === 0) or (value % 6 === 0)
+      // STRICT RULE: Green (Exact) compatibility requires ZERO remainder (v.jummalValue % divisor === 0)
       const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
       const isCoeffExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
-      const isMod6Exact = v.jummalValue > 0 && v.jummalValue % 6 === 0;
-      const isGreen = isCoeffExact || isMod6Exact;
+      const isGreen = isCoeffExact;
       
       if (isCoeffExact) {
         verified_exact++;
+        exact++;
       }
       const isPerfectMatch = comp.score >= 5 || comp.isDirectMatch;
       if (isPerfectMatch) {
         golden++;
         perfect_matches++;
-      }
-      if (isGreen) {
-        exact++;
       }
       if (comp.score >= 1 && comp.score <= 2) {
         structural++;
@@ -690,6 +689,12 @@ export default function QuranOutput({
       }
       if (comp.isTanzeel23Match) {
         tanzeel_23++;
+      }
+      if (comp.isNooraniSurahs29Match) {
+        noorani_surahs_29++;
+      }
+      if (comp.isNooraniLetters14Match) {
+        noorani_letters_14++;
       }
       if (comp.isSurahIdMatch) {
         surah_match++;
@@ -727,6 +732,8 @@ export default function QuranOutput({
       age_63,
       alphabet_28,
       tanzeel_23,
+      noorani_surahs_29,
+      noorani_letters_14,
       surah_match,
       noorani_rank,
       perfect_matches,
@@ -950,9 +957,7 @@ export default function QuranOutput({
         } else if (activeColor === 'exact') {
           const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
           const isCoeffExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
-          const isMod6Exact = v.jummalValue > 0 && v.jummalValue % 6 === 0;
-          const isGreen = isCoeffExact || isMod6Exact;
-          if (!isGreen) return false;
+          if (!isCoeffExact) return false;
         } else if (activeColor === 'structural') {
           if (comp.score < 1 || comp.score > 2) return false;
         } else if (activeColor === 'not_compatible') {
@@ -1008,6 +1013,16 @@ export default function QuranOutput({
         if (!comp.isTanzeel23Match) return false;
       }
 
+      // 14b. Noorani Surahs 29 Filter (السور النورانية = 29)
+      if (advancedFilters.nooraniSurahs29Only) {
+        if (!comp.isNooraniSurahs29Match) return false;
+      }
+
+      // 14c. Noorani Letters 14 Filter (الحروف النورانية = 14)
+      if (advancedFilters.nooraniLetters14Only) {
+        if (!comp.isNooraniLetters14Match) return false;
+      }
+
       // 15. Surah Number Match Filter (رقم السورة)
       if (advancedFilters.surahMatchOnly) {
         if (!comp.isSurahIdMatch) return false;
@@ -1021,6 +1036,12 @@ export default function QuranOutput({
       // 17. Perfect Match Filter (التوافق التام 5/6 إلى 6/6)
       if (advancedFilters.perfectMatchOnly) {
         if (comp.score < 5 && !comp.isDirectMatch) return false;
+      }
+
+      // 18. Unregistered Candidates Filter (توافقات غير مسجلة مسبقاً)
+      if (advancedFilters.unregisteredOnly) {
+        const intEval = IntegratedCompatibilityManager.evaluate(v, comp, dummySurah);
+        if (!intEval.hasUnregistered) return false;
       }
 
       // 19. With Researcher Notes Filter (آيات تحوي ملاحظات الباحث)
@@ -1152,7 +1173,7 @@ export default function QuranOutput({
       'التوافقات الستة المحققة'
     ];
 
-    const colWidths = [6, 10, 68, 12, 14, 13, 16, 16, 12, 18, 14, 11, 11, 11, 11, 11, 14, 11, 46];
+    const colWidths = [8, 8, 62, 12, 14, 13, 16, 16, 12, 20, 15, 12, 11, 12, 11, 12, 14, 12, 50];
 
     const rows = tableRows.map((rowItem, idx) => {
       const v = rowItem.v;
@@ -2376,8 +2397,7 @@ export default function QuranOutput({
                   const divisor = isNoorani ? (track.digitalRoot || 1) : getSurahCoefficient(surahId);
                   const divisionResult = divisor > 0 ? (v.jummalValue / divisor) : 0;
                   const isExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
-                  const isMod6Exact = v.jummalValue > 0 && (v.jummalValue % 6 === 0);
-                  const isGreen = isExact || isMod6Exact;
+                  const isGreen = isExact;
                   const quotientStr = isExact ? divisionResult.toString() : divisionResult.toFixed(4);
                   const coeffLabel = isNoorani ? track.label : `سورة (${surahId})`;
                   
@@ -2389,8 +2409,8 @@ export default function QuranOutput({
                   const verseNumVal = parseInt(v.verseNumber, 10) || v.id || 1;
 
                   // ربط مؤشرات المصفوفة الستة دون أدنى إزاحة:
-                  // 1. الميزان الأكبر: قسمة الجمل على المعامل بدون باقٍ أو توافق 6 الصارم
-                  const m1 = isGreen;
+                  // 1. الميزان الأكبر: قسمة الجمل على المعامل بدون باقٍ حصراً
+                  const m1 = isExact;
                   // 2. الميزان الهيكلي: (الجمل + رقم الآية) ÷ المعامل بدون باقٍ
                   const m2 = divisor > 0 && ((v.jummalValue + verseNumVal) % divisor === 0);
                   // 3. ميزان الكثافة: (الكلمات + الحروف) ÷ المعامل بدون باقٍ
@@ -2434,8 +2454,8 @@ export default function QuranOutput({
                     // التوافق التام (من 5/6 إلى 6/6) - لون ذهبي ملكي مميز
                     rowColorClass = 'bg-gradient-to-r from-amber-100/90 via-yellow-100/70 to-amber-50/60 hover:bg-amber-200/80 font-semibold text-amber-950';
                     sideBorderClass = 'border-r-4 border-amber-500 shadow-xs';
-                  } else if (isGreen) {
-                    // STRICT REQUIREMENT: Only verses with remainder === 0 or (value % 6 === 0) get green color
+                  } else if (isExact) {
+                    // STRICT REQUIREMENT: Only verses with remainder === 0 get green color
                     rowColorClass = 'bg-emerald-500/10 hover:bg-emerald-500/15 font-medium';
                     sideBorderClass = 'border-r-4 border-emerald-500';
                   } else if (strictScore >= 1) {
