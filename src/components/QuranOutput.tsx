@@ -1818,6 +1818,8 @@ export default function QuranOutput({
       const totalLetters = processedVerses.reduce((s, v) => s + v.letterCount, 0);
       const totalJummal = processedVerses.reduce((s, v) => s + v.jummalValue, 0);
 
+      updateProgress(96, 'بناء الجداول الرقمية وتنسيق مستند DOCX...');
+
       const reportDocxBlob = await generateComprehensiveReportDocxBlob({
         surahMeta: {
           id: activeSurah.id,
@@ -1840,6 +1842,9 @@ export default function QuranOutput({
         nooraniMatches: nooraniMatchesForDocx
       });
 
+      updateProgress(100, 'اكتمل إعداد وتصدير التقرير الشامل بنجاح! 📄✨');
+      finishProgress('تم إعداد التقرير وتصدير المستند بنجاح! 📄✨');
+
       setExportModalState({
         isOpen: true,
         format: 'docx',
@@ -1856,6 +1861,8 @@ export default function QuranOutput({
     } catch (err: any) {
       console.error(err);
       showToast('⚠️ توقفت معالجة التقرير مؤقتاً بسبب خطأ. تم حفظ تقدمك، اضغط على الزر للاستكمال.');
+      resetProgress();
+      setReportProgress(null);
     } finally {
       setIsReportLoading(false);
     }
