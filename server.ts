@@ -327,15 +327,26 @@ async function startServer() {
     console.log('In development mode: Mounted Vite middleware.');
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use('/khaled-fouad', express.static(distPath));
-    app.use(express.static(distPath));
-    app.get('/khaled-fouad*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-    console.log('In production mode: Serving static files from disk.');
+    const indexHtmlPath = path.join(distPath, 'index.html');
+    if (!fs.existsSync(indexHtmlPath)) {
+      console.log('Dist directory not found, falling back to Vite middleware mode.');
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      app.use('/khaled-fouad', express.static(distPath));
+      app.use(express.static(distPath));
+      app.get('/khaled-fouad*', (req, res) => {
+        res.sendFile(indexHtmlPath);
+      });
+      app.get('*', (req, res) => {
+        res.sendFile(indexHtmlPath);
+      });
+      console.log('In production mode: Serving static files from disk.');
+    }
   }
 
   const server = app.listen(PORT, '0.0.0.0', () => {

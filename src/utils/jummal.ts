@@ -313,7 +313,7 @@ export const NOORANI_SURAHS: NooraniSurah[] = [
   { id: 38, name: 'ص (Sad)', letters: 'ص', keyValue: 90, digitalRoot: 9 },
   { id: 40, name: 'غافر (Ghafir)', letters: 'حم', keyValue: 48, digitalRoot: 3 },
   { id: 41, name: 'فصلت (Fussilat)', letters: 'حم', keyValue: 48, digitalRoot: 3 },
-  { id: 42, name: 'الشورى (Al-Shura)', letters: 'حم عسق', keyValue: 278, digitalRoot: 8 },
+  { id: 42, name: 'الشورى (Al-Shura)', letters: 'حم / عسق', keyValue: 48, digitalRoot: 3 },
   { id: 43, name: 'الزخرف (Az-Zukhruf)', letters: 'حم', keyValue: 48, digitalRoot: 3 },
   { id: 44, name: 'الدخان (Ad-Dukhan)', letters: 'حم', keyValue: 48, digitalRoot: 3 },
   { id: 45, name: 'الجاثية (Al-Jathiyah)', letters: 'حم', keyValue: 48, digitalRoot: 3 },
@@ -953,9 +953,11 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const collectiveR = isNoorani ? 8 : 0;
   const collectiveN = isNoorani ? 733 : 0;
 
-  const reducedFactor = isNoorani
-    ? ((localR && localR > 0) ? localR : (R || reduceDigitalRoot(surahId)))
-    : reduceDigitalRoot(surahId);
+  const reducedFactor = (typeof surahObj?.digitalRoot === 'number' && surahObj.digitalRoot > 0)
+    ? surahObj.digitalRoot
+    : (isNoorani
+        ? ((localR && localR > 0) ? localR : (R || reduceDigitalRoot(surahId)))
+        : reduceDigitalRoot(surahId));
   
   // Formula: [حساب الجمل المختزل] × [رقم الآية + المعامل المختزل]
   const newColumnProduct = verseDigitalRoot * (verseNum + reducedFactor);
@@ -1141,8 +1143,9 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     if (activeDivisor > 0 && val % activeDivisor === 0) return true;
     if (N > 0 && val % N === 0) return true;
     if (surahCoeff > 0 && val % surahCoeff === 0) return true;
-    if (localR && val % localR === 0) return true;
-    if (localN && val % localN === 0) return true;
+    // Only check localR / localN if no explicit digitalRoot was specified in surahObj
+    if (!surahObj?.digitalRoot && localR && val % localR === 0) return true;
+    if (!surahObj?.keyValue && localN && val % localN === 0) return true;
     return false;
   };
 
@@ -1162,7 +1165,7 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   // Condition 5: Self-reduction match (Verse digital root equals active coefficient digital root or sovereign 9)
   const cond5 =
     (R > 0 && verseDigitalRoot === R) ||
-    (localR && verseDigitalRoot === localR) ||
+    (!surahObj?.digitalRoot && localR && verseDigitalRoot === localR) ||
     (activeDivisor > 0 && verseDigitalRoot === reduceDigitalRoot(activeDivisor)) ||
     verseDigitalRoot === 9;
   
@@ -1170,7 +1173,7 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const cond6 =
     checkDivisor(verseNum) ||
     (R > 0 && reduceDigitalRoot(verseNum) === R) ||
-    (localR && reduceDigitalRoot(verseNum) === localR);
+    (!surahObj?.digitalRoot && localR && reduceDigitalRoot(verseNum) === localR);
 
   const sixConditions = [
     { id: 1, name: 'الميزان الرقمي الأكبر (الجمل ÷ المعامل بدون باق)', achieved: Boolean(cond1) },

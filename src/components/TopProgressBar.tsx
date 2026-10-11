@@ -1,9 +1,29 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useGlobalProgress } from '../context/ProgressContext';
-import { Sparkles, CheckCircle2, Activity } from 'lucide-react';
+import { CheckCircle2, Activity, X } from 'lucide-react';
 
 export const TopProgressBar: React.FC = () => {
-  const { progressState } = useGlobalProgress();
+  const { progressState, finishProgress, resetProgress } = useGlobalProgress();
+  const autoFinishTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Failsafe: If progress is >= 90% for more than 3.5 seconds, auto-finish and dismiss to prevent hanging
+    if (progressState.isActive && progressState.progress >= 90) {
+      if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
+      autoFinishTimerRef.current = setTimeout(() => {
+        finishProgress('اكتملت العملية بنجاح');
+      }, 3500);
+    } else {
+      if (autoFinishTimerRef.current) {
+        clearTimeout(autoFinishTimerRef.current);
+        autoFinishTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (autoFinishTimerRef.current) clearTimeout(autoFinishTimerRef.current);
+    };
+  }, [progressState.isActive, progressState.progress, finishProgress]);
 
   if (!progressState.isActive) {
     return null;
@@ -73,6 +93,16 @@ export const TopProgressBar: React.FC = () => {
           <div className="shrink-0 mr-auto bg-slate-900 border border-amber-500/40 px-2 py-0.5 rounded-full text-[11px] font-mono font-black text-amber-300 shadow-inner">
             {Math.round(progressState.progress)}%
           </div>
+
+          {/* Dismiss button */}
+          <button
+            type="button"
+            onClick={() => resetProgress()}
+            className="shrink-0 p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            title="إغلاق شريط التقدم"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
 
         </div>
       </div>

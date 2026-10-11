@@ -35,6 +35,13 @@ interface SavedSessionState {
 
 const getInitialSession = (): SavedSessionState | null => {
   try {
+    const hasActiveSession = typeof window !== 'undefined' && (
+      window.sessionStorage.getItem('bonyan_session_active') === 'true' ||
+      safeStorage.getItem('bonyan_session_active') === 'true'
+    );
+    if (!hasActiveSession) {
+      return null;
+    }
     return safeStorage.getJSON<SavedSessionState | null>('bonyan_session_state', null);
   } catch {
     return null;
@@ -109,16 +116,20 @@ export default function App() {
         tableCurrentPage,
         tablePageSize,
         selectedVerseId,
-        verses: verses && verses.length > 0 ? verses : [],
+        verses: activeSurah ? [] : (verses && verses.length > 0 ? verses.slice(0, 100) : []),
         previewChartInOutput
       };
       safeStorage.setJSON('bonyan_session_state', stateToSave);
+      if (typeof window !== 'undefined' && (currentScreen === 'portal' || activeSurah !== null)) {
+        try { window.sessionStorage.setItem('bonyan_session_active', 'true'); } catch {}
+        safeStorage.setItem('bonyan_session_active', 'true');
+      }
     } catch (e) {
       console.warn('Failed to save session state:', e);
     }
   }, [currentScreen, activeTab, activeSurah, tableCurrentPage, tablePageSize, selectedVerseId, verses, previewChartInOutput]);
 
-  // Ensure state is flushed to storage when leaving tab or switching mobile apps
+  // Ensure state is safely saved when app is backgrounded or tab switched, without resetting
   useEffect(() => {
     const handleSaveOnLeave = () => {
       try {
@@ -129,20 +140,27 @@ export default function App() {
           tableCurrentPage,
           tablePageSize,
           selectedVerseId,
-          verses: verses && verses.length > 0 ? verses : [],
+          verses: activeSurah ? [] : (verses && verses.length > 0 ? verses.slice(0, 100) : []),
           previewChartInOutput
         };
         safeStorage.setJSON('bonyan_session_state', stateToSave);
-      } catch {}
+        if (typeof window !== 'undefined' && (currentScreen === 'portal' || activeSurah !== null)) {
+          try { window.sessionStorage.setItem('bonyan_session_active', 'true'); } catch {}
+          safeStorage.setItem('bonyan_session_active', 'true');
+        }
+      } catch (e) {
+        console.warn('Failed to save session on leave:', e);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        handleSaveOnLeave();
+      }
     };
 
     window.addEventListener('pagehide', handleSaveOnLeave);
     window.addEventListener('beforeunload', handleSaveOnLeave);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        handleSaveOnLeave();
-      }
-    };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
@@ -295,6 +313,10 @@ export default function App() {
     setSelectedVerseId(null);
     try {
       safeStorage.removeItem('bonyan_session_state');
+      safeStorage.removeItem('bonyan_session_active');
+      if (typeof window !== 'undefined') {
+        try { window.sessionStorage.removeItem('bonyan_session_active'); } catch {}
+      }
     } catch {}
     // Direct back to main portal inputs for fresh text
     setCurrentScreen('portal');
@@ -313,6 +335,10 @@ export default function App() {
     setIsLoggedOut(true);
     try {
       safeStorage.removeItem('bonyan_session_state');
+      safeStorage.removeItem('bonyan_session_active');
+      if (typeof window !== 'undefined') {
+        try { window.sessionStorage.removeItem('bonyan_session_active'); } catch {}
+      }
     } catch {}
   };
 

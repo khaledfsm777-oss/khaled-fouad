@@ -37,7 +37,7 @@ interface TableRowData {
   quotientStr: string;
   isExact: boolean;
   statusLabel: string;
-  singleDigit: number;
+  singleDigit: number | string;
   equationText?: string;
   isCompactMatch?: boolean;
   jummalReduction: number;

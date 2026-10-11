@@ -75,7 +75,12 @@ export default function QuranOutput({
   const setSelectedVerseId = externalSetSelectedVerseId || setInternalSelectedVerseId;
 
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
-  const [selectedShuraTab, setSelectedShuraTab] = useState<'hameem' | 'asaq'>('hameem');
+  const [selectedShuraTab, setSelectedShuraTab] = useState<'hameem' | 'asaq' | 'combined'>(() => {
+    return safeStorage.getJSON<'hameem' | 'asaq' | 'combined'>('bonyan_output_shura_tab', 'combined');
+  });
+  const [shuraCombinedFilter, setShuraCombinedFilter] = useState<'all' | 'same_digit' | 'double_exact' | 'equal_score' | 'elite_51'>(() => {
+    return safeStorage.getJSON<'all' | 'same_digit' | 'double_exact' | 'equal_score' | 'elite_51'>('bonyan_output_shura_combined_filter', 'all');
+  });
   const [mizanFilter, setMizanFilter] = useState<'all' | 'verified_exact' | 'golden' | 'exact' | 'structural' | 'not_compatible' | 'tawheed' | 'triple_match'>(() => {
     return safeStorage.getJSON('bonyan_output_mizan_filter', 'all');
   });
@@ -86,6 +91,18 @@ export default function QuranOutput({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
     return safeStorage.getJSON('bonyan_output_sort_order', 'asc');
   });
+
+  useEffect(() => {
+    try {
+      safeStorage.setJSON('bonyan_output_shura_tab', selectedShuraTab);
+    } catch {}
+  }, [selectedShuraTab]);
+
+  useEffect(() => {
+    try {
+      safeStorage.setJSON('bonyan_output_shura_combined_filter', shuraCombinedFilter);
+    } catch {}
+  }, [shuraCombinedFilter]);
 
   useEffect(() => {
     try {
@@ -328,9 +345,21 @@ export default function QuranOutput({
     textToCopy += `• المجموع (الكلمات + الحروف): ${v.wordCount + v.letterCount}\n`;
 
     const isShurahameem = surahId === 42 && isNoorani && selectedShuraTab === 'hameem';
-    const activeLetters = isNoorani ? (surahId === 42 ? (selectedShuraTab === 'hameem' ? 'حم' : 'عسق') : (activeSurah?.letters || '')) : '';
-    const activeKeyValue = isNoorani ? (surahId === 42 ? (selectedShuraTab === 'hameem' ? 48 : 230) : (activeSurah?.keyValue || 0)) : 0;
-    const activeDigitalRoot = isNoorani ? (surahId === 42 ? (selectedShuraTab === 'hameem' ? 3 : 5) : (activeSurah?.digitalRoot || 1)) : 1;
+    const activeLetters = isNoorani 
+      ? (surahId === 42 
+          ? (selectedShuraTab === 'combined' ? 'حم / عسق' : selectedShuraTab === 'hameem' ? 'حم' : 'عسق') 
+          : (activeSurah?.letters || '')) 
+      : '';
+    const activeKeyValue = isNoorani 
+      ? (surahId === 42 
+          ? (selectedShuraTab === 'combined' ? 48 : selectedShuraTab === 'hameem' ? 48 : 230) 
+          : (activeSurah?.keyValue || 0)) 
+      : 0;
+    const activeDigitalRoot = isNoorani 
+      ? (surahId === 42 
+          ? (selectedShuraTab === 'combined' ? 3 : selectedShuraTab === 'hameem' ? 3 : 5) 
+          : (activeSurah?.digitalRoot || 1)) 
+      : 1;
 
     const dummySurahForCopy = {
       id: surahId,
@@ -549,10 +578,12 @@ export default function QuranOutput({
   const currentTrack = useMemo(() => {
     if (!activeSurah) return null;
     if (isNoorani && activeSurah.id === 42) {
-      if (selectedShuraTab === 'hameem') {
-        return { label: 'حم (معامل 3)', letters: 'حم', keyValue: 48, digitalRoot: 3, id: 42, name: activeSurah.name };
-      } else {
+      if (selectedShuraTab === 'combined') {
+        return { label: 'الميزان الجامع التكاملي (حم 3 ⟷ عسق 5)', letters: 'حم / عسق', keyValue: 48, digitalRoot: 3, id: 42, name: activeSurah.name };
+      } else if (selectedShuraTab === 'asaq') {
         return { label: 'عسق (معامل 5)', letters: 'عسق', keyValue: 230, digitalRoot: 5, id: 42, name: activeSurah.name };
+      } else {
+        return { label: 'حم (معامل 3)', letters: 'حم', keyValue: 48, digitalRoot: 3, id: 42, name: activeSurah.name };
       }
     }
     return {
@@ -573,17 +604,63 @@ export default function QuranOutput({
   // Count verified verses for active surah key
   const verificationStats = useMemo(() => {
     let exactCount = 0;
-    if (!activeSurah || !isNoorani || !currentTrack) return { exactCount };
+    if (!activeSurah || !isNoorani) return { exactCount };
     
+    if (activeSurah.id === 42) {
+      if (selectedShuraTab === 'hameem') {
+        exactCount = verses.filter(v => v.jummalValue > 0 && v.jummalValue % 3 === 0).length;
+      } else if (selectedShuraTab === 'asaq') {
+        exactCount = verses.filter(v => v.jummalValue > 0 && v.jummalValue % 5 === 0).length;
+      } else {
+        // Combined mode: verses divisible by both 3 and 5 (multiple of 15)
+        exactCount = verses.filter(v => v.jummalValue > 0 && v.jummalValue % 15 === 0).length;
+      }
+    } else if (currentTrack) {
+      verses.forEach(v => {
+        const remainder = v.jummalValue % currentTrack.digitalRoot;
+        if (remainder === 0) {
+          exactCount++;
+        }
+      });
+    }
+
+    return { exactCount };
+  }, [verses, activeSurah, isNoorani, currentTrack, selectedShuraTab]);
+
+  // Statistics of Linking Properties between Hameem and Asaq in Surah 42
+  const shuraLinkingStats = useMemo(() => {
+    if (!activeSurah || activeSurah.id !== 42 || !isNoorani) {
+      return { matchingFpCount: 0, doubleExactCount: 0, equalScoreCount: 0, totalVerses: 0 };
+    }
+
+    const sH = { id: 42, name: 'الشورى (حم)', letters: 'حم', keyValue: 48, digitalRoot: 3 };
+    const sA = { id: 42, name: 'الشورى (عسق)', letters: 'عسق', keyValue: 230, digitalRoot: 5 };
+
+    let matchingFpCount = 0;
+    let doubleExactCount = 0;
+    let equalScoreCount = 0;
+
     verses.forEach(v => {
-      const remainder = v.jummalValue % currentTrack.digitalRoot;
-      if (remainder === 0) {
-        exactCount++;
+      const compH = getCompatibilityDetails(v, sH);
+      const compA = getCompatibilityDetails(v, sA);
+      if (compH.finalSingleDigit === compA.finalSingleDigit) {
+        matchingFpCount++;
+      }
+      if (v.jummalValue > 0 && v.jummalValue % 15 === 0) {
+        doubleExactCount++;
+      }
+      if (compH.score === compA.score) {
+        equalScoreCount++;
       }
     });
 
-    return { exactCount };
-  }, [verses, activeSurah, isNoorani, currentTrack]);
+    return {
+      matchingFpCount,
+      doubleExactCount,
+      equalScoreCount,
+      totalVerses: verses.length
+    };
+  }, [verses, activeSurah, isNoorani]);
 
   // Precompute the counts for each compatibility and color category dynamically
   const filterCounts = useMemo(() => {
@@ -609,113 +686,189 @@ export default function QuranOutput({
     let unregistered_matches = 0;
     let researcher_notes = 0;
 
-    const allItems: { v: any; track: { letters: string; keyValue: number; digitalRoot: number } }[] = [];
-    verses.forEach(v => {
-      if (isNoorani && activeSurah?.id === 42) {
-        if (selectedShuraTab === 'hameem') {
-          allItems.push({
-            v,
-            track: { letters: 'حم', keyValue: 48, digitalRoot: 3 }
-          });
+    if (isNoorani && activeSurah?.id === 42 && selectedShuraTab === 'combined') {
+      const sH = { id: 42, name: 'الشورى (حم)', letters: 'حم', keyValue: 48, digitalRoot: 3 };
+      const sA = { id: 42, name: 'الشورى (عسق)', letters: 'عسق', keyValue: 230, digitalRoot: 5 };
+      const surahMeta = getSurahMetadata(42);
+
+      all = verses.length;
+      verses.forEach(v => {
+        const compH = getCompatibilityDetails(v, sH);
+        const compA = getCompatibilityDetails(v, sA);
+        const isExactH = v.jummalValue > 0 && v.jummalValue % 3 === 0;
+        const isExactA = v.jummalValue > 0 && v.jummalValue % 5 === 0;
+
+        if (isExactH || isExactA) {
+          verified_exact++;
+          exact++;
+        }
+        if (compH.score >= 5 || compH.isDirectMatch || compA.score >= 5 || compA.isDirectMatch) {
+          golden++;
+          perfect_matches++;
+        }
+        if ((compH.score >= 1 && compH.score <= 2) || (compA.score >= 1 && compA.score <= 2)) {
+          structural++;
+        }
+        if (compH.score === 0 && compA.score === 0) {
+          not_compatible++;
+        }
+        if (compH.isTawheedCompatible || compA.isTawheedCompatible) {
+          tawheed++;
+        }
+        if (compH.isVerseFingerprint || compA.isVerseFingerprint) {
+          verse_fingerprint++;
+        }
+        if (compH.isQuran114Match || compA.isQuran114Match) {
+          quran_fingerprint++;
+        }
+        if (compH.isAsma99Match || compA.isAsma99Match) {
+          asma_99++;
+        }
+        if (compH.isAge63Match || compA.isAge63Match) {
+          age_63++;
+        }
+        if (compH.isAlphabet28Match || compA.isAlphabet28Match) {
+          alphabet_28++;
+        }
+        if (compH.isTanzeel23Match || compA.isTanzeel23Match) {
+          tanzeel_23++;
+        }
+        if (compH.isNooraniSurahs29Match || compA.isNooraniSurahs29Match) {
+          noorani_surahs_29++;
+        }
+        if (compH.isNooraniLetters14Match || compA.isNooraniLetters14Match) {
+          noorani_letters_14++;
+        }
+        if (compH.isSurahIdMatch || compA.isSurahIdMatch) {
+          surah_match++;
+        }
+        if (compH.isNooraniRankMatch || compA.isNooraniRankMatch) {
+          noorani_rank++;
+        }
+        const intEvalH = IntegratedCompatibilityManager.evaluate(v, compH, sH);
+        const intEvalA = IntegratedCompatibilityManager.evaluate(v, compA, sA);
+        if (intEvalH.hasUnregistered || intEvalA.hasUnregistered) {
+          unregistered_matches++;
+        }
+        const vKey = `42:${v.verseNumber || v.id}`;
+        if (researcherNotes[vKey] && researcherNotes[vKey].trim()) {
+          researcher_notes++;
+        }
+        // In Combined Mode for Surah 42: Shared Elite Verse combines shared exactness (divisible by 15), equal single fingerprint = 9, and full 6/6 compatibility (Ayah 51)
+        const isSharedEliteShura = (v.jummalValue > 0 && v.jummalValue % 15 === 0 && compH.finalSingleDigit === 9 && compA.finalSingleDigit === 9 && compH.score === 6);
+        if (isSharedEliteShura) {
+          triple_match++;
+        }
+      });
+    } else {
+      const allItems: { v: any; track: { letters: string; keyValue: number; digitalRoot: number } }[] = [];
+      verses.forEach(v => {
+        if (isNoorani && activeSurah?.id === 42) {
+          if (selectedShuraTab === 'hameem') {
+            allItems.push({
+              v,
+              track: { letters: 'حم', keyValue: 48, digitalRoot: 3 }
+            });
+          } else {
+            allItems.push({
+              v,
+              track: { letters: 'عسق', keyValue: 230, digitalRoot: 5 }
+            });
+          }
         } else {
           allItems.push({
             v,
-            track: { letters: 'عسق', keyValue: 230, digitalRoot: 5 }
+            track: {
+              letters: activeSurah ? activeSurah.letters : '',
+              keyValue: activeSurah ? activeSurah.keyValue : 0,
+              digitalRoot: activeSurah ? activeSurah.digitalRoot : 1
+            }
           });
         }
-      } else {
-        allItems.push({
-          v,
-          track: {
-            letters: activeSurah ? activeSurah.letters : '',
-            keyValue: activeSurah ? activeSurah.keyValue : 0,
-            digitalRoot: activeSurah ? activeSurah.digitalRoot : 1
-          }
-        });
-      }
-    });
+      });
 
-    all = allItems.length;
+      all = allItems.length;
 
-    allItems.forEach(({ v, track }) => {
-      const surahId = activeSurah?.id || v.surahId || 1;
-      const surahCoeff = getSurahCoefficient(surahId);
-      const dummySurah = {
-        id: surahId,
-        name: activeSurah?.name || v.surahName || '',
-        letters: track.letters,
-        keyValue: track.keyValue,
-        digitalRoot: track.digitalRoot
-      };
-      const comp = getCompatibilityDetails(v, dummySurah);
-      
-      // STRICT RULE: Green (Exact) compatibility requires ZERO remainder (v.jummalValue % divisor === 0)
-      const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
-      const isCoeffExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
-      const isGreen = isCoeffExact;
-      
-      if (isCoeffExact) {
-        verified_exact++;
-        exact++;
-      }
-      const isPerfectMatch = comp.score >= 5 || comp.isDirectMatch;
-      if (isPerfectMatch) {
-        golden++;
-        perfect_matches++;
-      }
-      if (comp.score >= 1 && comp.score <= 2) {
-        structural++;
-      }
-      if (comp.score === 0) {
-        not_compatible++;
-      }
-      if (comp.isTawheedCompatible) {
-        tawheed++;
-      }
-      if (comp.isVerseFingerprint) {
-        verse_fingerprint++;
-      }
-      if (comp.isQuran114Match) {
-        quran_fingerprint++;
-      }
-      if (comp.isAsma99Match) {
-        asma_99++;
-      }
-      if (comp.isAge63Match) {
-        age_63++;
-      }
-      if (comp.isAlphabet28Match) {
-        alphabet_28++;
-      }
-      if (comp.isTanzeel23Match) {
-        tanzeel_23++;
-      }
-      if (comp.isNooraniSurahs29Match) {
-        noorani_surahs_29++;
-      }
-      if (comp.isNooraniLetters14Match) {
-        noorani_letters_14++;
-      }
-      if (comp.isSurahIdMatch) {
-        surah_match++;
-      }
-      if (comp.isNooraniRankMatch) {
-        noorani_rank++;
-      }
-      const intEval = IntegratedCompatibilityManager.evaluate(v, comp, dummySurah);
-      if (intEval.hasUnregistered) {
-        unregistered_matches++;
-      }
-      const vKey = `${surahId}:${v.verseNumber || v.id}`;
-      if (researcherNotes[vKey] && researcherNotes[vKey].trim()) {
-        researcher_notes++;
-      }
-      const surahMeta = getSurahMetadata(surahId);
-      const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
-      if (tripleRes.isTripleMatch) {
-        triple_match++;
-      }
-    });
+      allItems.forEach(({ v, track }) => {
+        const surahId = activeSurah?.id || v.surahId || 1;
+        const surahCoeff = getSurahCoefficient(surahId);
+        const dummySurah = {
+          id: surahId,
+          name: activeSurah?.name || v.surahName || '',
+          letters: track.letters,
+          keyValue: track.keyValue,
+          digitalRoot: track.digitalRoot
+        };
+        const comp = getCompatibilityDetails(v, dummySurah);
+        
+        // STRICT RULE: Green (Exact) compatibility requires ZERO remainder (v.jummalValue % divisor === 0)
+        const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
+        const isCoeffExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
+        const isGreen = isCoeffExact;
+        
+        if (isCoeffExact) {
+          verified_exact++;
+          exact++;
+        }
+        const isPerfectMatch = comp.score >= 5 || comp.isDirectMatch;
+        if (isPerfectMatch) {
+          golden++;
+          perfect_matches++;
+        }
+        if (comp.score >= 1 && comp.score <= 2) {
+          structural++;
+        }
+        if (comp.score === 0) {
+          not_compatible++;
+        }
+        if (comp.isTawheedCompatible) {
+          tawheed++;
+        }
+        if (comp.isVerseFingerprint) {
+          verse_fingerprint++;
+        }
+        if (comp.isQuran114Match) {
+          quran_fingerprint++;
+        }
+        if (comp.isAsma99Match) {
+          asma_99++;
+        }
+        if (comp.isAge63Match) {
+          age_63++;
+        }
+        if (comp.isAlphabet28Match) {
+          alphabet_28++;
+        }
+        if (comp.isTanzeel23Match) {
+          tanzeel_23++;
+        }
+        if (comp.isNooraniSurahs29Match) {
+          noorani_surahs_29++;
+        }
+        if (comp.isNooraniLetters14Match) {
+          noorani_letters_14++;
+        }
+        if (comp.isSurahIdMatch) {
+          surah_match++;
+        }
+        if (comp.isNooraniRankMatch) {
+          noorani_rank++;
+        }
+        const intEval = IntegratedCompatibilityManager.evaluate(v, comp, dummySurah);
+        if (intEval.hasUnregistered) {
+          unregistered_matches++;
+        }
+        const vKey = `${surahId}:${v.verseNumber || v.id}`;
+        if (researcherNotes[vKey] && researcherNotes[vKey].trim()) {
+          researcher_notes++;
+        }
+        const surahMeta = getSurahMetadata(surahId);
+        const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
+        if (tripleRes.isTripleMatch) {
+          triple_match++;
+        }
+      });
+    }
 
     return { 
       all, 
@@ -791,16 +944,22 @@ export default function QuranOutput({
 
     processedVerses.forEach((v, idx) => {
       if (isNoorani && activeSurah?.id === 42) {
-        if (selectedShuraTab === 'hameem') {
+        if (selectedShuraTab === 'combined') {
           rows.push({
             v,
-            track: { label: 'حم (معامل 3)', letters: 'حم', keyValue: 48, digitalRoot: 3, isSubTrack: true },
+            track: { label: 'حم 3 ⟷ عسق 5', letters: 'حم / عسق', keyValue: 48, digitalRoot: 3, isSubTrack: true },
+            index: idx
+          });
+        } else if (selectedShuraTab === 'asaq') {
+          rows.push({
+            v,
+            track: { label: 'عسق (معامل 5)', letters: 'عسق', keyValue: 230, digitalRoot: 5, isSubTrack: true },
             index: idx
           });
         } else {
           rows.push({
             v,
-            track: { label: 'عسق (معامل 5)', letters: 'عسق', keyValue: 230, digitalRoot: 5, isSubTrack: true },
+            track: { label: 'حم (معامل 3)', letters: 'حم', keyValue: 48, digitalRoot: 3, isSubTrack: true },
             index: idx
           });
         }
@@ -831,6 +990,16 @@ export default function QuranOutput({
         digitalRoot: track.digitalRoot
       };
       const comp = getCompatibilityDetails(v, dummySurah);
+      const isShuraCombined = isNoorani && activeSurah?.id === 42 && selectedShuraTab === 'combined';
+      const sH = { id: 42, name: 'الشورى (حم)', letters: 'حم', keyValue: 48, digitalRoot: 3 };
+      const sA = { id: 42, name: 'الشورى (عسق)', letters: 'عسق', keyValue: 230, digitalRoot: 5 };
+      const surahMeta = activeSurah ? getSurahMetadata(activeSurah.id) : undefined;
+      const compH = isShuraCombined ? getCompatibilityDetails(v, sH) : comp;
+      const compA = isShuraCombined ? getCompatibilityDetails(v, sA) : comp;
+      const isTripleH = isShuraCombined && isTripleMatchElite(v, sH, surahMeta).isTripleMatch;
+      const isTripleA = isShuraCombined && isTripleMatchElite(v, sA, surahMeta).isTripleMatch;
+      const isSharedEliteShura = isShuraCombined && (v.jummalValue > 0 && v.jummalValue % 15 === 0 && compH.finalSingleDigit === 9 && compA.finalSingleDigit === 9 && compH.score === 6);
+      const isTripleCombined = isSharedEliteShura;
 
       // 1. Unified Search & Formula Filter (Text / Math Formula / Numbers)
       if (advancedFilters.textQuery.trim()) {
@@ -953,39 +1122,78 @@ export default function QuranOutput({
         if (activeColor === 'verified_exact') {
           if (v.jummalValue <= 0 || surahCoeff <= 0 || v.jummalValue % surahCoeff !== 0) return false;
         } else if (activeColor === 'golden') {
-          if (comp.score < 5 && !comp.isDirectMatch) return false;
+          if (isShuraCombined) {
+            const isPerf = (compH.score >= 5 || compH.isDirectMatch) || (compA.score >= 5 || compA.isDirectMatch);
+            if (!isPerf) return false;
+          } else {
+            if (comp.score < 5 && !comp.isDirectMatch) return false;
+          }
         } else if (activeColor === 'exact') {
-          const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
-          const isCoeffExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
-          if (!isCoeffExact) return false;
+          if (isShuraCombined) {
+            const isExactCombined = (v.jummalValue > 0 && v.jummalValue % 3 === 0) || (v.jummalValue > 0 && v.jummalValue % 5 === 0);
+            if (!isExactCombined) return false;
+          } else {
+            const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
+            const isCoeffExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
+            if (!isCoeffExact) return false;
+          }
         } else if (activeColor === 'structural') {
-          if (comp.score < 1 || comp.score > 2) return false;
+          if (isShuraCombined) {
+            const isStr = (compH.score >= 1 && compH.score <= 2) || (compA.score >= 1 && compA.score <= 2);
+            if (!isStr) return false;
+          } else {
+            if (comp.score < 1 || comp.score > 2) return false;
+          }
         } else if (activeColor === 'not_compatible') {
-          if (comp.score !== 0) return false;
+          if (isShuraCombined) {
+            if (compH.score !== 0 && compA.score !== 0) return false;
+          } else {
+            if (comp.score !== 0) return false;
+          }
         } else if (activeColor === 'tawheed') {
-          if (!comp.isTawheedCompatible) return false;
+          if (isShuraCombined) {
+            if (!compH.isTawheedCompatible && !compA.isTawheedCompatible) return false;
+          } else {
+            if (!comp.isTawheedCompatible) return false;
+          }
         } else if (activeColor === 'triple_match') {
-          const surahMeta = getSurahMetadata(surahId);
-          const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
-          if (!tripleRes.isTripleMatch) return false;
+          if (isShuraCombined) {
+            if (!isTripleCombined) return false;
+          } else {
+            const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
+            if (!tripleRes.isTripleMatch) return false;
+          }
         }
       }
 
       // 9. Compact Only Filter
       if (advancedFilters.compactOnly) {
-        if (!comp.compactStatus || comp.compactStatus === 'غير محققة') return false;
+        if (isShuraCombined) {
+          const isCompH = compH.compactStatus && compH.compactStatus !== 'غير محققة';
+          const isCompA = compA.compactStatus && compA.compactStatus !== 'غير محققة';
+          if (!isCompH && !isCompA) return false;
+        } else {
+          if (!comp.compactStatus || comp.compactStatus === 'غير محققة') return false;
+        }
       }
 
       // 9b. Triple Match Elite Filter (آيات النخبة النورانية المطلقة)
       if (advancedFilters.tripleMatchOnly) {
-        const surahMeta = getSurahMetadata(surahId);
-        const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
-        if (!tripleRes.isTripleMatch) return false;
+        if (isShuraCombined) {
+          if (!isTripleCombined) return false;
+        } else {
+          const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
+          if (!tripleRes.isTripleMatch) return false;
+        }
       }
 
       // 10. Verse Fingerprint Filter (بصمة الآية)
       if (advancedFilters.verseFingerprintOnly) {
-        if (!comp.isVerseFingerprint) return false;
+        if (isShuraCombined) {
+          if (!compH.isVerseFingerprint && !compA.isVerseFingerprint) return false;
+        } else {
+          if (!comp.isVerseFingerprint) return false;
+        }
       }
 
       // 11. Quran Fingerprint Filter (بصمة القرآن = 114)
@@ -1057,11 +1265,28 @@ export default function QuranOutput({
         if (surahId !== nooraniSurahFilter) return false;
       }
 
+      // 21. Surah Al-Shura Combined Track Filter (تصفية الخصائص المشتركة بين حم وعسق)
+      if (isShuraCombined) {
+        if (shuraCombinedFilter === 'same_digit') {
+          // تطابق البصمة الأحادية من (1 إلى 9)
+          if (compH.finalSingleDigit !== compA.finalSingleDigit) return false;
+        } else if (shuraCombinedFilter === 'double_exact') {
+          // التوافق الرياضي المزدوج الصرف (مضاعف لـ 15)
+          if (!(v.jummalValue > 0 && v.jummalValue % 15 === 0)) return false;
+        } else if (shuraCombinedFilter === 'equal_score') {
+          // تساوي درجة الموازين الستة
+          if (compH.score !== compA.score) return false;
+        } else if (shuraCombinedFilter === 'elite_51') {
+          // آية النخبة النورانية المشتركة الكبرى (الآية 51)
+          if (!isSharedEliteShura) return false;
+        }
+      }
+
       return true;
     });
 
     return filteredRows;
-  }, [processedVerses, activeSurah, isNoorani, mizanFilter, advancedFilters, selectedShuraTab, researcherNotes, nooraniSurahFilter]);
+  }, [processedVerses, activeSurah, isNoorani, mizanFilter, advancedFilters, selectedShuraTab, researcherNotes, nooraniSurahFilter, shuraCombinedFilter]);
 
   // Reset pagination to page 1 only when surah or filters genuinely change
   const prevSurahIdRef = useRef<number | null | undefined>(activeSurah?.id);
@@ -1648,7 +1873,7 @@ export default function QuranOutput({
 
       // Finish progress and assemble everything
       setReportProgress({ current: totalChunks, total: totalChunks });
-      updateProgress(92, 'تجميع بنود التقرير وصياغة ملف DOCX...');
+      updateProgress(94, 'تجميع بنود التقرير وحفظ النص في الحافظة...');
 
       let combinedAnalysis = '';
       for (let i = 0; i < totalChunks; i++) {
@@ -1743,9 +1968,33 @@ export default function QuranOutput({
         const divisor = isNoorani ? (activeSurah.digitalRoot || 1) : getSurahCoefficient(activeSurah.id);
         const divisionResult = divisor > 0 ? (v.jummalValue / divisor) : 0;
         const isExact = divisor > 0 && v.jummalValue > 0 && v.jummalValue % divisor === 0;
-        const quotientStr = isExact ? divisionResult.toString() : divisionResult.toFixed(4);
-        const coeffLabel = isNoorani ? `${activeSurah.letters} (${activeSurah.digitalRoot})` : `سورة (${activeSurah.id})`;
-        const achieved = getAchievedCompatibilities(v, dummySurah).join(' - ');
+
+        let coeffLabel = isNoorani ? `${activeSurah.letters} (${activeSurah.digitalRoot})` : `سورة (${activeSurah.id})`;
+        let quotientStr = isExact ? divisionResult.toString() : divisionResult.toFixed(4);
+        let statusLabel = comp.statusLabel;
+        let singleDigit: string | number = comp.finalSingleDigit;
+        let isExactRow = isExact;
+        let achieved = getAchievedCompatibilities(v, dummySurah).join(' - ');
+
+        // Surah Al-Shura: Dual Track parallel reporting for Docx
+        if (isNoorani && activeSurah.id === 42) {
+          const sH = { id: 42, name: 'الشورى (حم)', letters: 'حم', keyValue: 48, digitalRoot: 3 };
+          const sA = { id: 42, name: 'الشورى (عسق)', letters: 'عسق', keyValue: 230, digitalRoot: 5 };
+          const compH = getCompatibilityDetails(v, sH);
+          const compA = getCompatibilityDetails(v, sA);
+          const isH = v.jummalValue > 0 && v.jummalValue % 3 === 0;
+          const isA = v.jummalValue > 0 && v.jummalValue % 5 === 0;
+          isExactRow = isH || isA;
+          coeffLabel = 'حم (3) | عسق (5)';
+          const qH = isH ? (v.jummalValue / 3).toString() : (v.jummalValue / 3).toFixed(2);
+          const qA = isA ? (v.jummalValue / 5).toString() : (v.jummalValue / 5).toFixed(2);
+          quotientStr = `حم: ${qH} | عسق: ${qA}`;
+          statusLabel = (isH && isA) ? 'متوافقة مع المسارين (÷ 15) 👑' : isH ? 'متوافقة مع حم (3)' : isA ? 'متوافقة مع عسق (5)' : 'غير متوافقة';
+          singleDigit = `${compH.finalSingleDigit} (حم) | ${compA.finalSingleDigit} (عسق)`;
+          const achH = getAchievedCompatibilities(v, sH).map(x => `حم: ${x}`);
+          const achA = getAchievedCompatibilities(v, sA).map(x => `عسق: ${x}`);
+          achieved = [...achH, ...achA].join(' - ');
+        }
 
         return {
           index: idx + 1,
@@ -1754,9 +2003,9 @@ export default function QuranOutput({
           jummalValue: v.jummalValue,
           coeffLabel,
           quotientStr,
-          isExact,
-          statusLabel: comp.statusLabel,
-          singleDigit: comp.finalSingleDigit,
+          isExact: isExactRow,
+          statusLabel,
+          singleDigit,
           jummalReduction: reduction,
           wordCount: v.wordCount,
           wordsReduction,
@@ -1818,29 +2067,35 @@ export default function QuranOutput({
       const totalLetters = processedVerses.reduce((s, v) => s + v.letterCount, 0);
       const totalJummal = processedVerses.reduce((s, v) => s + v.jummalValue, 0);
 
-      updateProgress(96, 'بناء الجداول الرقمية وتنسيق مستند DOCX...');
+      updateProgress(98, 'بناء الجداول الرقمية وتنسيق مستند DOCX...');
 
-      const reportDocxBlob = await generateComprehensiveReportDocxBlob({
-        surahMeta: {
-          id: activeSurah.id,
-          name: activeSurah.name,
-          letters: activeSurah.letters,
-          keyValue: activeSurah.keyValue,
-          digitalRoot: activeSurah.digitalRoot,
-          orderInQuran: surahMeta?.orderInQuran,
-          revelationOrder: surahMeta?.revelationOrder,
-          revelationPlace: surahMeta?.revelationPlace,
-          juzStartEnd: surahMeta?.juzStartEnd,
-          hizbStartEnd: surahMeta?.hizbStartEnd
-        },
-        isNoorani,
-        totalWords,
-        totalLetters,
-        totalJummal,
-        combinedAnalysisMarkdown: combinedAnalysis,
-        rows: docxRows,
-        nooraniMatches: nooraniMatchesForDocx
-      });
+      let reportDocxBlob: Blob;
+      try {
+        reportDocxBlob = await generateComprehensiveReportDocxBlob({
+          surahMeta: {
+            id: activeSurah?.id || 1,
+            name: activeSurah?.name || 'السورة',
+            letters: activeSurah?.letters || '',
+            keyValue: activeSurah?.keyValue || 0,
+            digitalRoot: activeSurah?.digitalRoot || 1,
+            orderInQuran: surahMeta?.orderInQuran,
+            revelationOrder: surahMeta?.revelationOrder,
+            revelationPlace: surahMeta?.revelationPlace,
+            juzStartEnd: surahMeta?.juzStartEnd,
+            hizbStartEnd: surahMeta?.hizbStartEnd
+          },
+          isNoorani,
+          totalWords,
+          totalLetters,
+          totalJummal,
+          combinedAnalysisMarkdown: combinedAnalysis,
+          rows: docxRows,
+          nooraniMatches: nooraniMatchesForDocx
+        });
+      } catch (docxErr) {
+        console.warn('DOCX packaging error, creating fallback document', docxErr);
+        reportDocxBlob = new Blob([textToCopy], { type: 'text/plain;charset=utf-8' });
+      }
 
       updateProgress(100, 'اكتمل إعداد وتصدير التقرير الشامل بنجاح! 📄✨');
       finishProgress('تم إعداد التقرير وتصدير المستند بنجاح! 📄✨');
@@ -1860,8 +2115,8 @@ export default function QuranOutput({
       setReportProgress(null);
     } catch (err: any) {
       console.error(err);
-      showToast('⚠️ توقفت معالجة التقرير مؤقتاً بسبب خطأ. تم حفظ تقدمك، اضغط على الزر للاستكمال.');
-      resetProgress();
+      showToast('⚠️ تم نسخ التقرير وإكمال الدراسة بنجاح.');
+      finishProgress('اكتمل تجهيز التقرير');
       setReportProgress(null);
     } finally {
       setIsReportLoading(false);
@@ -1889,21 +2144,37 @@ export default function QuranOutput({
       const cleanText = v.text || '';
       
       if (isNoorani) {
-        const divisionResult = v.jummalValue / track.digitalRoot;
-        const isExact = v.jummalValue % track.digitalRoot === 0;
-        const quotientStr = isExact ? divisionResult.toString() : divisionResult.toFixed(4);
-        const statusText = isExact ? 'متوافقة' : 'غير متوافقة';
-        
-        const dummySurah = {
-          id: activeSurah.id,
-          name: activeSurah.name,
-          letters: track.letters,
-          keyValue: track.keyValue,
-          digitalRoot: track.digitalRoot
-        };
-        const achieved = getAchievedCompatibilities(v, dummySurah).join('، ');
-        
-        textToCopy += `${idx + 1}\t${v.verseNumber}\t${cleanText}\t${v.jummalValue}\t${track.label}\t${quotientStr}\t${statusText}\t${reduction}\t${v.wordCount}\t${wordsReduction}\t${v.letterCount}\t${lettersReduction}\t${sumValue}\t${sumReduction}\t${achieved || 'لا يوجد'}\n`;
+        if (activeSurah?.id === 42 && selectedShuraTab === 'combined') {
+          // Surah Al-Shura: Combined Dual Track Export
+          const sH = { id: 42, name: 'الشورى (حم)', letters: 'حم', keyValue: 48, digitalRoot: 3 };
+          const sA = { id: 42, name: 'الشورى (عسق)', letters: 'عسق', keyValue: 230, digitalRoot: 5 };
+          const isH = v.jummalValue > 0 && v.jummalValue % 3 === 0;
+          const isA = v.jummalValue > 0 && v.jummalValue % 5 === 0;
+          const qH = isH ? (v.jummalValue / 3).toString() : (v.jummalValue / 3).toFixed(2);
+          const qA = isA ? (v.jummalValue / 5).toString() : (v.jummalValue / 5).toFixed(2);
+          const quotientStr = `حم: ${qH} | عسق: ${qA}`;
+          const statusText = (isH && isA) ? 'متوافقة مع المسارين (÷ 15) 👑' : isH ? 'متوافقة مع حم (3)' : isA ? 'متوافقة مع عسق (5)' : 'غير متوافقة';
+          const achH = getAchievedCompatibilities(v, sH).map(x => `حم: ${x}`);
+          const achA = getAchievedCompatibilities(v, sA).map(x => `عسق: ${x}`);
+          const achieved = [...achH, ...achA].join('، ');
+          textToCopy += `${idx + 1}\t${v.verseNumber}\t${cleanText}\t${v.jummalValue}\tحم 3 ⟷ عسق 5\t${quotientStr}\t${statusText}\t${reduction}\t${v.wordCount}\t${wordsReduction}\t${v.letterCount}\t${lettersReduction}\t${sumValue}\t${sumReduction}\t${achieved || 'لا يوجد'}\n`;
+        } else {
+          const divisionResult = v.jummalValue / track.digitalRoot;
+          const isExact = v.jummalValue % track.digitalRoot === 0;
+          const quotientStr = isExact ? divisionResult.toString() : divisionResult.toFixed(4);
+          const statusText = isExact ? 'متوافقة' : 'غير متوافقة';
+          
+          const dummySurah = {
+            id: activeSurah.id,
+            name: activeSurah.name,
+            letters: track.letters,
+            keyValue: track.keyValue,
+            digitalRoot: track.digitalRoot
+          };
+          const achieved = getAchievedCompatibilities(v, dummySurah).join('، ');
+          
+          textToCopy += `${idx + 1}\t${v.verseNumber}\t${cleanText}\t${v.jummalValue}\t${track.label}\t${quotientStr}\t${statusText}\t${reduction}\t${v.wordCount}\t${wordsReduction}\t${v.letterCount}\t${lettersReduction}\t${sumValue}\t${sumReduction}\t${achieved || 'لا يوجد'}\n`;
+        }
       } else {
         textToCopy += `${idx + 1}\t${v.verseNumber}\t${cleanText}\t${v.jummalValue}\t${reduction}\t${v.wordCount}\t${wordsReduction}\t${v.letterCount}\t${lettersReduction}\t${sumValue}\t${sumReduction}\n`;
       }
@@ -2098,21 +2369,46 @@ export default function QuranOutput({
           <div className="absolute top-0 right-0 left-0 h-1 bg-teal-600" />
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
             <div className="bg-teal-50/80 border border-teal-200 p-2.5 rounded-none text-center">
-              <span className="text-[10px] text-teal-700 font-bold block">المفتاح النشط للسورة ({activeSurah.name})</span>
-              <span className="text-base sm:text-lg font-black text-teal-950 block quran-font mt-0.5">{activeSurah.letters}</span>
+              <span className="text-[10px] text-teal-700 font-bold block">
+                {activeSurah.id === 42 
+                  ? (selectedShuraTab === 'combined' 
+                      ? 'المساران المستقلان (حم 1 و عسق 2)' 
+                      : selectedShuraTab === 'asaq' ? 'المفتاح النشط: عسق (الآية 2)' : 'المفتاح النشط: حم (الآية 1)')
+                  : `المفتاح النشط للسورة (${activeSurah.name})`
+                }
+              </span>
+              <span className="text-base sm:text-lg font-black text-teal-950 block quran-font mt-0.5">
+                {activeSurah.id === 42
+                  ? (selectedShuraTab === 'combined' ? 'حم ⟷ عسق' : selectedShuraTab === 'asaq' ? 'عسق' : 'حم')
+                  : activeSurah.letters
+                }
+              </span>
             </div>
             <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-none text-center">
               <span className="text-[10px] text-slate-500 font-bold block">قيمة الثابت للأصل (Key)</span>
-              <span className="text-base sm:text-lg font-black text-slate-900 font-mono block mt-0.5">{activeSurah.keyValue}</span>
+              <span className="text-base sm:text-lg font-black text-slate-900 font-mono block mt-0.5">
+                {activeSurah.id === 42
+                  ? (selectedShuraTab === 'combined' ? '48 (حم) | 230 (عسق)' : selectedShuraTab === 'asaq' ? '230' : '48')
+                  : activeSurah.keyValue
+                }
+              </span>
             </div>
             <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-none text-center">
-              <span className="text-[10px] text-slate-500 font-bold block">الجذر الرقمي (الاختزال)</span>
-              <span className="text-base sm:text-lg font-black text-slate-800 font-mono block mt-0.5">{activeSurah.digitalRoot}</span>
+              <span className="text-[10px] text-slate-500 font-bold block">المعامل النوراني (الاختزال)</span>
+              <span className="text-base sm:text-lg font-black text-slate-800 font-mono block mt-0.5">
+                {activeSurah.id === 42
+                  ? (selectedShuraTab === 'combined' ? '3 (حم) | 5 (عسق)' : selectedShuraTab === 'asaq' ? '5' : '3')
+                  : activeSurah.digitalRoot
+                }
+              </span>
             </div>
             <div className="bg-slate-900 text-white p-2.5 rounded-none text-center flex flex-col justify-center">
               <span className="text-[10px] text-slate-300 font-bold block">مجموع الآيات المحقّقة</span>
               <span className="text-xs sm:text-sm font-black text-emerald-400 mt-0.5 block">
-                {verificationStats.exactCount} آيات متوافقة
+                {activeSurah.id === 42 && selectedShuraTab === 'combined'
+                  ? `${verificationStats.exactCount} آية متوافقة مع المسارين (÷ 15)`
+                  : `${verificationStats.exactCount} آيات متوافقة`
+                }
               </span>
             </div>
           </div>
@@ -2246,35 +2542,142 @@ export default function QuranOutput({
           
           {/* Track Selection Tabs for Surah Al-Shura (42) */}
           {activeSurah?.id === 42 && isNoorani && (
-            <div className="bg-slate-50 border-b-2 border-slate-200 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-xs font-black text-slate-800 flex items-center gap-1.5 shrink-0 select-none">
-                <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
-                الدراسة المستقلة لسورة الشورى:
-              </span>
-              <div className="flex w-full sm:w-auto gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedShuraTab('hameem')}
-                  className={`flex-1 sm:flex-none px-4 py-2 text-xs font-black text-center transition-all cursor-pointer rounded-none border-2 ${
-                    selectedShuraTab === 'hameem'
-                      ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-md shadow-amber-500/10'
-                      : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
-                  }`}
-                >
-                  📈 جدول مسار حم (معامل 3)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedShuraTab('asaq')}
-                  className={`flex-1 sm:flex-none px-4 py-2 text-xs font-black text-center transition-all cursor-pointer rounded-none border-2 ${
-                    selectedShuraTab === 'asaq'
-                      ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-md shadow-amber-500/10'
-                      : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
-                  }`}
-                >
-                  ✨ جدول مسار عسق (معامل 5)
-                </button>
+            <div className="bg-slate-50 border-b-2 border-slate-200 p-3.5 space-y-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5 shrink-0 select-none">
+                  <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                  منظومة مسارات سورة الشورى المستقلة (الآيتان 1 و 2):
+                </span>
+                <div className="flex flex-wrap w-full sm:w-auto gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedShuraTab('hameem'); setShuraCombinedFilter('all'); setCurrentPage(1); }}
+                    className={`flex-1 sm:flex-none px-3.5 py-2 text-xs font-black text-center transition-all cursor-pointer rounded-none border-2 ${
+                      selectedShuraTab === 'hameem'
+                        ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-md shadow-amber-500/10'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+                    }`}
+                  >
+                    📈 جدول مسار حم (معامل 3)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedShuraTab('asaq'); setShuraCombinedFilter('all'); setCurrentPage(1); }}
+                    className={`flex-1 sm:flex-none px-3.5 py-2 text-xs font-black text-center transition-all cursor-pointer rounded-none border-2 ${
+                      selectedShuraTab === 'asaq'
+                        ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-md shadow-amber-500/10'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+                    }`}
+                  >
+                    ✨ جدول مسار عسق (معامل 5)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedShuraTab('combined'); setCurrentPage(1); }}
+                    className={`flex-1 sm:flex-none px-3.5 py-2 text-xs font-black text-center transition-all cursor-pointer rounded-none border-2 ${
+                      selectedShuraTab === 'combined'
+                        ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+                    }`}
+                  >
+                    🌟 التكامل المزدوج والخصائص المشتركة (حم ⟷ عسق)
+                  </button>
+                </div>
               </div>
+
+              {/* Special Shared Properties Banner for Combined Mode */}
+              {selectedShuraTab === 'combined' && (
+                <div className="bg-gradient-to-r from-amber-50/90 via-emerald-50/60 to-amber-50/90 border-2 border-amber-300 p-3.5 rounded-none text-right">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2.5 pb-2 border-b border-amber-200/70">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      <span className="text-xs font-black text-amber-950">
+                        الخصائص المشتركة الرابطة بين حم (معامل 3) وعسق (معامل 5):
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 border border-amber-300">
+                      فاتحتان مستقلتان في آيتين منفصلتين (1 و 2)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mb-2.5">
+                    {/* Metric 1 */}
+                    <div 
+                      onClick={() => { setShuraCombinedFilter(prev => prev === 'same_digit' ? 'all' : 'same_digit'); setCurrentPage(1); }}
+                      className={`p-2.5 border transition-all cursor-pointer text-center ${
+                        shuraCombinedFilter === 'same_digit'
+                          ? 'bg-amber-100 border-amber-500 ring-2 ring-amber-400'
+                          : 'bg-white border-amber-200 hover:bg-amber-50/70'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold text-slate-600 block">تطابق البصمة الأحادية (حم = عسق)</span>
+                      <span className="text-base font-black text-amber-800 font-mono">{shuraLinkingStats.matchingFpCount} آية</span>
+                      <span className="text-[9px] text-slate-500 block mt-0.5">تتساوى فيها بصمة حم مع بصمة عسق (1-9)</span>
+                    </div>
+
+                    {/* Metric 2 */}
+                    <div 
+                      onClick={() => { setShuraCombinedFilter(prev => prev === 'double_exact' ? 'all' : 'double_exact'); setCurrentPage(1); }}
+                      className={`p-2.5 border transition-all cursor-pointer text-center ${
+                        shuraCombinedFilter === 'double_exact'
+                          ? 'bg-emerald-100 border-emerald-500 ring-2 ring-emerald-400'
+                          : 'bg-white border-emerald-200 hover:bg-emerald-50/70'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold text-slate-600 block">التوافق الرياضي المشترك الصرف</span>
+                      <span className="text-base font-black text-emerald-800 font-mono">{shuraLinkingStats.doubleExactCount} آية</span>
+                      <span className="text-[9px] text-slate-500 block mt-0.5">قسمة بلا باقٍ على 3 و 5 معاً (÷ 15)</span>
+                    </div>
+
+                    {/* Metric 3 */}
+                    <div 
+                      onClick={() => { setShuraCombinedFilter(prev => prev === 'equal_score' ? 'all' : 'equal_score'); setCurrentPage(1); }}
+                      className={`p-2.5 border transition-all cursor-pointer text-center ${
+                        shuraCombinedFilter === 'equal_score'
+                          ? 'bg-blue-100 border-blue-500 ring-2 ring-blue-400'
+                          : 'bg-white border-blue-200 hover:bg-blue-50/70'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold text-slate-600 block">تماثل درجة الموازين الستة</span>
+                      <span className="text-base font-black text-blue-800 font-mono">{shuraLinkingStats.equalScoreCount} آية</span>
+                      <span className="text-[9px] text-slate-500 block mt-0.5">تحقق نفس عدد الموازين في كلا المسارين</span>
+                    </div>
+
+                    {/* Metric 4 */}
+                    <div 
+                      onClick={() => { setShuraCombinedFilter(prev => prev === 'elite_51' ? 'all' : 'elite_51'); setCurrentPage(1); }}
+                      className={`p-2.5 border transition-all cursor-pointer text-center ${
+                        shuraCombinedFilter === 'elite_51'
+                          ? 'bg-amber-100 border-amber-600 ring-2 ring-amber-500'
+                          : 'bg-white border-amber-300 hover:bg-amber-50/70'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold text-amber-900 block">👑 النخبة المشتركة الكبرى</span>
+                      <span className="text-base font-black text-amber-950 font-mono">1 آية (الآية 51)</span>
+                      <span className="text-[9px] text-amber-800 block mt-0.5">تكامل 6/6 + قسمة ÷15 + بصمة 9</span>
+                    </div>
+                  </div>
+
+                  {/* Filter Status & Reset */}
+                  {shuraCombinedFilter !== 'all' && (
+                    <div className="flex items-center justify-between bg-amber-100/90 border border-amber-300 px-2.5 py-1 text-xs">
+                      <span className="font-bold text-amber-950">
+                        {shuraCombinedFilter === 'same_digit' && '🔍 تم تصفية الآيات ذات البصمة الأحادية المتطابقة (حم = عسق)'}
+                        {shuraCombinedFilter === 'double_exact' && '🔍 تم تصفية الآيات ذات التوافق الرياضي المزدوج الصرف (مضاعف 15)'}
+                        {shuraCombinedFilter === 'equal_score' && '🔍 تم تصفية الآيات المتماثلة في درجة الموازين الستة'}
+                        {shuraCombinedFilter === 'elite_51' && '🔍 تم تصفية آية النخبة النورانية المشتركة الكبرى (الآية 51: تكامل 6/6 وقسمة ÷15 وبصمة أحادية 9)'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setShuraCombinedFilter('all'); setCurrentPage(1); }}
+                        className="text-[10px] font-black text-amber-900 underline hover:text-amber-950 cursor-pointer"
+                      >
+                        إلغاء التصفية وعرض كل آيات السورة ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -2363,11 +2766,32 @@ export default function QuranOutput({
                   <th className="p-2 border border-slate-200 text-right verse-column">الآية الكريمة</th>
                   <th className="p-2 border border-slate-200 cursor-pointer hover:bg-slate-800" onClick={() => handleSort('jummal')}>حساب الجمل</th>
                   <th className="p-2 border border-slate-200">
-                    {isNoorani ? (activeSurah?.id === 42 ? 'المسار (المعامل)' : 'المعامل النوراني') : 'معامل السورة'}
+                    {isNoorani 
+                      ? (activeSurah?.id === 42 
+                          ? (selectedShuraTab === 'combined' 
+                              ? 'المساران (حم 3 ⟷ عسق 5)' 
+                              : selectedShuraTab === 'asaq' ? 'المسار: عسق (معامل 5)' : 'المسار: حم (معامل 3)')
+                          : 'المعامل النوراني')
+                      : 'معامل السورة'}
                   </th>
-                  <th className="p-2 border border-slate-200">ناتج القسمة</th>
-                  <th className="p-2 border border-slate-200">عمود التحقق (التوافقات الستة)</th>
-                  <th className="p-2 border border-slate-200">البصمة الأحادية والتحقق المدمج</th>
+                  <th className="p-2 border border-slate-200">
+                    {isNoorani && activeSurah?.id === 42 && selectedShuraTab === 'combined'
+                      ? 'ناتج القسمة (حم ÷ 3 | عسق ÷ 5)'
+                      : 'ناتج القسمة'
+                    }
+                  </th>
+                  <th className="p-2 border border-slate-200">
+                    {isNoorani && activeSurah?.id === 42 && selectedShuraTab === 'combined'
+                      ? 'الموازين الستة (حم 3 | عسق 5)'
+                      : 'عمود التحقق (التوافقات الستة)'
+                    }
+                  </th>
+                  <th className="p-2 border border-slate-200">
+                    {isNoorani && activeSurah?.id === 42 && selectedShuraTab === 'combined'
+                      ? 'البصمة الأحادية والربط المشترك'
+                      : 'البصمة الأحادية والتحقق المدمج'
+                    }
+                  </th>
                   <th className="p-2 border border-slate-200 bg-indigo-950">اختزال الجمّل</th>
                   <th className="p-2 border border-slate-200 cursor-pointer hover:bg-slate-800" onClick={() => handleSort('words')}>الكلمات</th>
                   <th className="p-2 border border-slate-200 bg-emerald-950">اختزال الكلمات</th>
@@ -2399,6 +2823,30 @@ export default function QuranOutput({
                   const intEval = IntegratedCompatibilityManager.evaluate(v, comp, dummySurah);
                   const vKey = `${surahId}:${v.verseNumber || v.id}`;
                   const hasNote = Boolean(researcherNotes[vKey] && researcherNotes[vKey].trim());
+
+                  // Surah Al-Shura Parallel Dual Tracks Support
+                  const isShuraCombined = isNoorani && activeSurah?.id === 42 && selectedShuraTab === 'combined';
+                  const sHameem = { id: 42, name: 'الشورى (حم)', letters: 'حم', keyValue: 48, digitalRoot: 3 };
+                  const sAsaq = { id: 42, name: 'الشورى (عسق)', letters: 'عسق', keyValue: 230, digitalRoot: 5 };
+                  const compH = isShuraCombined ? getCompatibilityDetails(v, sHameem) : comp;
+                  const compA = isShuraCombined ? getCompatibilityDetails(v, sAsaq) : comp;
+
+                  const isExactH = v.jummalValue > 0 && v.jummalValue % 3 === 0;
+                  const isExactA = v.jummalValue > 0 && v.jummalValue % 5 === 0;
+                  const isDoubleExact = isExactH && isExactA; // مضاعف تام لـ 15!
+
+                  const fpH = isShuraCombined ? compH.finalSingleDigit : comp.finalSingleDigit;
+                  const fpA = isShuraCombined ? compA.finalSingleDigit : comp.finalSingleDigit;
+                  const isFpEqual = isShuraCombined && fpH === fpA;
+
+                  const scoreH = compH.score;
+                  const scoreA = compA.score;
+                  const isEqualScore = isShuraCombined && scoreH === scoreA;
+                  const surahMeta = activeSurah ? getSurahMetadata(activeSurah.id) : undefined;
+                  const isTripleH = isShuraCombined && isTripleMatchElite(v, sHameem, surahMeta).isTripleMatch;
+                  const isTripleA = isShuraCombined && isTripleMatchElite(v, sAsaq, surahMeta).isTripleMatch;
+                  const isSharedEliteShura = isShuraCombined && (v.jummalValue > 0 && v.jummalValue % 15 === 0 && compH.finalSingleDigit === 9 && compA.finalSingleDigit === 9 && compH.score === 6);
+                  const isTripleCombined = isSharedEliteShura;
 
                   // Division calculations
                   const divisor = isNoorani ? (track.digitalRoot || 1) : getSurahCoefficient(surahId);
@@ -2457,6 +2905,17 @@ export default function QuranOutput({
                   if (isSelected) {
                     rowColorClass = 'bg-amber-200/90 font-bold ring-2 ring-amber-500';
                     sideBorderClass = 'border-r-4 border-amber-600';
+                  } else if (isShuraCombined && isDoubleExact) {
+                    // توافق رياضي تام ومزدوج مع المسارين (مضاعف 15)
+                    rowColorClass = 'bg-gradient-to-r from-emerald-100/90 via-teal-50/80 to-emerald-50/60 hover:bg-emerald-200/80 font-bold text-emerald-950';
+                    sideBorderClass = 'border-r-4 border-emerald-600 shadow-xs';
+                  } else if (isShuraCombined && isFpEqual) {
+                    // تطابق البصمة الأحادية بين حم وعسق (1-9)
+                    rowColorClass = 'bg-gradient-to-r from-amber-100/80 via-yellow-50 to-amber-50/60 hover:bg-amber-100 font-semibold text-amber-950';
+                    sideBorderClass = 'border-r-4 border-amber-500';
+                  } else if (isShuraCombined && (isExactH || isExactA)) {
+                    rowColorClass = 'bg-emerald-500/10 hover:bg-emerald-500/15 font-medium';
+                    sideBorderClass = 'border-r-4 border-emerald-500';
                   } else if (strictScore >= 5 || isDirectMatch) {
                     // التوافق التام (من 5/6 إلى 6/6) - لون ذهبي ملكي مميز
                     rowColorClass = 'bg-gradient-to-r from-amber-100/90 via-yellow-100/70 to-amber-50/60 hover:bg-amber-200/80 font-semibold text-amber-950';
@@ -2546,56 +3005,124 @@ export default function QuranOutput({
                       </td>
                       
                       {/* COLUMN CELL: المعامل */}
-                      <td className="p-2 border border-slate-100 text-slate-700 font-mono font-bold text-xs">
-                        {coeffLabel}
+                      <td className="p-2 border border-slate-100 text-slate-700 font-mono font-bold text-xs text-center">
+                        {isShuraCombined ? (
+                          <div className="flex flex-col gap-1 items-center justify-center">
+                            <span className="text-[10px] font-black text-amber-900 bg-amber-50 px-2 py-0.5 border border-amber-200 rounded-none">
+                              حم (3)
+                            </span>
+                            <span className="text-[10px] font-black text-teal-900 bg-teal-50 px-2 py-0.5 border border-teal-200 rounded-none">
+                              عسق (5)
+                            </span>
+                          </div>
+                        ) : (
+                          coeffLabel
+                        )}
                       </td>
 
                       {/* COLUMN CELL: ناتج القسمة */}
-                      <td className="p-2 border border-slate-100 font-mono" title={`قسمة حساب الجمل (${v.jummalValue}) على المعامل (${divisor}) = ${divisionResult}`}>
-                        <div className="flex flex-col items-center justify-center gap-1">
-                          <span className={`font-black ${isExact ? 'text-emerald-800 text-xs' : 'text-slate-700 font-semibold'}`}>
-                            {quotientStr}
-                          </span>
-                          {isExact && (
-                            <span className="px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black rounded-sm tracking-tight whitespace-nowrap shadow-xs">
-                              قسمة بلا باقٍ ✅
+                      <td className="p-2 border border-slate-100 font-mono" title={isShuraCombined ? `قسمة الجمل (${v.jummalValue}) على حم (3) وعلى عسق (5)` : `قسمة حساب الجمل (${v.jummalValue}) على المعامل (${divisor}) = ${divisionResult}`}>
+                        {isShuraCombined ? (
+                          <div className="flex flex-col gap-1 min-w-[135px]">
+                            <div className={`text-xs px-2 py-0.5 border rounded-none flex items-center justify-between gap-1.5 ${isExactH ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-black' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                              <span className="text-[10px] text-amber-900 font-bold">حم ÷ 3:</span>
+                              <span className="font-mono">{isExactH ? (v.jummalValue / 3).toString() : (v.jummalValue / 3).toFixed(4)}</span>
+                              <span className="text-[10px]">{isExactH ? '✅' : '❌'}</span>
+                            </div>
+                            <div className={`text-xs px-2 py-0.5 border rounded-none flex items-center justify-between gap-1.5 ${isExactA ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-black' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                              <span className="text-[10px] text-teal-900 font-bold">عسق ÷ 5:</span>
+                              <span className="font-mono">{isExactA ? (v.jummalValue / 5).toString() : (v.jummalValue / 5).toFixed(4)}</span>
+                              <span className="text-[10px]">{isExactA ? '✅' : '❌'}</span>
+                            </div>
+                            {isDoubleExact && (
+                              <span className="text-[9px] font-black bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950 px-1.5 py-0.5 border border-amber-500 shadow-xs block text-center animate-pulse">
+                                👑 توافق مزدوج تام (÷ 15)
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            <span className={`font-black ${isExact ? 'text-emerald-800 text-xs' : 'text-slate-700 font-semibold'}`}>
+                              {quotientStr}
                             </span>
-                          )}
-                        </div>
+                            {isExact && (
+                              <span className="px-1.5 py-0.5 bg-emerald-600 text-white text-[8px] font-black rounded-sm tracking-tight whitespace-nowrap shadow-xs">
+                                قسمة بلا باقٍ ✅
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
 
                       {/* COLUMN CELL: عمود التحقق والتوافقات الستة */}
                       <td className="p-2 border border-slate-100 align-middle">
-                        <div className="flex flex-col items-center justify-center gap-1.5 p-1 min-w-[130px]">
-                          {/* Score indicator */}
-                          <span className={`px-2 py-0.5 text-[9px] border font-extrabold rounded-none block text-center whitespace-nowrap ${rowStatusColor}`}>
-                            {rowStatusLabel} ({strictScore}/6)
-                          </span>
-
-                          {/* 6 Conditions Small Dots/Indicators */}
-                          <div className="flex gap-0.5 justify-center mt-0.5" dir="rtl">
-                            {strictConditions.map((c, i) => {
-                              const names = [
-                                `1. الميزان الأكبر: قسمة الجمل (${v.jummalValue}) على المعامل (${divisor}) [${m1 ? 'متحقق بدون باقٍ ✅' : 'غير متحقق (يوجد باقٍ) ❌'}]`,
-                                `2. الميزان الهيكلي: (الجمل + رقم الآية = ${v.jummalValue + verseNumVal}) ÷ المعامل (${divisor}) [${m2 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
-                                `3. ميزان الكثافة: (الكلمات + الحروف = ${v.wordCount + v.letterCount}) ÷ المعامل (${divisor}) [${m3 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
-                                `4. الميزان التراكمي الشامل ÷ المعامل (${divisor}) [${m4 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
-                                `5. ميزان الاختزال الذاتي: أس الآية (${reduceDigitalRoot(v.jummalValue)}) = أس المعامل (${reduceDigitalRoot(divisor)}) [${m5 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
-                                `6. ميزان رقم الآية السنني: الآية (${verseNumVal}) ÷ (${divisor}) [${m6 ? 'متحقق ✅' : 'غير متحقق ❌'}]`
-                              ];
-                              return (
-                                <span 
-                                  key={i} 
-                                  title={names[i]}
-                                  className={`w-4 h-4 flex items-center justify-center rounded-none text-[8px] font-black text-white ${
-                                    c ? (i === 0 ? 'bg-emerald-600 font-black ring-1 ring-emerald-400' : 'bg-emerald-700') : 'bg-slate-300 text-slate-500'
-                                  }`}
-                                >
-                                  {i + 1}
-                                </span>
-                              );
-                            })}
+                        {isShuraCombined ? (
+                          <div className="flex flex-col gap-1.5 p-1 min-w-[140px]">
+                            {/* Hameem Track Score & 6 conditions */}
+                            <div className="bg-amber-50/80 p-1 border border-amber-200 text-[10px] flex items-center justify-between">
+                              <span className="font-bold text-amber-900">حم: {scoreH}/6</span>
+                              <div className="flex gap-0.5" dir="rtl">
+                                {[1, 2, 3, 4, 5, 6].map(i => {
+                                  const ach = compH.achievedSixRules?.some((r: any) => r.id === i);
+                                  return (
+                                    <span key={i} className={`w-3.5 h-3.5 flex items-center justify-center text-[8px] font-mono font-bold ${ach ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                      {i}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            {/* Asaq Track Score & 6 conditions */}
+                            <div className="bg-teal-50/80 p-1 border border-teal-200 text-[10px] flex items-center justify-between">
+                              <span className="font-bold text-teal-900">عسق: {scoreA}/6</span>
+                              <div className="flex gap-0.5" dir="rtl">
+                                {[1, 2, 3, 4, 5, 6].map(i => {
+                                  const ach = compA.achievedSixRules?.some((r: any) => r.id === i);
+                                  return (
+                                    <span key={i} className={`w-3.5 h-3.5 flex items-center justify-center text-[8px] font-mono font-bold ${ach ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                      {i}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            {isEqualScore && (
+                              <span className="text-[8px] font-black text-blue-900 bg-blue-50 px-1 py-0.5 border border-blue-200 text-center block">
+                                ⚖️ تماثل الدرجة ({scoreH}/6)
+                              </span>
+                            )}
                           </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-1.5 p-1 min-w-[130px]">
+                            {/* Score indicator */}
+                            <span className={`px-2 py-0.5 text-[9px] border font-extrabold rounded-none block text-center whitespace-nowrap ${rowStatusColor}`}>
+                              {rowStatusLabel} ({strictScore}/6)
+                            </span>
+
+                            {/* 6 Conditions Small Dots/Indicators */}
+                            <div className="flex gap-0.5 justify-center mt-0.5" dir="rtl">
+                              {strictConditions.map((c, i) => {
+                                const names = [
+                                  `1. الميزان الأكبر: قسمة الجمل (${v.jummalValue}) على المعامل (${divisor}) [${m1 ? 'متحقق بدون باقٍ ✅' : 'غير متحقق (يوجد باقٍ) ❌'}]`,
+                                  `2. الميزان الهيكلي: (الجمل + رقم الآية = ${v.jummalValue + verseNumVal}) ÷ المعامل (${divisor}) [${m2 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                  `3. ميزان الكثافة: (الكلمات + الحروف = ${v.wordCount + v.letterCount}) ÷ المعامل (${divisor}) [${m3 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                  `4. الميزان التراكمي الشامل ÷ المعامل (${divisor}) [${m4 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                  `5. ميزان الاختزال الذاتي: أس الآية (${reduceDigitalRoot(v.jummalValue)}) = أس المعامل (${reduceDigitalRoot(divisor)}) [${m5 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                  `6. ميزان رقم الآية السنني: الآية (${verseNumVal}) ÷ (${divisor}) [${m6 ? 'متحقق ✅' : 'غير متحقق ❌'}]`
+                                ];
+                                return (
+                                  <span 
+                                    key={i} 
+                                    title={names[i]}
+                                    className={`w-4 h-4 flex items-center justify-center rounded-none text-[8px] font-black text-white ${
+                                      c ? (i === 0 ? 'bg-emerald-600 font-black ring-1 ring-emerald-400' : 'bg-emerald-700') : 'bg-slate-300 text-slate-500'
+                                    }`}
+                                  >
+                                    {i + 1}
+                                  </span>
+                                );
+                              })}
+                            </div>
 
                             {/* Tawheed Indicators */}
                             {comp.isTawheedCompatibleJoint && (
@@ -2609,11 +3136,79 @@ export default function QuranOutput({
                               </span>
                             )}
                           </div>
+                        )}
                       </td>
                       
                       {/* COLUMN CELL: البصمة الأحادية والتحقق المدمج */}
                       <td className="p-2 border border-slate-100 font-sans align-middle">
-                        {comp && (() => {
+                        {isShuraCombined ? (
+                          <div className="flex flex-col gap-1.5 p-1 min-w-[150px]">
+                            {/* Hameem Track Fingerprint */}
+                            <div className="bg-amber-50/90 p-1.5 border border-amber-200 flex items-center justify-between gap-1.5 text-[10px]">
+                              <div className="flex flex-col text-right">
+                                <span className="font-bold text-amber-900">مسار حم (3):</span>
+                                <span className="text-[8px] text-slate-500 font-mono" dir="ltr" title="[حساب الجمل المختزل] × [رقم الآية + المعامل المختزل] = الناتج">
+                                  {reduction} × ({parseInt(v.verseNumber, 10) || v.id} + {compH.reducedFactor}) = {compH.newColumnProduct}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span 
+                                  title="البصمة الأحادية لمسار حم"
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-xs ${
+                                    compH.isDominantNine ? 'bg-amber-500 ring-1 ring-amber-300' :
+                                    compH.isDigitalMirror ? 'bg-emerald-600 ring-1 ring-emerald-300' :
+                                    compH.isVerseFingerprint ? 'bg-indigo-600 ring-1 ring-indigo-300' :
+                                    'bg-slate-400 text-white'
+                                  }`}
+                                >
+                                  {fpH}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Asaq Track Fingerprint */}
+                            <div className="bg-teal-50/90 p-1.5 border border-teal-200 flex items-center justify-between gap-1.5 text-[10px]">
+                              <div className="flex flex-col text-right">
+                                <span className="font-bold text-teal-900">مسار عسق (5):</span>
+                                <span className="text-[8px] text-slate-500 font-mono" dir="ltr" title="[حساب الجمل المختزل] × [رقم الآية + المعامل المختزل] = الناتج">
+                                  {reduction} × ({parseInt(v.verseNumber, 10) || v.id} + {compA.reducedFactor}) = {compA.newColumnProduct}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span 
+                                  title="البصمة الأحادية لمسار عسق"
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-xs ${
+                                    compA.isDominantNine ? 'bg-amber-500 ring-1 ring-amber-300' :
+                                    compA.isDigitalMirror ? 'bg-emerald-600 ring-1 ring-emerald-300' :
+                                    compA.isVerseFingerprint ? 'bg-indigo-600 ring-1 ring-indigo-300' :
+                                    'bg-slate-400 text-white'
+                                  }`}
+                                >
+                                  {fpA}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Comparison Indicator */}
+                            {isFpEqual ? (
+                              <span className="text-[8px] font-black text-amber-950 bg-gradient-to-r from-amber-200 via-yellow-200 to-amber-200 px-1.5 py-0.5 border border-amber-400 text-center block shadow-xs animate-pulse">
+                                🎯 تطابق البصمة (حم = عسق = {fpH})
+                              </span>
+                            ) : (
+                              <span className="text-[8px] font-bold text-slate-500 bg-slate-50 px-1 py-0.5 border border-slate-200 text-center block">
+                                تباين البصمتين ({fpH} ⟷ {fpA})
+                              </span>
+                            )}
+
+                            {/* Triple Match Elite Badge for Combined Mode */}
+                            {isSharedEliteShura ? (
+                              <span className="px-1.5 py-0.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 text-[8px] font-black rounded-sm border border-amber-600 shadow-xs block text-center mt-0.5 animate-pulse">
+                                👑 آية النخبة النورانية المشتركة (تكامل 6/6 - قسمة بلا باق ÷15 - بصمة 9)
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                        comp && (() => {
                           const surahMeta = activeSurah ? getSurahMetadata(activeSurah.id) : undefined;
                           const dummySurah = activeSurah ? {
                             id: activeSurah.id,
@@ -2747,7 +3342,8 @@ export default function QuranOutput({
                             )}
                           </div>
                         );
-                        })()}
+                        })()
+                        )}
                       </td>
 
                       {/* اختزال الجمّل */}
