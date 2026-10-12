@@ -12,7 +12,8 @@ import { quranData } from '../utils/quranData';
 import { 
   BookOpen, Search, Bookmark, ChevronRight, ChevronLeft, 
   ZoomIn, ZoomOut, RotateCcw, Copy, Check, Sparkles, 
-  Sun, Moon, Compass, X, Share2, HelpCircle, Layers, ArrowUp
+  Sun, Moon, Compass, X, Share2, HelpCircle, Layers, ArrowUp,
+  Trash2, BookmarkCheck, BookmarkMinus
 } from 'lucide-react';
 
 interface MushafReaderProps {
@@ -87,6 +88,7 @@ export default function MushafReader({
     }
   });
   const [showBookmarkToast, setShowBookmarkToast] = useState<boolean>(false);
+  const [bookmarkToastMessage, setBookmarkToastMessage] = useState<string>('تم حفظ علامة القراءة بنجاح في مصحف البنيان 🔖');
 
   // Search state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -171,7 +173,7 @@ export default function MushafReader({
     }
   };
 
-  // Bookmark save
+  // Bookmark save & remove handlers
   const handleSaveBookmark = (verseNumber: number) => {
     const newBookmark: BookmarkData = {
       surahId: currentSurah.id,
@@ -182,10 +184,30 @@ export default function MushafReader({
     try {
       localStorage.setItem('bonyan_mushaf_bookmark', JSON.stringify(newBookmark));
       setBookmark(newBookmark);
+      setBookmarkToastMessage(`تم حفظ علامة التوقف عند الآية ﴿${toArabicNumerals(verseNumber)}﴾ من سورة ${currentSurah.name} 🔖`);
       setShowBookmarkToast(true);
       setTimeout(() => setShowBookmarkToast(false), 3000);
     } catch {}
     setActiveVerseMenu(null);
+  };
+
+  const handleRemoveBookmark = () => {
+    try {
+      localStorage.removeItem('bonyan_mushaf_bookmark');
+      setBookmark(null);
+      setBookmarkToastMessage('تمت إزالة علامة القراءة والتوقف بنجاح ✕');
+      setShowBookmarkToast(true);
+      setTimeout(() => setShowBookmarkToast(false), 3000);
+    } catch {}
+    setActiveVerseMenu(null);
+  };
+
+  const handleToggleBookmark = (verseNumber: number) => {
+    if (bookmark && bookmark.surahId === currentSurah.id && bookmark.verseNumber === verseNumber) {
+      handleRemoveBookmark();
+    } else {
+      handleSaveBookmark(verseNumber);
+    }
   };
 
   const handleGoToBookmark = () => {
@@ -439,17 +461,28 @@ export default function MushafReader({
               <span className="hidden md:inline">بحث</span>
             </button>
 
-            {/* Bookmark button */}
+            {/* Bookmark button & Quick Clear */}
             {bookmark && (
-              <button
-                type="button"
-                onClick={handleGoToBookmark}
-                className="px-2.5 py-1.5 text-xs font-black rounded-lg border border-amber-500/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 flex items-center gap-1 cursor-pointer transition-all shadow-sm"
-                title={`الذهاب لعلامة الحفظ: سورة ${bookmark.surahName} (آية ${bookmark.verseNumber})`}
-              >
-                <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
-                <span className="hidden sm:inline">متابعة: {bookmark.surahName} ﴿{toArabicNumerals(bookmark.verseNumber)}﴾</span>
-              </button>
+              <div className="flex items-center rounded-lg border border-amber-500/60 bg-amber-500/15 shadow-sm overflow-hidden divide-x divide-x-reverse divide-amber-500/30">
+                <button
+                  type="button"
+                  onClick={handleGoToBookmark}
+                  className="px-2.5 py-1.5 text-xs font-black hover:bg-amber-500/25 text-amber-950 flex items-center gap-1.5 cursor-pointer transition-all"
+                  title={`الذهاب لعلامة الحفظ: سورة ${bookmark.surahName} (آية ${bookmark.verseNumber})`}
+                >
+                  <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
+                  <span className="hidden sm:inline">متابعة: {bookmark.surahName} ﴿{toArabicNumerals(bookmark.verseNumber)}﴾</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveBookmark}
+                  className="px-2 py-1.5 text-xs font-black text-rose-600 hover:bg-rose-500 hover:text-white flex items-center gap-1 cursor-pointer transition-all"
+                  title="إزالة علامة القراءة والتوقف الحالية"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline text-[11px] font-bold">إزالة العلامة</span>
+                </button>
+              </div>
             )}
 
             {/* Font Zoom Controls */}
@@ -549,9 +582,9 @@ export default function MushafReader({
 
       {/* Bookmark notification toast */}
       {showBookmarkToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-900 text-amber-300 border-2 border-amber-400 px-5 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 animate-bounce font-bold text-xs">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-950 text-amber-300 border-2 border-amber-400 px-5 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 animate-bounce font-bold text-xs">
           <Bookmark className="w-4 h-4 fill-amber-400" />
-          <span>تم حفظ علامة القراءة بنجاح في مصحف البنيان 🔖</span>
+          <span>{bookmarkToastMessage}</span>
         </div>
       )}
 
@@ -661,9 +694,20 @@ export default function MushafReader({
 
                     {/* Bookmarked Indicator Ribbon */}
                     {isBookmarked && (
-                      <span className="inline-block text-amber-500 font-bold mx-0.5 align-middle text-sm" title="علامة القراءة المحفوظة">
-                        🔖
-                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveBookmark();
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 mx-1 rounded-full bg-amber-500/25 hover:bg-rose-500 hover:text-white border border-amber-600/70 hover:border-rose-600 text-amber-900 text-xs font-sans font-bold cursor-pointer transition-all select-none align-middle shadow-xs group/bm"
+                        title="علامة القراءة والتوقف المحفوظة (انقر لإزالتها فوراً)"
+                      >
+                        <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-600 group-hover/bm:hidden" />
+                        <span className="text-[11px] font-black group-hover/bm:hidden">مكان التوقف</span>
+                        <X className="w-3.5 h-3.5 hidden group-hover/bm:inline" />
+                        <span className="text-[11px] font-black hidden group-hover/bm:inline">إزالة العلامة ✕</span>
+                      </button>
                     )}
                   </span>
                 );
@@ -693,15 +737,27 @@ export default function MushafReader({
                   </button>
                 )}
 
-                {/* Save bookmark at end of surah */}
-                <button
-                  type="button"
-                  onClick={() => handleSaveBookmark(currentSurah.versesCount)}
-                  className={`px-4 py-2 text-xs font-black rounded-xl border flex items-center gap-1.5 cursor-pointer shadow-sm transition-all ${themeStyles.toolbarBtn}`}
-                >
-                  <Bookmark className="w-4 h-4 text-amber-500" />
-                  <span>حفظ علامة القراءة هنا 🔖</span>
-                </button>
+                {/* Save or remove bookmark at end of surah */}
+                {bookmark?.surahId === currentSurah.id && bookmark?.verseNumber === currentSurah.versesCount ? (
+                  <button
+                    type="button"
+                    onClick={handleRemoveBookmark}
+                    className="px-4 py-2 text-xs font-black rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                    title="إزالة علامة القراءة من نهاية هذه السورة"
+                  >
+                    <X className="w-4 h-4 text-rose-600" />
+                    <span>إزالة علامة القراءة ✕</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveBookmark(currentSurah.versesCount)}
+                    className={`px-4 py-2 text-xs font-black rounded-xl border flex items-center gap-1.5 cursor-pointer shadow-sm transition-all ${themeStyles.toolbarBtn}`}
+                  >
+                    <Bookmark className="w-4 h-4 text-amber-500" />
+                    <span>حفظ علامة القراءة هنا 🔖</span>
+                  </button>
+                )}
 
                 {currentSurahId < 114 && (
                   <button
@@ -751,14 +807,27 @@ export default function MushafReader({
 
             {/* Action Buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => handleSaveBookmark(activeVerseMenu.verseNumber)}
-                className="p-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-              >
-                <Bookmark className="w-4 h-4" />
-                <span>وضع علامة القراءة 🔖</span>
-              </button>
+              {bookmark?.surahId === currentSurah.id && bookmark?.verseNumber === activeVerseMenu.verseNumber ? (
+                <button
+                  type="button"
+                  onClick={handleRemoveBookmark}
+                  className="p-3 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  title="إلغاء وحذف علامة التوقف من هذه الآية"
+                >
+                  <X className="w-4 h-4" />
+                  <span>إزالة علامة القراءة ✕</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSaveBookmark(activeVerseMenu.verseNumber)}
+                  className="p-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  title="حفظ موضع التوقف عند هذه الآية"
+                >
+                  <Bookmark className="w-4 h-4" />
+                  <span>وضع علامة القراءة 🔖</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -792,6 +861,25 @@ export default function MushafReader({
                 </button>
               )}
             </div>
+
+            {/* If bookmark exists on another verse, show quick option to remove */}
+            {bookmark && !(bookmark.surahId === currentSurah.id && bookmark.verseNumber === activeVerseMenu.verseNumber) && (
+              <div className="pt-2 border-t border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                <span className="flex items-center gap-1">
+                  <Bookmark className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                  <span>علامة محفوظة سابقة: سورة <b>{bookmark.surahName}</b> (الآية {toArabicNumerals(bookmark.verseNumber)})</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRemoveBookmark}
+                  className="text-rose-600 hover:text-rose-800 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+                  title="حذف العلامة السابقة"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>حذف العلامة السابقة ✕</span>
+                </button>
+              </div>
+            )}
 
           </div>
         </div>

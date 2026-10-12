@@ -329,8 +329,22 @@ async function startServer() {
     res.redirect('/');
   });
 
-  // Serve static files in production or hook Vite in development
-  if (process.env.NODE_ENV !== 'production') {
+  const distPath = path.join(process.cwd(), 'dist');
+  const indexHtmlPath = path.join(distPath, 'index.html');
+  const hasDist = fs.existsSync(indexHtmlPath);
+
+  // Serve static files immediately if dist build exists or if in production
+  if (process.env.NODE_ENV === 'production' || hasDist) {
+    app.use('/khaled-fouad', express.static(distPath));
+    app.use(express.static(distPath));
+    app.get('/khaled-fouad*', (req, res) => {
+      res.sendFile(indexHtmlPath);
+    });
+    app.get('*', (req, res) => {
+      res.sendFile(indexHtmlPath);
+    });
+    console.log('In production mode: Serving static files from disk.');
+  } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -338,36 +352,26 @@ async function startServer() {
     });
     app.use(vite.middlewares);
     console.log('In development mode: Mounted Vite middleware.');
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    const indexHtmlPath = path.join(distPath, 'index.html');
-    if (!fs.existsSync(indexHtmlPath)) {
-      console.log('Dist directory not found, falling back to Vite middleware mode.');
-      const { createServer: createViteServer } = await import('vite');
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-      });
-      app.use(vite.middlewares);
-    } else {
-      app.use('/khaled-fouad', express.static(distPath));
-      app.use(express.static(distPath));
-      app.get('/khaled-fouad*', (req, res) => {
-        res.sendFile(indexHtmlPath);
-      });
-      app.get('*', (req, res) => {
-        res.sendFile(indexHtmlPath);
-      });
-      console.log('In production mode: Serving static files from disk.');
-    }
   }
 
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Al-Bunyan Al-Noorani server is running on port ${PORT}`);
   });
 
+  // Cloud Run / HTTP Keep-Alive settings to prevent proxy hangs during deployment and publish
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
+
   process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
+    server.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
+  });
+
+  process.on('SIGINT', () => {
+    console.log('SIGINT signal received: closing HTTP server');
     server.close(() => {
       console.log('HTTP server closed');
       process.exit(0);

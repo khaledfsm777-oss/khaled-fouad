@@ -30,15 +30,18 @@
         window.dispatchEvent(new Event('app-installed-done'));
       });
 
-      // Register Service Worker safely (only in top-level standalone window, never in preview iframe)
+      // Register Service Worker safely (only in production custom domains/standalone PWA, never in dev, preview iframes, or run.app)
       if (
         'serviceWorker' in navigator &&
         window.location.protocol.startsWith('http') &&
-        window.self === window.top
+        window.self === window.top &&
+        !window.location.hostname.includes('.run.app') &&
+        !window.location.hostname.includes('localhost') &&
+        !window.location.hostname.includes('127.0.0.1')
       ) {
         window.addEventListener('load', () => {
           try {
-            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            navigator.serviceWorker.register('./sw.js')
               .catch(() => {});
           } catch {}
         });
