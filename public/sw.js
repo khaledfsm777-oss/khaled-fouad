@@ -1,4 +1,4 @@
-const CACHE_NAME = 'al-bunyan-cache-v6';
+const CACHE_NAME = 'al-bunyan-cache-v7';
 
 // Assets to precache immediately on install
 const PRECACHE_ASSETS = [
@@ -26,6 +26,7 @@ self.addEventListener('install', (event) => {
         }
       })
       .then(() => self.skipWaiting())
+      .catch(() => {})
   );
 });
 
@@ -40,6 +41,7 @@ self.addEventListener('activate', (event) => {
         })
       );
     }).then(() => self.clients.claim())
+      .catch(() => {})
   );
 });
 
@@ -65,8 +67,8 @@ self.addEventListener('fetch', (event) => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+            cache.put(event.request, responseToCache).catch(() => {});
+          }).catch(() => {});
         }
         return networkResponse;
       })
@@ -76,7 +78,7 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           if (event.request.mode === 'navigate') {
-            return caches.match('./') || caches.match('./index.html');
+            return caches.match('/') || caches.match('/index.html');
           }
         });
       })

@@ -311,6 +311,19 @@ async function startServer() {
     }
   });
 
+  // Explicit route for service worker with proper PWA headers
+  app.get(['/sw.js', '/khaled-fouad/sw.js'], (req, res) => {
+    const swPath = path.join(process.cwd(), 'public', 'sw.js');
+    if (fs.existsSync(swPath)) {
+      res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.sendFile(swPath);
+    } else {
+      res.status(404).end();
+    }
+  });
+
   // Support both root / and /khaled-fouad/ seamlessly
   app.get(['/khaled-fouad', '/khaled-fouad/'], (req, res) => {
     res.redirect('/');

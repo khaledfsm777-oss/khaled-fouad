@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Verse } from './types';
 import { parseAndAnalyzeVerses, NOORANI_SURAHS, NooraniSurah, ALL_29_NOORANI_SURAH, getNoorani29Verses, stripBismillah, buildVersesFromReferenceList } from './utils/jummal';
+import { ALL_SURAHS } from './utils/surahList';
 import quranData from './utils/quranData';
 import HelpSection from './components/HelpSection';
 import Calculator from './components/Calculator';
@@ -11,6 +12,7 @@ import NooraniCharts from './components/NooraniCharts';
 import SurahCard from './components/SurahCard';
 import BonyanLogo from './components/BonyanLogo';
 import NooraniWordExplorer from './components/NooraniWordExplorer';
+import MushafReader from './components/MushafReader';
 import { OfflinePackageModal } from './components/OfflinePackageModal';
 import { defaultAnkabutPresetText } from './utils/presets';
 import { useGlobalProgress } from './context/ProgressContext';
@@ -23,7 +25,7 @@ import {
 } from 'lucide-react';
 
 interface SavedSessionState {
-  currentScreen: 'main' | 'portal';
+  currentScreen: 'main' | 'portal' | 'mushaf';
   activeTab: 'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide';
   activeSurah: NooraniSurah | null;
   tableCurrentPage: number;
@@ -33,33 +35,16 @@ interface SavedSessionState {
   previewChartInOutput?: boolean;
 }
 
-const getInitialSession = (): SavedSessionState | null => {
-  try {
-    const hasActiveSession = typeof window !== 'undefined' && (
-      window.sessionStorage.getItem('bonyan_session_active') === 'true' ||
-      safeStorage.getItem('bonyan_session_active') === 'true'
-    );
-    if (!hasActiveSession) {
-      return null;
-    }
-    return safeStorage.getJSON<SavedSessionState | null>('bonyan_session_state', null);
-  } catch {
-    return null;
-  }
-};
-
 export default function App() {
   const { startProgress, updateProgress, finishProgress, resetProgress } = useGlobalProgress();
   const [showCover, setShowCover] = useState(false);
 
-  const initialSession = getInitialSession();
+  // Clean initial state on app launch: starts on majestic main portal deck
+  const [currentScreen, setCurrentScreen] = useState<'main' | 'portal' | 'mushaf'>('main');
+  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide'>('verses');
 
-  // Screens: 'portal' (The original tabbed layout) or 'main' (The majestic main portal deck)
-  const [currentScreen, setCurrentScreen] = useState<'main' | 'portal'>(() => initialSession?.currentScreen || 'main');
-  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide'>(() => initialSession?.activeTab || 'verses');
-
-  // Shared active Surah selection
-  const [activeSurah, setActiveSurah] = useState<NooraniSurah | null>(() => initialSession?.activeSurah || null);
+  // Shared active Surah selection (clean on start)
+  const [activeSurah, setActiveSurah] = useState<NooraniSurah | null>(null);
 
   // Shared AI Analysis History to persist across tab unmounts
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
@@ -70,105 +55,28 @@ export default function App() {
   const [showOfflineModal, setShowOfflineModal] = useState(false);
 
   // Toggle state to preview chart inside output screen
-  const [previewChartInOutput, setPreviewChartInOutput] = useState<boolean>(() => Boolean(initialSession?.previewChartInOutput));
+  const [previewChartInOutput, setPreviewChartInOutput] = useState<boolean>(false);
 
-  // Table pagination and browsing position preservation across tabs
-  const [tableCurrentPage, setTableCurrentPage] = useState<number>(() => initialSession?.tableCurrentPage || 1);
-  const [tablePageSize, setTablePageSize] = useState<number>(() => initialSession?.tablePageSize || 25);
-  const [selectedVerseId, setSelectedVerseId] = useState<number | null>(() => initialSession?.selectedVerseId || null);
+  // Table pagination and browsing position preservation
+  const [tableCurrentPage, setTableCurrentPage] = useState<number>(1);
+  const [tablePageSize, setTablePageSize] = useState<number>(25);
+  const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
 
-  const [verses, setVerses] = useState<Verse[]>(() => {
-    if (initialSession?.verses && Array.isArray(initialSession.verses) && initialSession.verses.length > 0) {
-      return initialSession.verses;
-    }
-    // Auto-rehydrate if activeSurah was preserved
-    if (initialSession?.activeSurah) {
-      try {
-        if (initialSession.activeSurah.id === 0) {
-          return getNoorani29Verses();
-        }
-        const sVerses = (quranData as any[]).filter((v: any) => v.surahId === initialSession.activeSurah!.id);
-        if (sVerses.length > 0) {
-          const formatted = sVerses
-            .map((a: any, idx: number) => {
-              let ayahText = a.text;
-              if (idx === 0) ayahText = stripBismillah(ayahText);
-              return `${ayahText} (${a.verseNumber})`;
-            })
-            .join(' ');
-          return parseAndAnalyzeVerses(formatted, 'auto', true, initialSession.activeSurah.id);
-        }
-      } catch (e) {
-        console.warn('Auto-rehydration of saved verses failed:', e);
-      }
-    }
-    return [];
-  });
+  const [verses, setVerses] = useState<Verse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Persist session state locally to prevent loss of state on navigation, backgrounding, or tab refresh
+  // Clean up any stale session cache on fresh mount
   useEffect(() => {
     try {
-      const stateToSave: SavedSessionState = {
-        currentScreen,
-        activeTab,
-        activeSurah,
-        tableCurrentPage,
-        tablePageSize,
-        selectedVerseId,
-        verses: activeSurah ? [] : (verses && verses.length > 0 ? verses.slice(0, 100) : []),
-        previewChartInOutput
-      };
-      safeStorage.setJSON('bonyan_session_state', stateToSave);
-      if (typeof window !== 'undefined' && (currentScreen === 'portal' || activeSurah !== null)) {
-        try { window.sessionStorage.setItem('bonyan_session_active', 'true'); } catch {}
-        safeStorage.setItem('bonyan_session_active', 'true');
+      safeStorage.removeItem('bonyan_session_state');
+      safeStorage.removeItem('bonyan_session_active');
+      if (typeof window !== 'undefined') {
+        try { window.sessionStorage.removeItem('bonyan_session_active'); } catch {}
+        try { window.localStorage.removeItem('bonyan_session_active'); } catch {}
+        try { window.localStorage.removeItem('bonyan_session_state'); } catch {}
       }
-    } catch (e) {
-      console.warn('Failed to save session state:', e);
-    }
-  }, [currentScreen, activeTab, activeSurah, tableCurrentPage, tablePageSize, selectedVerseId, verses, previewChartInOutput]);
-
-  // Ensure state is safely saved when app is backgrounded or tab switched, without resetting
-  useEffect(() => {
-    const handleSaveOnLeave = () => {
-      try {
-        const stateToSave: SavedSessionState = {
-          currentScreen,
-          activeTab,
-          activeSurah,
-          tableCurrentPage,
-          tablePageSize,
-          selectedVerseId,
-          verses: activeSurah ? [] : (verses && verses.length > 0 ? verses.slice(0, 100) : []),
-          previewChartInOutput
-        };
-        safeStorage.setJSON('bonyan_session_state', stateToSave);
-        if (typeof window !== 'undefined' && (currentScreen === 'portal' || activeSurah !== null)) {
-          try { window.sessionStorage.setItem('bonyan_session_active', 'true'); } catch {}
-          safeStorage.setItem('bonyan_session_active', 'true');
-        }
-      } catch (e) {
-        console.warn('Failed to save session on leave:', e);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        handleSaveOnLeave();
-      }
-    };
-
-    window.addEventListener('pagehide', handleSaveOnLeave);
-    window.addEventListener('beforeunload', handleSaveOnLeave);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('pagehide', handleSaveOnLeave);
-      window.removeEventListener('beforeunload', handleSaveOnLeave);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [currentScreen, activeTab, activeSurah, tableCurrentPage, tablePageSize, selectedVerseId, verses, previewChartInOutput]);
+    } catch {}
+  }, []);
 
   // Trigger main extraction analyzer
   const handleAnalyze = (text: string, separator: 'parentheses' | 'curly' | 'auto', excludeBismillah: boolean = true) => {
@@ -304,6 +212,25 @@ export default function App() {
         setIsLoading(false);
       }
     }, 250);
+  };
+
+  // Open surah from Mushaf Reader in numerical analysis engine
+  const handleAnalyzeSurahFromMushaf = (surahId: number) => {
+    const nooraniMatch = NOORANI_SURAHS.find((s) => s.id === surahId);
+    if (nooraniMatch) {
+      handleOpenSurahInOutput(nooraniMatch);
+    } else {
+      const general = ALL_SURAHS.find((s) => s.id === surahId);
+      const surahName = general?.name || `السورة ${surahId}`;
+      const mockNoorani: NooraniSurah = {
+        id: surahId,
+        name: surahName,
+        letters: '',
+        digitalRoot: 0,
+        keyValue: 0,
+      };
+      handleOpenSurahInOutput(mockNoorani);
+    }
   };
 
   const handleReset = () => {
@@ -484,26 +411,41 @@ export default function App() {
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <button
                 onClick={() => setCurrentScreen('main')}
-                className={`px-4 py-2 text-xs font-black transition-all border rounded-xl outline-none cursor-pointer ${
+                className={`px-3.5 py-2 text-xs font-black transition-all border rounded-xl outline-none cursor-pointer flex items-center gap-1.5 ${
                   currentScreen === 'main' 
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md' 
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md ring-2 ring-amber-300/40' 
                     : 'bg-emerald-900/50 text-slate-200 border-emerald-800 hover:bg-emerald-800'
                 }`}
               >
-                الصفحة الرئيسية للبرنامج 🏛️
+                <span>الصفحة الرئيسية 🏛️</span>
               </button>
               <button
                 onClick={() => {
                   setCurrentScreen('portal');
                   setActiveTab('verses');
                 }}
-                className={`px-4 py-2 text-xs font-black transition-all border rounded-xl outline-none cursor-pointer ${
+                className={`px-3.5 py-2 text-xs font-black transition-all border rounded-xl outline-none cursor-pointer flex items-center gap-1.5 ${
                   currentScreen === 'portal' 
-                    ? 'bg-amber-500 text-emerald-950 border-amber-400 shadow-md' 
+                    ? 'bg-amber-500 text-emerald-950 border-amber-400 shadow-md ring-2 ring-amber-300/40' 
                     : 'bg-emerald-950 text-slate-200 border-emerald-900 hover:bg-emerald-900'
                 }`}
               >
-                شاشة المدخلات/المخرجات 📖
+                <span>شاشة المدخلات/المخرجات 📖</span>
+              </button>
+              <button
+                onClick={() => setCurrentScreen('mushaf')}
+                className={`px-3.5 py-2 text-xs font-black transition-all border rounded-xl outline-none cursor-pointer flex items-center gap-1.5 ${
+                  currentScreen === 'mushaf' 
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md ring-2 ring-amber-300/40' 
+                    : 'bg-gradient-to-r from-emerald-950 to-[#072c21] text-amber-200 border-emerald-700 hover:border-amber-400 hover:bg-emerald-900'
+                }`}
+                title="المصحف الشريف للقراءة والتلاوة المباركة (114 سورة كاملة متصلة أوفلاين)"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-amber-300" />
+                <span>المصحف الشريف للقراءة 🕌</span>
+                <span className="text-[9px] bg-amber-400 text-slate-950 px-1 py-0.2 rounded font-black hidden lg:inline">
+                  أوفلاين
+                </span>
               </button>
               <button
                 type="button"
@@ -579,6 +521,40 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
+                {/* Special Master Card: Holy Quran Mushaf Reading (114 Surahs offline) */}
+                <button
+                  onClick={() => setCurrentScreen('mushaf')}
+                  className="bg-gradient-to-br from-[#06241b] via-[#0a3828] to-[#041a13] border-2 border-amber-400 hover:border-yellow-300 p-6 text-right transition-all group cursor-pointer flex flex-col justify-between h-48 md:h-44 relative rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-0.5 duration-300 text-white col-span-1 md:col-span-3"
+                >
+                  <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-500 rounded-t-2xl" />
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 w-full">
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl group-hover:scale-110 transition-transform">🕌📖</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-md inline-block shadow-sm">
+                            المصحف الشريف للقراءة والتلاوة فقط (114 سورة كاملة)
+                          </span>
+                          <span className="text-[10px] bg-emerald-900/90 text-amber-200 border border-amber-400/40 px-2 py-0.5 rounded font-bold">
+                            أوفلاين 100% وبدون أي مساحة إضافية
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-amber-300 bg-emerald-950/90 px-3 py-1 rounded-xl border border-amber-500/50 shadow-inner">
+                      قراءة متصلة بنمط ورقة المصحف 📜
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <h4 className="text-base font-black text-amber-200 group-hover:text-yellow-100 transition-colors">
+                      قراءة سور القرآن الكريم كاملةً غير مجزأة
+                    </h4>
+                    <p className="text-xs text-slate-200 mt-1 leading-relaxed">
+                      عرض سور القرآن الكريم متصلة بتنسيق ورقة المصحف الشريف للقراءة فقط؛ خط عثماني فاخر، فواصل الآيات ﴿١﴾، ترويسات السور، فهارس السور والأجزاء الثلاثين، علامات الحفظ المرجعية، والبحث الفوري الشامل.
+                    </p>
+                  </div>
+                </button>
+
                 {/* Button 1: Master Verses Input & Output & Search */}
                 <button
                   onClick={() => {
@@ -793,19 +769,37 @@ export default function App() {
             </div>
 
           </div>
+        ) : currentScreen === 'mushaf' ? (
+          /* 2. DEDICATED MUSHAF AL-QURAN READING SCREEN (OFFLINE & CONTINUOUS) */
+          <MushafReader 
+            onAnalyzeSurah={handleAnalyzeSurahFromMushaf}
+            onBackToHome={() => setCurrentScreen('main')}
+          />
         ) : (
-          // 2. ORIGINAL COMPREHENSIVE PORTAL INTERFACE TAB-PANELS
+          // 3. ORIGINAL COMPREHENSIVE PORTAL INTERFACE TAB-PANELS
           <div className="space-y-6">
             
             {/* Quick Screen Back Anchor */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 border border-amber-200/40 rounded-xl shadow-sm">
-              <button 
-                onClick={() => setCurrentScreen('main')}
-                className="text-xs font-black text-emerald-900 flex items-center gap-1.5 hover:text-amber-600 transition-all cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4 text-emerald-800" />
-                العودة للشاشة الرئيسية للبرنامج 🏛️
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setCurrentScreen('main')}
+                  className="text-xs font-black text-emerald-900 flex items-center gap-1.5 hover:text-amber-600 transition-all cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4 text-emerald-800" />
+                  العودة للشاشة الرئيسية للبرنامج 🏛️
+                </button>
+                <span className="text-slate-300">|</span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentScreen('mushaf')}
+                  className="text-xs font-black text-amber-900 hover:text-amber-700 flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="الانتقال للمصحف الشريف للقراءة والتلاوة"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-amber-600" />
+                  المصحف الشريف للقراءة 🕌
+                </button>
+              </div>
               
               <div className="flex items-center gap-3">
                 <div className="text-xs text-slate-500 font-bold hidden md:block">

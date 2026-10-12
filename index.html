@@ -30,14 +30,17 @@
         window.dispatchEvent(new Event('app-installed-done'));
       });
 
-      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+      // Register Service Worker safely (only in top-level standalone window, never in preview iframe)
+      if (
+        'serviceWorker' in navigator &&
+        window.location.protocol.startsWith('http') &&
+        window.self === window.top
+      ) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js')
-            .then((reg) => {
-              // Ensure immediate update if worker script changed
-              reg.update();
-            })
-            .catch(() => {});
+          try {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+              .catch(() => {});
+          } catch {}
         });
       }
     </script>

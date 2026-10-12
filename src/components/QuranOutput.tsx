@@ -75,22 +75,12 @@ export default function QuranOutput({
   const setSelectedVerseId = externalSetSelectedVerseId || setInternalSelectedVerseId;
 
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
-  const [selectedShuraTab, setSelectedShuraTab] = useState<'hameem' | 'asaq' | 'combined'>(() => {
-    return safeStorage.getJSON<'hameem' | 'asaq' | 'combined'>('bonyan_output_shura_tab', 'combined');
-  });
-  const [shuraCombinedFilter, setShuraCombinedFilter] = useState<'all' | 'same_digit' | 'double_exact' | 'equal_score' | 'elite_51'>(() => {
-    return safeStorage.getJSON<'all' | 'same_digit' | 'double_exact' | 'equal_score' | 'elite_51'>('bonyan_output_shura_combined_filter', 'all');
-  });
-  const [mizanFilter, setMizanFilter] = useState<'all' | 'verified_exact' | 'golden' | 'exact' | 'structural' | 'not_compatible' | 'tawheed' | 'triple_match'>(() => {
-    return safeStorage.getJSON('bonyan_output_mizan_filter', 'all');
-  });
+  const [selectedShuraTab, setSelectedShuraTab] = useState<'hameem' | 'asaq' | 'combined'>('combined');
+  const [shuraCombinedFilter, setShuraCombinedFilter] = useState<'all' | 'same_digit' | 'double_exact' | 'equal_score' | 'elite_51'>('all');
+  const [mizanFilter, setMizanFilter] = useState<'all' | 'verified_exact' | 'golden' | 'exact' | 'structural' | 'not_compatible' | 'tawheed' | 'triple_match'>('all');
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterState>(initialFilterState);
-  const [sortField, setSortField] = useState<'id' | 'jummal' | 'letters' | 'words'>(() => {
-    return safeStorage.getJSON('bonyan_output_sort_field', 'id');
-  });
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
-    return safeStorage.getJSON('bonyan_output_sort_order', 'asc');
-  });
+  const [sortField, setSortField] = useState<'id' | 'jummal' | 'letters' | 'words'>('id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     try {

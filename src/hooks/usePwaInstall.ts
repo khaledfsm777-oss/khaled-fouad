@@ -30,13 +30,11 @@ export function usePwaInstall() {
       setIsInstalled(true);
     }
 
-    // Proactively update any existing service workers for clean cache synchronization
-    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const reg of registrations) {
-          reg.update().catch(() => {});
-        }
-      }).catch(() => {});
+    // Safe check for service worker registration in standalone top-level window
+    if (!insideIframe && 'serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+      try {
+        navigator.serviceWorker.getRegistrations().catch(() => {});
+      } catch {}
     }
 
     // Check if prompt was already captured by early HTML script
@@ -115,11 +113,15 @@ export function usePwaInstall() {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map((name) => caches.delete(name)));
       }
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (const reg of registrations) {
-          await reg.update();
-        }
+      if (!isInIframe && 'serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const reg of registrations) {
+            try {
+              await reg.update().catch(() => {});
+            } catch {}
+          }
+        } catch {}
       }
       return true;
     } catch {
