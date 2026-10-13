@@ -871,6 +871,102 @@ export default function HelpSection() {
         )}
       </div>
 
+      {/* SECTION 6: Mukhtasar fi Tafsir Integration & Al-Bunyan Smart Interpreter Report */}
+      <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
+        <button
+          type="button"
+          onClick={() => toggleSection('section-6')}
+          className="w-full p-5 bg-[#faf9f4] hover:bg-[#f5f3e9] flex items-center justify-between text-right transition-colors cursor-pointer border-b border-amber-200/60"
+        >
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold">📖</span>
+            <div>
+              <h3 className="text-base font-black text-slate-900">6️⃣ منهجية تقرير مفسر البنيان الذكي المرتبط بكتاب «المختصر في التفسير»</h3>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                ربط التفسير الموضوعي المعتمد من مركز تفسير بالتحليل البنيوي الرقمي لـ 29 سورة نورانية فقط
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-black px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 shadow-xs">
+            {isOpen('section-6') ? 'طَي القسم 🔼' : 'عرض التفاصيل 🔽'}
+          </span>
+        </button>
+
+        {isOpen('section-6') && (
+          <div className="p-6 md:p-8 space-y-6 text-slate-700 text-xs md:text-sm leading-relaxed border-t border-slate-100 animate-fade-in">
+            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl space-y-2">
+              <span className="font-black text-emerald-950 block text-sm flex items-center gap-2">
+                <span>🌟</span>
+                <span>فلسفة ربط منظومة البنيان بكتاب «المختصر في التفسير» (مركز تفسير للدراسات القرآنية):</span>
+              </span>
+              <p className="text-xs text-emerald-900 leading-relaxed font-semibold">
+                يجمع تقرير مفسر البنيان الذكي بين جلال المعنى الشرعي والتفسير الأثري المنضبط وبين دقة الإعجاز الحسابي والاتزان الرقمي. ويعتمد البرنامج كتاب «المختصر في التفسير» الصادر عن مركز تفسير للدراسات القرآنية كمرجع أصيل ومعتمد في بيان معالم ومقاصد السور والآيات.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-sm font-black text-slate-900 border-r-4 border-amber-500 pr-3">
+                📌 الأركان الأربعة الأساسية لتقرير مفسر البنيان الذكي:
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
+                  <span className="font-black text-slate-900 block text-xs">
+                    1. 🏛️ ما يدور حول السورة (للسور الـ 29 النورانية فقط):
+                  </span>
+                  <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside font-medium">
+                    <li><strong>التمهيد:</strong> نبذة تاريخية وسياق نزول السورة وخصائصها ومكانتها.</li>
+                    <li><strong>مقصد السورة ومحورها العام:</strong> الصياغة المعتمدة لمقصد السورة والمحور العام المستمد من كتاب المختصر.</li>
+                    <li><strong>اللمسات التدبرية الجامعة:</strong> استخلاص الملامح الإيمانية والتربوية الجامعة لمقاطع السورة.</li>
+                  </ul>
+                </div>
+
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
+                  <span className="font-black text-slate-900 block text-xs">
+                    2. 📑 بيان الآيات المعروضة وقت طلب التقرير:
+                  </span>
+                  <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside font-medium">
+                    <li><strong>نص الآية الكريمة:</strong> بالرسم العثماني المصحفي المعتمد.</li>
+                    <li><strong>التفسير المختصر:</strong> بيان المعنى المباشر الميسر من كتاب المختصر في التفسير.</li>
+                    <li><strong>فوائد الآيات واللطائف:</strong> الفوائد السلوكية والتشريعية المستنبطة من الآية.</li>
+                    <li><strong>اللمسة التدبرية:</strong> لطيفة تدبرية بيانية خاصة بالآية.</li>
+                  </ul>
+                </div>
+
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
+                  <span className="font-black text-slate-900 block text-xs">
+                    3. ⚙️ التحليل البنيوي والعددي لكل آية:
+                  </span>
+                  <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside font-medium">
+                    <li>رقم الآية، مجموع الكلمات، ومجموع الحروف بدقة الرسم العثماني.</li>
+                    <li>حساب الجمل الكبير للآية وقابلية القسمة على المعامل النوراني (القسمة الصرفة).</li>
+                    <li><strong>البصمة النورانية (14) الصريحة حصراً:</strong> التحقق المباشر من مساواة الجمل أو الكلمات أو الحروف أو ناتج المعادلة للعدد 14 الصريح دون أي اختزال إلى 5.</li>
+                    <li>البصمة السيادية (9) ومعادلة العمود الجديد والبصمة الأحادية.</li>
+                  </ul>
+                </div>
+
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
+                  <span className="font-black text-slate-900 block text-xs">
+                    4. 🌐 العمل في وضعي الاتصال (أونلاين وأوفلاين):
+                  </span>
+                  <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside font-medium">
+                    <li><strong>وضع أونلاين:</strong> جلب سحابي مباشر وفوري من قاعدة بيانات المختصر مع كاش سريع لتوفير البيانات.</li>
+                    <li><strong>وضع أوفلاين:</strong> في حال انقطاع الشبكة، يعرض البرنامج محاور السورة من تمهيد ومقصد ومحور، مع الآيات وتفسيرها وفوائدها والتحليل البنيوي من القاعدة المدمجة بالكامل لـ 29 سورة نورانية دون أي توقف أو أخطاء.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 font-bold space-y-1">
+              <span>⚠️ قاعدة حصرية البصمة 14 الصريحة:</span>
+              <p className="font-semibold text-slate-700">
+                تم اعتماد قاعدة ميزانية صارمة تقضي بأن البصمة النورانية (14) تُمنح حصراً للقيم الصريحة المساوية للعدد 14 (سواء في حساب الجمل، عدد الكلمات، عدد الحروف، أو ناتج معادلة العمود الجديد). وقد تم إلغاء أي اعتبار للرقم 5 كبديل عن 14، لأن الرقم 5 قد ينتج عن اختزال أرقام أخرى كـ 23 أو غيرها.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Grid of Abjad Letters Metadata & Uthmani Script Rules */}
       <div className="bg-white rounded-2xl border-2 border-slate-200 p-6 space-y-4 shadow-sm">
         <h3 className="text-base font-black text-emerald-950 flex items-center gap-2">

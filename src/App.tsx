@@ -658,14 +658,14 @@ export default function App() {
                   }}
                   className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
-                  <div className="absolute top-0 right-0 left-0 h-1 bg-pink-600 rounded-t-2xl" />
+                  <div className="absolute top-0 right-0 left-0 h-1 bg-amber-500 rounded-t-2xl" />
                   <div className="flex justify-between items-start w-full">
-                    <span className="text-2xl group-hover:scale-110 transition-transform">🧠</span>
-                    <span className="text-[10px] bg-pink-600 text-white font-black px-2 py-0.5 rounded-md">مستشار البنيان</span>
+                    <span className="text-2xl group-hover:scale-110 transition-transform">🌟</span>
+                    <span className="text-[10px] bg-amber-600 text-white font-black px-2 py-0.5 rounded-md">المختصر في التفسير</span>
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">مفسر البنيان بالذكاء الاصطناعي</h4>
-                    <p className="text-[10px] text-slate-400 mt-1">توليد شروح تأويلية استقصائية مبنية على الأوزان.</p>
+                    <h4 className="text-sm font-black text-slate-900 group-hover:text-amber-900 transition-colors">مفسر البنيان الذكي الشامل</h4>
+                    <p className="text-[10px] text-slate-500 mt-1">مقاصد وتمهيد السور والآيات وفوائدها مع موازين البنيان والمعامل والرقم 14.</p>
                   </div>
                 </button>
 
@@ -918,6 +918,7 @@ export default function App() {
                     <QuranInput 
                       onAnalyze={handleAnalyze} 
                       onAnalyze29={handleAnalyze29}
+                      onOpenSmartReport={() => setActiveTab('ai')}
                       isLoading={isLoading} 
                       activeSurah={activeSurah}
                       setActiveSurah={setActiveSurah}

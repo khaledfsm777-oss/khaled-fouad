@@ -7,12 +7,13 @@ import QuranFontSizeControl from './QuranFontSizeControl';
 interface QuranInputProps {
   onAnalyze: (text: string, separator: 'parentheses' | 'curly' | 'auto', excludeBismillah: boolean) => void;
   onAnalyze29?: () => void;
+  onOpenSmartReport?: () => void;
   isLoading: boolean;
   activeSurah: NooraniSurah | null;
   setActiveSurah: (surah: NooraniSurah | null) => void;
 }
 
-export default function QuranInput({ onAnalyze, onAnalyze29, isLoading, activeSurah, setActiveSurah }: QuranInputProps) {
+export default function QuranInput({ onAnalyze, onAnalyze29, onOpenSmartReport, isLoading, activeSurah, setActiveSurah }: QuranInputProps) {
   const [inputScope, setInputScope] = useState<'noorani' | 'all114'>('noorani');
   const [selectedSurahId, setSelectedSurahId] = useState<number | ''>('');
   const [excludeBismillah, setExcludeBismillah] = useState(true);
@@ -266,16 +267,35 @@ export default function QuranInput({ onAnalyze, onAnalyze29, isLoading, activeSu
             <div className="text-sm md:text-base font-bold text-slate-800">
               السورة المحددة: <span className="font-black text-amber-950 text-base md:text-lg">سورة {selectedSurahName}</span>
             </div>
-            <button
-              id="btn-trigger-single-analyze"
-              type="button"
-              onClick={triggerProcess}
-              disabled={isLoading}
-              className="w-full sm:w-auto px-7 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-sm md:text-base rounded-none shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              <span>بدء استقصاء وتحليل سورة {selectedSurahName} ➡️</span>
-            </button>
+            <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
+              <button
+                id="btn-trigger-single-analyze"
+                type="button"
+                onClick={triggerProcess}
+                disabled={isLoading}
+                className="flex-1 sm:flex-initial px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-sm rounded-none shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <span>بدء استقصاء وتحليل سورة {selectedSurahName} ➡️</span>
+              </button>
+
+              <button
+                id="btn-trigger-smart-interpreter"
+                type="button"
+                onClick={() => {
+                  triggerProcess();
+                  if (onOpenSmartReport) {
+                    onOpenSmartReport();
+                  }
+                }}
+                disabled={isLoading}
+                className="flex-1 sm:flex-initial px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-sm rounded-none shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 border border-amber-400"
+                title="توليد وعرض تقرير مفسر البنيان الذكي المرتبط بكتاب المختصر في التفسير"
+              >
+                <Sparkles className="w-5 h-5 text-slate-950" />
+                <span>🌟 تقرير مفسر البنيان الذكي («المختصر في التفسير»)</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -316,6 +336,33 @@ export default function QuranInput({ onAnalyze, onAnalyze29, isLoading, activeSu
                 <span>🔄 تغيير السورة</span>
               </button>
             </div>
+          </div>
+
+          {/* Dedicated Smart Interpreter Banner in Reading Mode */}
+          <div className="bg-gradient-to-r from-amber-500/15 via-emerald-600/10 to-amber-500/15 border-2 border-amber-400 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+            <div className="text-right">
+              <h4 className="text-sm font-black text-amber-950 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                <span>مفسر البنيان الذكي — المرتبط بكتاب «المختصر في التفسير»</span>
+              </h4>
+              <p className="text-xs text-slate-700 mt-0.5">
+                توليد التقرير الأكاديمي الشامل لتمهيد ومقصد ومحور سورة {activeSurah.name} وتفسير الآيات وفوائدها مع موازين البنيان والمعامل والرقم 14.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenSmartReport) {
+                  onOpenSmartReport();
+                } else {
+                  triggerProcess();
+                }
+              }}
+              className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-none shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0 border border-amber-400"
+            >
+              <BookOpen className="w-4 h-4 text-slate-950" />
+              <span>⚡ فتح تقرير مفسر البنيان الذكي الشامل</span>
+            </button>
           </div>
 
           {/* Reading Mode Display - Always Rendered */}
