@@ -1321,16 +1321,42 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
  * 2. Condition 2: Surah / Self Fingerprint Verification (singleFingerprint matches verseDigitalRoot, verseNumReduced, surahIdDigitalRoot, or revelationOrderDigitalRoot)
  * 3. Condition 3: Noorani Coefficient Influence (isCoeffDivisible or matchesCoeffFingerprint)
  */
-export function isTripleMatchElite(
-  v: any,
-  s: NooraniSurah,
-  surahMeta?: { revelationOrder?: number }
-): {
+export interface NooraniEliteResult {
   isTripleMatch: boolean;
   cond1: boolean;
   cond2: boolean;
   cond3: boolean;
-} {
+  // Specific Elite Sub-Categories according to Noorani criteria:
+  matchesCoeffOrRank: boolean;    // توافق المعامل وترتيب السورة النورانية
+  matchesSignature14: boolean;    // توافق البصمة النورانية 14 الصريحة حصراً (دون أي اختزال إلى 5)
+  matchesSignature9: boolean;     // توافق البصمة 9 (الختام السيادي)
+  matchesStructuralDiv: boolean;  // ميزان المجموع البنيوي (الجمل + رقم الآية) ÷ المعامل
+  matchesHexagonalExact: boolean; // التوافق السداسي التام (6/6 أو الأخضر/الذهبي)
+  structuralSum: number;
+  structuralDivisor: number;
+  categoriesLabels: string[];
+}
+
+export const EMPTY_ELITE_RESULT: NooraniEliteResult = {
+  isTripleMatch: false,
+  cond1: false,
+  cond2: false,
+  cond3: false,
+  matchesCoeffOrRank: false,
+  matchesSignature14: false,
+  matchesSignature9: false,
+  matchesStructuralDiv: false,
+  matchesHexagonalExact: false,
+  structuralSum: 0,
+  structuralDivisor: 1,
+  categoriesLabels: []
+};
+
+export function isTripleMatchElite(
+  v: any,
+  s: NooraniSurah,
+  surahMeta?: { revelationOrder?: number }
+): NooraniEliteResult {
   const comp = getCompatibilityDetails(v, s);
   const singleFingerprint = comp.finalSingleDigit;
 
@@ -1386,7 +1412,84 @@ export function isTripleMatchElite(
 
   const isTripleMatch = cond1 && cond2 && cond3;
 
-  return { isTripleMatch, cond1, cond2, cond3 };
+  // 4. Detailed Noorani Elite Sub-Categorization:
+  const effectiveJummal = typeof v.jummalValue === 'number' ? v.jummalValue : (v.jummal || 0);
+  const effectiveVerseNum = parseInt(v.verseNumber, 10) || v.id || 1;
+  const effectiveWordCount = typeof v.wordCount === 'number' ? v.wordCount : 0;
+  const effectiveLetterCount = typeof v.letterCount === 'number' ? v.letterCount : 0;
+  const densityVal = effectiveWordCount + effectiveLetterCount;
+  const structuralSum = effectiveJummal + effectiveVerseNum;
+  const effectiveDivisor = comp.reducedFactor || (s?.digitalRoot || 1);
+
+  // A. توافق المعامل وترتيب السورة النورانية (قسمة الجمل أو الهيكلي أو الكثافة أو تطابق البصمة)
+  const matchesCoeffOrRank = Boolean(
+    (effectiveDivisor > 0 && effectiveJummal > 0 && effectiveJummal % effectiveDivisor === 0) ||
+    (effectiveDivisor > 0 && structuralSum > 0 && structuralSum % effectiveDivisor === 0) ||
+    (effectiveDivisor > 0 && densityVal > 0 && densityVal % effectiveDivisor === 0) ||
+    (nooraniRank && nooraniRank > 0 && (effectiveJummal % nooraniRank === 0 || structuralSum % nooraniRank === 0 || densityVal % nooraniRank === 0)) ||
+    (singleFingerprint === effectiveDivisor) ||
+    (nooraniRank && singleFingerprint === reduceDigitalRoot(nooraniRank)) ||
+    comp.isNooraniRankMatch ||
+    comp.isDigitalMirror
+  );
+
+  // B. توافق البصمة النورانية 14 (الحصرية الصريحة: أي قيمة = 14 حصراً دون أي قسمة أو مضاعفات أو اختزال إلى 5)
+  const matchesSignature14 = Boolean(
+    effectiveWordCount === 14 ||
+    effectiveLetterCount === 14 ||
+    densityVal === 14 ||
+    comp.newColumnProduct === 14 ||
+    effectiveVerseNum === 14 ||
+    comp.isNooraniLetters14Match
+  );
+
+  // C. توافق البصمة 9 (الختام التساعي السيادي)
+  const matchesSignature9 = Boolean(
+    (singleFingerprint === 9) ||
+    comp.isDominantNine ||
+    (reduceDigitalRoot(effectiveJummal) === 9) ||
+    (reduceDigitalRoot(structuralSum) === 9) ||
+    (reduceDigitalRoot(densityVal) === 9) ||
+    (effectiveJummal > 0 && effectiveJummal % 9 === 0) ||
+    (structuralSum > 0 && structuralSum % 9 === 0) ||
+    (densityVal > 0 && densityVal % 9 === 0) ||
+    (comp.newColumnProduct > 0 && comp.newColumnProduct % 9 === 0)
+  );
+
+  // D. ميزان المجموع البنيوي (الجمل + رقم الآية) مقسوماً على المعامل
+  const matchesStructuralDiv = Boolean(
+    (effectiveDivisor > 0 && structuralSum > 0 && structuralSum % effectiveDivisor === 0) ||
+    (nooraniRank && nooraniRank > 0 && structuralSum % nooraniRank === 0)
+  );
+
+  // E. التوافق السداسي التام (6/6 أو 5/6 أو قسمة بلا باقٍ)
+  const matchesHexagonalExact = Boolean(
+    comp.score >= 5 ||
+    comp.isDirectMatch ||
+    (effectiveDivisor > 0 && effectiveJummal > 0 && effectiveJummal % effectiveDivisor === 0)
+  );
+
+  const categoriesLabels: string[] = [];
+  if (matchesCoeffOrRank) categoriesLabels.push("المعامل وترتيب السورة النورانية");
+  if (matchesSignature14) categoriesLabels.push("البصمة النورانية (14) الصريحة");
+  if (matchesSignature9) categoriesLabels.push("البصمة التساعية السيادية (9)");
+  if (matchesStructuralDiv) categoriesLabels.push("الميزان البنيوي (الجمل + الآية ÷ المعامل)");
+  if (matchesHexagonalExact) categoriesLabels.push("التوافق السداسي التام");
+
+  return {
+    isTripleMatch,
+    cond1,
+    cond2,
+    cond3,
+    matchesCoeffOrRank,
+    matchesSignature14,
+    matchesSignature9,
+    matchesStructuralDiv,
+    matchesHexagonalExact,
+    structuralSum,
+    structuralDivisor: effectiveDivisor,
+    categoriesLabels
+  };
 }
 
 export function getAchievedCompatibilities(v: any, s: NooraniSurah): string[] {

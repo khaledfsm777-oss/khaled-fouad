@@ -12,6 +12,7 @@ import {
   getCompatibilityDetails,
   getAchievedCompatibilities,
   isTripleMatchElite,
+  EMPTY_ELITE_RESULT,
   getReductionExplanation,
   getSurahCoefficient,
   getNooraniRank,
@@ -21,7 +22,7 @@ import {
   FileSpreadsheet, Search, Eye, Download, Copy, Share, ArrowUpDown, 
   Hash, BookOpen, AlertCircle, Sparkles, Filter, CheckCircle2, X, Plus, Minus, RefreshCw, Palette,
   AlertTriangle, StickyNote, Edit3, Save, Trash2, CheckSquare,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Crown
 } from 'lucide-react';
 import { SURAH_METADATA, getSurahMetadata } from '../utils/surahMetadata';
 import { generateLocalAcademicAnalysis, generateTripleMatchEliteReport, generateIntegratedCompatibilityReport } from '../utils/reportTemplates';
@@ -675,6 +676,11 @@ export default function QuranOutput({
     let perfect_matches = 0;
     let unregistered_matches = 0;
     let researcher_notes = 0;
+    let elite_coeff_rank = 0;
+    let elite_sig_14 = 0;
+    let elite_sig_9 = 0;
+    let elite_struct_div = 0;
+    let elite_hex_exact = 0;
 
     if (isNoorani && activeSurah?.id === 42 && selectedShuraTab === 'combined') {
       const sH = { id: 42, name: 'الشورى (حم)', letters: 'حم', keyValue: 48, digitalRoot: 3 };
@@ -749,6 +755,13 @@ export default function QuranOutput({
         if (isSharedEliteShura) {
           triple_match++;
         }
+        const tripleH = isTripleMatchElite(v, sH, surahMeta);
+        const tripleA = isTripleMatchElite(v, sA, surahMeta);
+        if (tripleH.matchesCoeffOrRank || tripleA.matchesCoeffOrRank) elite_coeff_rank++;
+        if (tripleH.matchesSignature14 || tripleA.matchesSignature14) elite_sig_14++;
+        if (tripleH.matchesSignature9 || tripleA.matchesSignature9) elite_sig_9++;
+        if (tripleH.matchesStructuralDiv || tripleA.matchesStructuralDiv) elite_struct_div++;
+        if (tripleH.matchesHexagonalExact || tripleA.matchesHexagonalExact) elite_hex_exact++;
       });
     } else {
       const allItems: { v: any; track: { letters: string; keyValue: number; digitalRoot: number } }[] = [];
@@ -857,6 +870,21 @@ export default function QuranOutput({
         if (tripleRes.isTripleMatch) {
           triple_match++;
         }
+        if (tripleRes.matchesCoeffOrRank) {
+          elite_coeff_rank++;
+        }
+        if (tripleRes.matchesSignature14) {
+          elite_sig_14++;
+        }
+        if (tripleRes.matchesSignature9) {
+          elite_sig_9++;
+        }
+        if (tripleRes.matchesStructuralDiv) {
+          elite_struct_div++;
+        }
+        if (tripleRes.matchesHexagonalExact) {
+          elite_hex_exact++;
+        }
       });
     }
 
@@ -881,7 +909,12 @@ export default function QuranOutput({
       noorani_rank,
       perfect_matches,
       unregistered_matches,
-      researcher_notes
+      researcher_notes,
+      elite_coeff_rank,
+      elite_sig_14,
+      elite_sig_9,
+      elite_struct_div,
+      elite_hex_exact
     };
   }, [verses, activeSurah, isNoorani, selectedShuraTab, researcherNotes]);
 
@@ -1167,13 +1200,46 @@ export default function QuranOutput({
         }
       }
 
-      // 9b. Triple Match Elite Filter (آيات النخبة النورانية المطلقة)
+      // 9b. Triple Match Elite Filter (آيات النخبة النورانية المطلقة وتقسيماتها الخمس)
       if (advancedFilters.tripleMatchOnly) {
         if (isShuraCombined) {
           if (!isTripleCombined) return false;
+          if (advancedFilters.eliteSubCategory && advancedFilters.eliteSubCategory !== 'all') {
+            const tripleH = isTripleMatchElite(v, sH, surahMeta);
+            const tripleA = isTripleMatchElite(v, sA, surahMeta);
+            if (advancedFilters.eliteSubCategory === 'coeff_rank' && !tripleH.matchesCoeffOrRank && !tripleA.matchesCoeffOrRank) return false;
+            if (advancedFilters.eliteSubCategory === 'sig_14' && !tripleH.matchesSignature14 && !tripleA.matchesSignature14) return false;
+            if (advancedFilters.eliteSubCategory === 'sig_9' && !tripleH.matchesSignature9 && !tripleA.matchesSignature9) return false;
+            if (advancedFilters.eliteSubCategory === 'struct_div' && !tripleH.matchesStructuralDiv && !tripleA.matchesStructuralDiv) return false;
+            if (advancedFilters.eliteSubCategory === 'hex_exact' && !tripleH.matchesHexagonalExact && !tripleA.matchesHexagonalExact) return false;
+          }
         } else {
           const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
           if (!tripleRes.isTripleMatch) return false;
+          if (advancedFilters.eliteSubCategory && advancedFilters.eliteSubCategory !== 'all') {
+            if (advancedFilters.eliteSubCategory === 'coeff_rank' && !tripleRes.matchesCoeffOrRank) return false;
+            if (advancedFilters.eliteSubCategory === 'sig_14' && !tripleRes.matchesSignature14) return false;
+            if (advancedFilters.eliteSubCategory === 'sig_9' && !tripleRes.matchesSignature9) return false;
+            if (advancedFilters.eliteSubCategory === 'struct_div' && !tripleRes.matchesStructuralDiv) return false;
+            if (advancedFilters.eliteSubCategory === 'hex_exact' && !tripleRes.matchesHexagonalExact) return false;
+          }
+        }
+      } else if (advancedFilters.eliteSubCategory && advancedFilters.eliteSubCategory !== 'all') {
+        if (isShuraCombined) {
+          const tripleH = isTripleMatchElite(v, sH, surahMeta);
+          const tripleA = isTripleMatchElite(v, sA, surahMeta);
+          if (advancedFilters.eliteSubCategory === 'coeff_rank' && !tripleH.matchesCoeffOrRank && !tripleA.matchesCoeffOrRank) return false;
+          if (advancedFilters.eliteSubCategory === 'sig_14' && !tripleH.matchesSignature14 && !tripleA.matchesSignature14) return false;
+          if (advancedFilters.eliteSubCategory === 'sig_9' && !tripleH.matchesSignature9 && !tripleA.matchesSignature9) return false;
+          if (advancedFilters.eliteSubCategory === 'struct_div' && !tripleH.matchesStructuralDiv && !tripleA.matchesStructuralDiv) return false;
+          if (advancedFilters.eliteSubCategory === 'hex_exact' && !tripleH.matchesHexagonalExact && !tripleA.matchesHexagonalExact) return false;
+        } else {
+          const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
+          if (advancedFilters.eliteSubCategory === 'coeff_rank' && !tripleRes.matchesCoeffOrRank) return false;
+          if (advancedFilters.eliteSubCategory === 'sig_14' && !tripleRes.matchesSignature14) return false;
+          if (advancedFilters.eliteSubCategory === 'sig_9' && !tripleRes.matchesSignature9) return false;
+          if (advancedFilters.eliteSubCategory === 'struct_div' && !tripleRes.matchesStructuralDiv) return false;
+          if (advancedFilters.eliteSubCategory === 'hex_exact' && !tripleRes.matchesHexagonalExact) return false;
         }
       }
 
@@ -2671,78 +2737,384 @@ export default function QuranOutput({
             </div>
           )}
 
-          {/* Informative Table Header, Legend Banner, and View Controls */}
-          <div className="bg-slate-50 border-b border-slate-200 p-4 text-right space-y-3 select-none">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                  📋 {searchScopeTitle || 'ميزان التحليل الشامل وجدول استقصاء التوافقات الموحد'}:
-                </h4>
-                <span className="text-[11px] font-bold text-slate-500">
-                  ({tableRows.length} آية)
-                </span>
-              </div>
-
+          {/* ========================================================================= */}
+          {/* بيان التوافقات والموازين الموحد ودليل الألوان (Unified Compatibility Hub) */}
+          {/* ========================================================================= */}
+          <div className="bg-white border-b-2 border-slate-300 p-3.5 sm:p-4 text-right space-y-3 select-none">
+            
+            {/* Header: Title, Scope, 29 Surahs Toggle */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 border border-emerald-200 rounded-sm">
-                  📖 الرسم العثماني والاختزال
+                <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <span className="p-1 bg-amber-500 text-slate-950 rounded-xs">📋</span>
+                  <span>بيان التوافقات والموازين الموحد:</span>
+                </h4>
+                <span className="text-xs font-bold text-slate-600">
+                  {searchScopeTitle || 'ميزان التحليل الشامل للآيات'}
+                </span>
+                <span className="text-[11px] font-black text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-xs font-mono">
+                  ({tableRows.length} آية معروضة من {filterCounts.all || verses.length})
                 </span>
               </div>
-            </div>
 
-            <p className="text-[10px] text-slate-600 leading-relaxed">
-              يوضح هذا الجدول البنيان الحسابي الشامل للآيات الكريمة مع تفكيك وقيم الاختزال الرقمي (1-9) للجمّل، والكلمات، والحروف، والمجموع.
-            </p>
-          </div>
-
-          {/* Quick Filter Bar for Noorani 29 Surahs in Comprehensive Search */}
-          {(showSurahNameColumn || verses.some(v => (v as any).surahName)) && (
-            <div className="bg-amber-50/80 border-b border-amber-200/80 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs select-none">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  مجموعة السور النورانية الـ (29):
-                </span>
-                <div className="flex items-center gap-1.5">
+              {/* Quick 29 Noorani Surahs Filter Toggle */}
+              {(showSurahNameColumn || verses.some(v => (v as any).surahName)) && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-600" />
+                    <span>السور الـ (29):</span>
+                  </span>
                   <button
                     type="button"
                     onClick={() => { setNooraniSurahFilter('all'); setCurrentPage(1); }}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-sm border transition-colors cursor-pointer ${
+                    className={`px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer rounded-xs ${
                       nooraniSurahFilter === 'all'
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        ? 'bg-slate-900 text-white border-slate-900'
                         : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                     }`}
                   >
-                    كل السور ({tableRows.length})
+                    كل السور
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setNooraniSurahFilter('all_29'); setCurrentPage(1); }}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-sm border transition-colors cursor-pointer flex items-center gap-1 ${
+                    onClick={() => { setNooraniSurahFilter(prev => prev === 'all_29' ? 'all' : 'all_29'); setCurrentPage(1); }}
+                    className={`px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer rounded-xs flex items-center gap-1 ${
                       nooraniSurahFilter === 'all_29'
                         ? 'bg-amber-500 text-slate-950 border-amber-600 font-black shadow-xs ring-1 ring-amber-400'
-                        : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
+                        : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                     }`}
                   >
-                    <span>✨ السور الـ 29 فقط</span>
+                    <span>✨ الـ 29 فقط</span>
                   </button>
-                </div>
-              </div>
-              {typeof nooraniSurahFilter === 'number' && (
-                <div className="flex items-center gap-2 bg-amber-100/90 border border-amber-300 text-amber-950 px-2.5 py-1 rounded-sm text-xs font-bold">
-                  <span>تصفية مخصصة: {NOORANI_SURAHS.find(s => s.id === nooraniSurahFilter)?.name || `سورة #${nooraniSurahFilter}`}</span>
-                  <button
-                    type="button"
-                    onClick={() => { setNooraniSurahFilter('all'); setCurrentPage(1); }}
-                    className="text-amber-700 hover:text-rose-600 cursor-pointer p-0.5"
-                    title="إلغاء التصفية والعودة للكل"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                  {typeof nooraniSurahFilter === 'number' && (
+                    <button
+                      type="button"
+                      onClick={() => { setNooraniSurahFilter('all'); setCurrentPage(1); }}
+                      className="px-2 py-0.5 text-[10px] font-bold bg-amber-200 text-amber-950 border border-amber-400 rounded-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>سورة #{nooraniSurahFilter}</span>
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
-          )}
+
+            {/* Tier 1: الموازين العامة بالألوان المعتمدة (Color-Coded Master Compatibilities) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1 text-[11px] font-black text-slate-700">
+                <span>🎨 موازين التوافق العامة بالألوان المعتمدة:</span>
+                <span className="text-[10px] font-medium text-slate-500">(اضغط للتصفية المباشرة)</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {/* 1. All */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvancedFilters(prev => ({ ...prev, mizanColor: 'all', tripleMatchOnly: false, eliteSubCategory: 'all' }));
+                    setMizanFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.mizanColor === 'all' && !advancedFilters.tripleMatchOnly && (!advancedFilters.eliteSubCategory || advancedFilters.eliteSubCategory === 'all')
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="text-[10px] font-bold block">كل الآيات</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.all || verses.length}</span>
+                </button>
+
+                {/* 2. Golden (5/6 to 6/6) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = advancedFilters.mizanColor === 'golden' ? 'all' : 'golden';
+                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
+                    setMizanFilter(next);
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.mizanColor === 'golden'
+                      ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-sm ring-2 ring-amber-300 font-black'
+                      : 'bg-amber-50/80 border-amber-300 text-amber-950 hover:bg-amber-100'
+                  }`}
+                  title="التوافق التام من 5/6 إلى 6/6 وتحقق أغلب الموازين الستة"
+                >
+                  <span className="text-[10px] font-bold block">🌟 التوافق التام (5-6)</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.golden || 0}</span>
+                </button>
+
+                {/* 3. Exact (Green - Remainder 0) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = advancedFilters.mizanColor === 'exact' ? 'all' : 'exact';
+                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
+                    setMizanFilter(next);
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.mizanColor === 'exact'
+                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm ring-2 ring-emerald-300 font-black'
+                      : 'bg-emerald-50/80 border-emerald-300 text-emerald-950 hover:bg-emerald-100'
+                  }`}
+                  title="التوافق الرياضي الصرف: قسمة حساب الجمل على المعامل بلا باقٍ"
+                >
+                  <span className="text-[10px] font-bold block">🟢 الرياضي الصرف (R=0)</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.exact || 0}</span>
+                </button>
+
+                {/* 4. Structural (Blue) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = advancedFilters.mizanColor === 'structural' ? 'all' : 'structural';
+                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
+                    setMizanFilter(next);
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.mizanColor === 'structural'
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-sm ring-2 ring-blue-300 font-black'
+                      : 'bg-blue-50/80 border-blue-300 text-blue-950 hover:bg-blue-100'
+                  }`}
+                  title="الميزان البنيوي الهيكلي: (الجمل + رقم الآية ÷ المعامل) أو الكثافة"
+                >
+                  <span className="text-[10px] font-bold block">🔵 البنيوي الهيكلي</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.structural || 0}</span>
+                </button>
+
+                {/* 5. Tawheed (Gold/Purple) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = advancedFilters.mizanColor === 'tawheed' ? 'all' : 'tawheed';
+                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
+                    setMizanFilter(next);
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.mizanColor === 'tawheed'
+                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm ring-2 ring-indigo-300 font-black'
+                      : 'bg-indigo-50/80 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
+                  }`}
+                  title="التوافق التوحيدي الذاتي أو المشترك مع الأرقام التوحيدية 11 و 1"
+                >
+                  <span className="text-[10px] font-bold block">💛 التوحيدي المشع</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.tawheed || 0}</span>
+                </button>
+
+                {/* 6. Red (Not Compatible) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = advancedFilters.mizanColor === 'not_compatible' ? 'all' : 'not_compatible';
+                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
+                    setMizanFilter(next);
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.mizanColor === 'not_compatible'
+                      ? 'bg-rose-600 text-white border-rose-700 shadow-sm ring-2 ring-rose-300 font-black'
+                      : 'bg-rose-50/80 border-rose-300 text-rose-950 hover:bg-rose-100'
+                  }`}
+                  title="آيات ذات كسر بنياني لم تحقق شروط الموازين"
+                >
+                  <span className="text-[10px] font-bold block">🔴 كسر بنياني</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.not_compatible || 0}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tier 2: خماسية النخبة النورانية المطلقة (Noorani Elite Partitioning) */}
+            <div className="space-y-1.5 pt-1 border-t border-slate-200">
+              <div className="flex items-center gap-1 text-[11px] font-black text-amber-950">
+                <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                <span>موازين النخبة النورانية المطلقة (Triple Match):</span>
+                <span className="text-[10px] font-medium text-slate-500">(فرز متقدم للآيات الأرقى توافقاً)</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {/* Elite All */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvancedFilters(prev => ({
+                      ...prev,
+                      mizanColor: 'all',
+                      tripleMatchOnly: prev.tripleMatchOnly && (!prev.eliteSubCategory || prev.eliteSubCategory === 'all') ? false : true,
+                      eliteSubCategory: 'all'
+                    }));
+                    setMizanFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.tripleMatchOnly && (!advancedFilters.eliteSubCategory || advancedFilters.eliteSubCategory === 'all')
+                      ? 'bg-amber-600 text-white border-amber-700 shadow-sm ring-2 ring-amber-300 font-black'
+                      : 'bg-amber-50/90 border-amber-300 text-amber-950 hover:bg-amber-100'
+                  }`}
+                  title="عرض كل آيات النخبة النورانية المحققة للشروط الثلاثية الكاملة"
+                >
+                  <span className="text-[10px] font-bold block">👑 كل النخبة المطلقة</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.triple_match || 0}</span>
+                </button>
+
+                {/* 1. Coeff & Rank */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvancedFilters(prev => ({
+                      ...prev,
+                      mizanColor: 'all',
+                      tripleMatchOnly: false,
+                      eliteSubCategory: prev.eliteSubCategory === 'coeff_rank' ? 'all' : 'coeff_rank'
+                    }));
+                    setMizanFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.eliteSubCategory === 'coeff_rank'
+                      ? 'bg-amber-600 text-white border-amber-700 shadow-sm ring-2 ring-amber-300 font-black'
+                      : 'bg-white border-slate-300 text-slate-800 hover:bg-amber-50'
+                  }`}
+                  title="الآيات المتفقة مع معامل السورة أو ترتيبها النوراني (1-29)"
+                >
+                  <span className="text-[10px] font-bold block">🏷️ المعامل والترتيب</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.elite_coeff_rank || 0}</span>
+                </button>
+
+                {/* 2. Signature 14 Strict */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvancedFilters(prev => ({
+                      ...prev,
+                      mizanColor: 'all',
+                      tripleMatchOnly: false,
+                      eliteSubCategory: prev.eliteSubCategory === 'sig_14' ? 'all' : 'sig_14'
+                    }));
+                    setMizanFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.eliteSubCategory === 'sig_14'
+                      ? 'bg-teal-700 text-white border-teal-800 shadow-sm ring-2 ring-teal-300 font-black'
+                      : 'bg-white border-teal-300 text-teal-950 hover:bg-teal-50'
+                  }`}
+                  title="توافق صريح مع الثابت النوراني 14 حصراً (كلمات أو حروف أو كثافة أو معادلة أو رقم الآية = 14)"
+                >
+                  <span className="text-[10px] font-bold block">🔠 بصمة (14) الصريحة</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.elite_sig_14 || 0}</span>
+                </button>
+
+                {/* 3. Signature 9 Dominant */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvancedFilters(prev => ({
+                      ...prev,
+                      mizanColor: 'all',
+                      tripleMatchOnly: false,
+                      eliteSubCategory: prev.eliteSubCategory === 'sig_9' ? 'all' : 'sig_9'
+                    }));
+                    setMizanFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.eliteSubCategory === 'sig_9'
+                      ? 'bg-purple-700 text-white border-purple-800 shadow-sm ring-2 ring-purple-300 font-black'
+                      : 'bg-white border-purple-300 text-purple-950 hover:bg-purple-50'
+                  }`}
+                  title="توافق الختام التساعي السيادي (9) في البصمة أو الجمل أو الكثافة"
+                >
+                  <span className="text-[10px] font-bold block">⚡ تساعي سيادي (9)</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.elite_sig_9 || 0}</span>
+                </button>
+
+                {/* 4. Structural Sum Divisible by Coeff */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvancedFilters(prev => ({
+                      ...prev,
+                      mizanColor: 'all',
+                      tripleMatchOnly: false,
+                      eliteSubCategory: prev.eliteSubCategory === 'struct_div' ? 'all' : 'struct_div'
+                    }));
+                    setMizanFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.eliteSubCategory === 'struct_div'
+                      ? 'bg-blue-700 text-white border-blue-800 shadow-sm ring-2 ring-blue-300 font-black'
+                      : 'bg-white border-blue-300 text-blue-950 hover:bg-blue-50'
+                  }`}
+                  title="المجموع البنيوي (الجمل + رقم الآية) مقسوماً على المعامل بلا باقٍ"
+                >
+                  <span className="text-[10px] font-bold block">📐 بنيوي ÷ المعامل</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.elite_struct_div || 0}</span>
+                </button>
+
+                {/* 5. Hexagonal Exact */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvancedFilters(prev => ({
+                      ...prev,
+                      mizanColor: 'all',
+                      tripleMatchOnly: false,
+                      eliteSubCategory: prev.eliteSubCategory === 'hex_exact' ? 'all' : 'hex_exact'
+                    }));
+                    setMizanFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
+                    advancedFilters.eliteSubCategory === 'hex_exact'
+                      ? 'bg-emerald-700 text-white border-emerald-800 shadow-sm ring-2 ring-emerald-300 font-black'
+                      : 'bg-white border-emerald-300 text-emerald-950 hover:bg-emerald-50'
+                  }`}
+                  title="التوافق السداسي التام والأخضر الصرف (6/6 أو 5/6 أو قسمة بلا باقٍ)"
+                >
+                  <span className="text-[10px] font-bold block">🏆 السداسي التام</span>
+                  <span className="text-sm font-black font-mono">{filterCounts.elite_hex_exact || 0}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Unified Active Filter Status & Reset Banner */}
+            {(advancedFilters.mizanColor !== 'all' || advancedFilters.tripleMatchOnly || (advancedFilters.eliteSubCategory && advancedFilters.eliteSubCategory !== 'all')) && (
+              <div className="flex items-center justify-between bg-amber-100/90 border border-amber-300 text-amber-950 px-3 py-1.5 rounded-xs text-xs font-bold animate-fade-in">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping"></span>
+                  <span>
+                    {advancedFilters.mizanColor === 'golden' && '🔍 تصفية نشطة: التوافق التام (5-6) الذهبي'}
+                    {advancedFilters.mizanColor === 'exact' && '🔍 تصفية نشطة: التوافق الرياضي الصرف (الأخضر R=0)'}
+                    {advancedFilters.mizanColor === 'structural' && '🔍 تصفية نشطة: التوافق البنيوي الهيكلي (الأزرق)'}
+                    {advancedFilters.mizanColor === 'tawheed' && '🔍 تصفية نشطة: التوافق التوحيدي المشع (11 / 1)'}
+                    {advancedFilters.mizanColor === 'not_compatible' && '🔍 تصفية نشطة: آيات الكسر البنياني (الأحمر)'}
+                    {advancedFilters.tripleMatchOnly && (!advancedFilters.eliteSubCategory || advancedFilters.eliteSubCategory === 'all') && '👑 تصفية نشطة: كل آيات النخبة النورانية المطلقة (Triple Match)'}
+                    {advancedFilters.eliteSubCategory === 'coeff_rank' && '🏷️ تصفية نشطة: توافق المعامل وترتيب السورة النورانية'}
+                    {advancedFilters.eliteSubCategory === 'sig_14' && '🔠 تصفية نشطة: توافق البصمة النورانية (14) الصريحة'}
+                    {advancedFilters.eliteSubCategory === 'sig_9' && '⚡ تصفية نشطة: توافق البصمة التساعية السيادية (9)'}
+                    {advancedFilters.eliteSubCategory === 'struct_div' && '📐 تصفية نشطة: الميزان البنيوي (الجمل + رقم الآية ÷ المعامل)'}
+                    {advancedFilters.eliteSubCategory === 'hex_exact' && '🏆 تصفية نشطة: التوافق السداسي التام والأخضر الصرف'}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdvancedFilters(prev => ({ ...prev, mizanColor: 'all', tripleMatchOnly: false, eliteSubCategory: 'all' }));
+                    setMizanFilter('all');
+                    setCurrentPage(1);
+                  }}
+                  className="text-amber-900 hover:text-rose-700 underline font-black cursor-pointer text-xs flex items-center gap-1"
+                >
+                  <span>إلغاء التصفية وعرض كل الآيات</span>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="table-container overflow-x-auto">
             <table className="w-full text-right border-collapse text-[11px] min-w-[950px]">
@@ -3207,7 +3579,7 @@ export default function QuranOutput({
                             keyValue: track.keyValue,
                             digitalRoot: track.digitalRoot
                           } : null;
-                          const tripleRes = dummySurah ? isTripleMatchElite(v, dummySurah, surahMeta) : { isTripleMatch: false };
+                          const tripleRes = dummySurah ? isTripleMatchElite(v, dummySurah, surahMeta) : EMPTY_ELITE_RESULT;
 
                           return (
                           <div className="flex flex-col items-center justify-center gap-1">
@@ -3317,11 +3689,92 @@ export default function QuranOutput({
                               </div>
                             )}
 
-                            {/* Triple Match Badge */}
-                            {tripleRes.isTripleMatch && (
-                              <span className="px-1.5 py-0.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 text-[8px] font-black rounded-sm border border-amber-600 shadow-xs block mt-1">
-                                🌟 نخبة نورانية (Triple Match)
-                              </span>
+                            {/* Triple Match Badge & Noorani Elite Categories Micro-Tags */}
+                            {tripleRes.isTripleMatch ? (
+                              <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <span className="px-1.5 py-0.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 text-[8px] font-black rounded-xs border border-amber-600 shadow-xs block whitespace-nowrap">
+                                  👑 نخبة نورانية (Triple Match)
+                                </span>
+                                <div className="flex flex-wrap items-center justify-center gap-0.5 max-w-[170px] mt-0.5">
+                                  {tripleRes.matchesCoeffOrRank && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-amber-100 text-amber-950 border border-amber-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title="توافق مع معامل السورة وترتيبها النوراني"
+                                    >
+                                      🏷️ المعامل والترتيب
+                                    </span>
+                                  )}
+                                  {tripleRes.matchesSignature14 && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-teal-100 text-teal-950 border border-teal-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title="توافق البصمة النورانية (14)" 
+                                    >
+                                      🔠 نوراني (14)
+                                    </span>
+                                  )}
+                                  {tripleRes.matchesSignature9 && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-purple-100 text-purple-950 border border-purple-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title="توافق الختام التساعي السيادي (9)" 
+                                    >
+                                      ⚡ تساعي سيادي 9
+                                    </span>
+                                  )}
+                                  {tripleRes.matchesStructuralDiv && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-blue-100 text-blue-950 border border-blue-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title={`المجموع البنيوي (الجمل + رقم الآية = ${tripleRes.structuralSum}) يقبل القسمة على المعامل (${tripleRes.structuralDivisor}) بلا باقٍ`}
+                                    >
+                                      📐 بنيوي ÷ {tripleRes.structuralDivisor}
+                                    </span>
+                                  )}
+                                  {tripleRes.matchesHexagonalExact && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-emerald-100 text-emerald-950 border border-emerald-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title="التوافق السداسي التام والأخضر الصرف"
+                                    >
+                                      🏆 سداسي تام
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              (tripleRes.matchesCoeffOrRank || tripleRes.matchesSignature14 || tripleRes.matchesSignature9 || tripleRes.matchesStructuralDiv) && (
+                                <div className="flex flex-wrap items-center justify-center gap-0.5 max-w-[170px] mt-1">
+                                  {tripleRes.matchesCoeffOrRank && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-amber-50 text-amber-900 border border-amber-200 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title="توافق مع معامل السورة وترتيبها النوراني"
+                                    >
+                                      🏷️ المعامل والترتيب
+                                    </span>
+                                  )}
+                                  {tripleRes.matchesSignature14 && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-teal-50 text-teal-900 border border-teal-200 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title="توافق البصمة النورانية (14)" 
+                                    >
+                                      🔠 نوراني (14)
+                                    </span>
+                                  )}
+                                  {tripleRes.matchesSignature9 && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-purple-50 text-purple-900 border border-purple-200 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title="توافق الختام التساعي السيادي (9)"
+                                    >
+                                      ⚡ تساعي سيادي 9
+                                    </span>
+                                  )}
+                                  {tripleRes.matchesStructuralDiv && (
+                                    <span 
+                                      className="px-1 py-0.2 bg-blue-50 text-blue-900 border border-blue-200 text-[7px] font-bold rounded-xs whitespace-nowrap" 
+                                      title={`المجموع البنيوي (الجمل + رقم الآية = ${tripleRes.structuralSum}) يقبل القسمة على المعامل (${tripleRes.structuralDivisor}) بلا باقٍ`}
+                                    >
+                                      📐 بنيوي ÷ {tripleRes.structuralDivisor}
+                                    </span>
+                                  )}
+                                </div>
+                              )
                             )}
 
                             {/* Perfect Match Golden Indicator (5/6 to 6/6) */}
