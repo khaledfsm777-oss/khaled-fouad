@@ -35,16 +35,62 @@ interface SavedSessionState {
   previewChartInOutput?: boolean;
 }
 
+function getInitialSavedSession(): SavedSessionState | null {
+  try {
+    const saved = safeStorage.getJSON<SavedSessionState | null>('bonyan_session_state', null);
+    if (saved && typeof saved === 'object' && saved.currentScreen) {
+      return saved;
+    }
+  } catch (err) {
+    console.warn('Error retrieving saved session state:', err);
+  }
+  return null;
+}
+
+function reconstituteVersesForSurah(surah: NooraniSurah): Verse[] {
+  try {
+    if (surah.id === 0) {
+      return getNoorani29Verses();
+    } else if (surah.id > 0) {
+      const surahVerses = (quranData as any[]).filter((v: any) => v.surahId === surah.id);
+      if (surahVerses && surahVerses.length > 0) {
+        const formatted = surahVerses
+          .map((a: any, idx: number) => {
+            let ayahText = a.text;
+            if (idx === 0) {
+              ayahText = stripBismillah(ayahText);
+            }
+            return `${ayahText} (${a.verseNumber})`;
+          })
+          .join(' ');
+        return parseAndAnalyzeVerses(formatted, 'auto', true, surah.id);
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to reconstitute verses for surah:', surah.name, err);
+  }
+  return [];
+}
+
 export default function App() {
   const { startProgress, updateProgress, finishProgress, resetProgress } = useGlobalProgress();
   const [showCover, setShowCover] = useState(false);
 
-  // Clean initial state on app launch: starts on majestic main portal deck
-  const [currentScreen, setCurrentScreen] = useState<'main' | 'portal' | 'mushaf'>('main');
-  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide'>('verses');
+  // Load saved session on initial mount to preserve state across app switching (e.g. Word, browser tabs)
+  const [initialSession] = useState<SavedSessionState | null>(() => getInitialSavedSession());
 
-  // Shared active Surah selection (clean on start)
-  const [activeSurah, setActiveSurah] = useState<NooraniSurah | null>(null);
+  // Screen and tab state (restored from session if user was working on a surah)
+  const [currentScreen, setCurrentScreen] = useState<'main' | 'portal' | 'mushaf'>(() => {
+    return initialSession?.currentScreen || 'main';
+  });
+  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide'>(() => {
+    return initialSession?.activeTab || 'verses';
+  });
+
+  // Shared active Surah selection (persisted across app switches)
+  const [activeSurah, setActiveSurah] = useState<NooraniSurah | null>(() => {
+    return initialSession?.activeSurah || null;
+  });
 
   // Shared AI Analysis History to persist across tab unmounts
   const [analysisHistory, setAnalysisHistory] = useState<any[]>([]);
@@ -55,28 +101,119 @@ export default function App() {
   const [showOfflineModal, setShowOfflineModal] = useState(false);
 
   // Toggle state to preview chart inside output screen
-  const [previewChartInOutput, setPreviewChartInOutput] = useState<boolean>(false);
+  const [previewChartInOutput, setPreviewChartInOutput] = useState<boolean>(() => {
+    return initialSession?.previewChartInOutput ?? false;
+  });
 
   // Table pagination and browsing position preservation
-  const [tableCurrentPage, setTableCurrentPage] = useState<number>(1);
-  const [tablePageSize, setTablePageSize] = useState<number>(25);
-  const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
+  const [tableCurrentPage, setTableCurrentPage] = useState<number>(() => {
+    return initialSession?.tableCurrentPage || 1;
+  });
+  const [tablePageSize, setTablePageSize] = useState<number>(() => {
+    return initialSession?.tablePageSize || 25;
+  });
+  const [selectedVerseId, setSelectedVerseId] = useState<number | null>(() => {
+    return initialSession?.selectedVerseId ?? null;
+  });
 
-  const [verses, setVerses] = useState<Verse[]>([]);
+  const [verses, setVerses] = useState<Verse[]>(() => {
+    if (initialSession?.verses && Array.isArray(initialSession.verses) && initialSession.verses.length > 0) {
+      return initialSession.verses;
+    }
+    if (initialSession?.activeSurah) {
+      return reconstituteVersesForSurah(initialSession.activeSurah);
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Clean up any stale session cache on fresh mount
+  // Defensive auto-restore guard: if activeSurah is selected in portal but verses array is empty, reconstitute it
   useEffect(() => {
-    try {
-      safeStorage.removeItem('bonyan_session_state');
-      safeStorage.removeItem('bonyan_session_active');
-      if (typeof window !== 'undefined') {
-        try { window.sessionStorage.removeItem('bonyan_session_active'); } catch {}
-        try { window.localStorage.removeItem('bonyan_session_active'); } catch {}
-        try { window.localStorage.removeItem('bonyan_session_state'); } catch {}
+    if (activeSurah && verses.length === 0 && !isLoading && currentScreen === 'portal') {
+      const restored = reconstituteVersesForSurah(activeSurah);
+      if (restored.length > 0) {
+        setVerses(restored);
       }
-    } catch {}
-  }, []);
+    }
+  }, [activeSurah, verses.length, isLoading, currentScreen]);
+
+  // Continuously persist current session so switching to Word or other apps never loses state
+  useEffect(() => {
+    if (isLoggedOut) return;
+    try {
+      const stateToSave: SavedSessionState = {
+        currentScreen,
+        activeTab,
+        activeSurah,
+        tableCurrentPage,
+        tablePageSize,
+        selectedVerseId,
+        previewChartInOutput,
+        verses: verses.length > 0 && verses.length <= 400 ? verses : [],
+      };
+      safeStorage.setJSON('bonyan_session_state', stateToSave);
+    } catch (e) {
+      console.warn('Failed to persist session state:', e);
+    }
+  }, [
+    currentScreen,
+    activeTab,
+    activeSurah,
+    tableCurrentPage,
+    tablePageSize,
+    selectedVerseId,
+    previewChartInOutput,
+    verses,
+    isLoggedOut,
+  ]);
+
+  // Immediate save on backgrounding / window blur / switching to Word or other applications
+  useEffect(() => {
+    const handleSaveOnBackground = () => {
+      if (isLoggedOut) return;
+      try {
+        const stateToSave: SavedSessionState = {
+          currentScreen,
+          activeTab,
+          activeSurah,
+          tableCurrentPage,
+          tablePageSize,
+          selectedVerseId,
+          previewChartInOutput,
+          verses: verses.length > 0 && verses.length <= 400 ? verses : [],
+        };
+        safeStorage.setJSON('bonyan_session_state', stateToSave);
+      } catch {}
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        handleSaveOnBackground();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', handleSaveOnBackground);
+    window.addEventListener('beforeunload', handleSaveOnBackground);
+    window.addEventListener('blur', handleSaveOnBackground);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', handleSaveOnBackground);
+      window.removeEventListener('beforeunload', handleSaveOnBackground);
+      window.removeEventListener('blur', handleSaveOnBackground);
+    };
+  }, [
+    currentScreen,
+    activeTab,
+    activeSurah,
+    tableCurrentPage,
+    tablePageSize,
+    selectedVerseId,
+    previewChartInOutput,
+    verses,
+    isLoggedOut,
+  ]);
 
   // Trigger main extraction analyzer
   const handleAnalyze = (text: string, separator: 'parentheses' | 'curly' | 'auto', excludeBismillah: boolean = true) => {

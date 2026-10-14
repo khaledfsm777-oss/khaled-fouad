@@ -23,6 +23,7 @@ import {
 } from '../utils/reportTemplates';
 import { handleSafeExport } from '../utils/exportHelper';
 import { copyToClipboard } from '../utils/clipboard';
+import { safeStorage } from '../utils/safeStorage';
 import { 
   Sparkles, 
   Brain, 
@@ -58,21 +59,91 @@ interface AiAnalysisProps {
 }
 
 export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, history, setHistory }: AiAnalysisProps) {
-  // Local selected Surah (defaults to parent active surah or Surah 2 Al-Baqarah)
-  const [selectedSurahId, setSelectedSurahId] = useState<number>(() => {
-    return parentActiveSurah?.id || 2;
+  // Local selected Surah (restored from safeStorage, or parent surah, or null for default "اختر سورة قرآنية")
+  const [selectedSurahId, setSelectedSurahId] = useState<number | null>(() => {
+    try {
+      const saved = safeStorage.getItem('bonyan_ai_selected_surah');
+      if (saved !== null && saved !== '') {
+        const id = parseInt(saved, 10);
+        if (!isNaN(id) && NOORANI_SURAHS.some(s => s.id === id)) {
+          return id;
+        }
+      }
+    } catch {}
+    if (parentActiveSurah && NOORANI_SURAHS.some(s => s.id === parentActiveSurah.id)) {
+      return parentActiveSurah.id;
+    }
+    return null;
   });
 
   const activeSurah = useMemo(() => {
-    return NOORANI_SURAHS.find(s => s.id === selectedSurahId) || NOORANI_SURAHS[0];
+    if (selectedSurahId === null) return null;
+    return NOORANI_SURAHS.find(s => s.id === selectedSurahId) || null;
   }, [selectedSurahId]);
 
   // Keep synced if parent changes
   useEffect(() => {
-    if (parentActiveSurah && parentActiveSurah.id !== selectedSurahId) {
+    if (parentActiveSurah && NOORANI_SURAHS.some(s => s.id === parentActiveSurah.id) && parentActiveSurah.id !== selectedSurahId) {
       setSelectedSurahId(parentActiveSurah.id);
     }
   }, [parentActiveSurah]);
+
+  // Persist selected surah
+  useEffect(() => {
+    try {
+      if (selectedSurahId !== null) {
+        safeStorage.setItem('bonyan_ai_selected_surah', selectedSurahId.toString());
+      } else {
+        safeStorage.removeItem('bonyan_ai_selected_surah');
+      }
+    } catch {}
+  }, [selectedSurahId]);
+
+  // Persistent Fold / Collapse states to keep screen blazing fast
+  const [isReportCollapsed, setIsReportCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = safeStorage.getItem('bonyan_ai_report_collapsed');
+      return saved !== null ? saved === 'true' : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [isBab1Collapsed, setIsBab1Collapsed] = useState<boolean>(() => {
+    try {
+      const saved = safeStorage.getItem('bonyan_ai_bab1_collapsed');
+      return saved !== null ? saved === 'true' : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [isBab2Collapsed, setIsBab2Collapsed] = useState<boolean>(() => {
+    try {
+      const saved = safeStorage.getItem('bonyan_ai_bab2_collapsed');
+      return saved !== null ? saved === 'true' : false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      safeStorage.setItem('bonyan_ai_report_collapsed', isReportCollapsed.toString());
+    } catch {}
+  }, [isReportCollapsed]);
+
+  useEffect(() => {
+    try {
+      safeStorage.setItem('bonyan_ai_bab1_collapsed', isBab1Collapsed.toString());
+    } catch {}
+  }, [isBab1Collapsed]);
+
+  useEffect(() => {
+    try {
+      safeStorage.setItem('bonyan_ai_bab2_collapsed', isBab2Collapsed.toString());
+    } catch {}
+  }, [isBab2Collapsed]);
 
   // Online / Offline connectivity tracker
   const [isOnline, setIsOnline] = useState<boolean>(() => {
@@ -90,7 +161,20 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     };
   }, []);
 
-  const [analysis, setAnalysis] = useState<string>('');
+  // Persistent Analysis state (restored from safeStorage for current surah or last generated)
+  const [analysis, setAnalysis] = useState<string>(() => {
+    try {
+      const savedSurah = safeStorage.getItem('bonyan_ai_selected_surah');
+      if (savedSurah) {
+        const savedRep = safeStorage.getItem(`bonyan_ai_saved_report_${savedSurah}`);
+        if (savedRep) return savedRep;
+      }
+      const general = safeStorage.getItem('bonyan_ai_last_analysis');
+      if (general) return general;
+    } catch {}
+    return '';
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
@@ -103,12 +187,38 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
 
   // Active surah overview from Mukhtasar fi Tafsir
   const surahOverview = useMemo(() => {
+    if (!activeSurah) return null;
     return getMukhtasarSurahOverview(activeSurah.id);
-  }, [activeSurah.id]);
+  }, [activeSurah]);
 
   const surahMeta = useMemo(() => {
+    if (!activeSurah) return null;
     return getSurahMetadata(activeSurah.id);
-  }, [activeSurah.id]);
+  }, [activeSurah]);
+
+  // Load cached report when selected surah changes
+  useEffect(() => {
+    if (selectedSurahId) {
+      try {
+        const cached = safeStorage.getItem(`bonyan_ai_saved_report_${selectedSurahId}`);
+        if (cached) {
+          setAnalysis(cached);
+        }
+      } catch {}
+    }
+  }, [selectedSurahId]);
+
+  // Persist latest analysis
+  useEffect(() => {
+    if (analysis) {
+      try {
+        safeStorage.setItem('bonyan_ai_last_analysis', analysis);
+        if (selectedSurahId) {
+          safeStorage.setItem(`bonyan_ai_saved_report_${selectedSurahId}`, analysis);
+        }
+      } catch {}
+    }
+  }, [analysis, selectedSurahId]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -119,6 +229,7 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
 
   // Verses to analyze: if parent passed verses from the active surah, use them; otherwise, load verses from quranData
   const displayVerses = useMemo(() => {
+    if (!activeSurah) return [];
     if (verses && verses.length > 0) {
       // Check if verses belong to current surah or if user imported them
       return verses;
@@ -130,13 +241,14 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
   }, [verses, activeSurah]);
 
   // Compute metrics and analysis for display verses
-  const surahLetters = activeSurah.letters || '';
+  const surahLetters = activeSurah?.letters || '';
   const letterSet = useMemo(() => new Set(surahLetters.split('')), [surahLetters]);
 
   const analyzedVerses = useMemo(() => {
+    if (!activeSurah) return [];
     return displayVerses.map(v => {
-      const isVerified = activeSurah ? (v.jummalValue % activeSurah.digitalRoot === 0) : false;
-      const quotient = activeSurah ? (v.jummalValue / activeSurah.digitalRoot) : 0;
+      const isVerified = (v.jummalValue % activeSurah.digitalRoot === 0);
+      const quotient = (v.jummalValue / activeSurah.digitalRoot);
       
       let overlapCount = 0;
       const cleanText = v.cleanTextForCalculation || v.text || '';
@@ -201,7 +313,7 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     let isCancelled = false;
 
     async function loadTafseerForVerses() {
-      if (analyzedVerses.length === 0) return;
+      if (!activeSurah || analyzedVerses.length === 0) return;
       setLoadingVersesTafseer(true);
 
       const newDetails: Record<string, { tafseer: string; benefits: string[]; tadabbur: string; source: 'online' | 'offline' }> = {};
@@ -240,7 +352,7 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     return () => {
       isCancelled = true;
     };
-  }, [analyzedVerses, activeSurah.id]);
+  }, [analyzedVerses, activeSurah?.id]);
 
   // High Quotient & Density Verses
   const verifiedVerses = analyzedVerses.filter(v => v.isVerified);
@@ -254,6 +366,10 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
 
   // Generate the Comprehensive Mukhtasar Smart Report
   const fetchAnalysis = async () => {
+    if (!activeSurah) {
+      showToast('يرجى اختيار سورة قرآنية أولاً من القائمة المنسدلة');
+      return;
+    }
     if (analyzedVerses.length === 0) return;
     setLoading(true);
     setError(null);
@@ -304,6 +420,8 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
       });
 
       setAnalysis(generatedAnalysisText);
+      // Auto expand report when freshly generated so the user sees it immediately
+      setIsReportCollapsed(false);
 
       // Append to session history
       const newHistoryItem = {
@@ -447,6 +565,10 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
   };
 
   const handleExportWord = () => {
+    if (!activeSurah) {
+      showToast('يرجى اختيار سورة قرآنية أولاً');
+      return;
+    }
     exportToWord(
       analysis,
       activeSurah.name,
@@ -459,6 +581,10 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
   };
 
   const handleExportExcel = () => {
+    if (!activeSurah) {
+      showToast('يرجى اختيار سورة قرآنية أولاً');
+      return;
+    }
     exportToExcel(
       analysis,
       activeSurah.name,
@@ -609,14 +735,18 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
                 )}
               </div>
 
-              {/* Surah Selector for the 29 Noorani Surahs */}
+              {/* Surah Selector for the 29 Noorani Surahs with first option 'اختر سورة قرآنية' */}
               <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 p-1">
-                <span className="text-[11px] font-bold text-slate-600 px-1">السورة النورانية:</span>
+                <span className="text-[11px] font-bold text-slate-600 px-1">السورة القرآنية:</span>
                 <select
-                  value={selectedSurahId}
-                  onChange={(e) => setSelectedSurahId(parseInt(e.target.value))}
+                  value={selectedSurahId ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedSurahId(val ? parseInt(val, 10) : null);
+                  }}
                   className="bg-white border text-xs font-black p-1 text-right cursor-pointer"
                 >
+                  <option value="">-- اختر سورة قرآنية --</option>
                   {NOORANI_SURAHS.map(s => (
                     <option key={s.id} value={s.id}>
                       {s.id}. سورة {s.name} ({s.letters})
@@ -625,12 +755,42 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
                 </select>
               </div>
 
-              {/* Action Buttons */}
+              {/* Master Collapsing Toggle (طي وبسط التقرير لتسريع وتسهيل البرنامج) */}
               <button
                 type="button"
-                disabled={loading}
+                onClick={() => {
+                  const target = !isReportCollapsed;
+                  setIsReportCollapsed(target);
+                  setIsBab1Collapsed(target);
+                  setIsBab2Collapsed(target);
+                  showToast(target ? 'تم طي التقرير والأبواب لتسريع وتخفيف الشاشة 📁' : 'تم بسط التقرير والأبواب بالكامل 📖');
+                }}
+                className="px-3 py-2 text-xs font-black bg-white hover:bg-slate-100 text-slate-800 border-2 border-slate-300 rounded-none flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                title={isReportCollapsed ? 'بسط التقرير وكافة الأبواب' : 'طي التقرير وكافة الأبواب لتسريع البرنامج'}
+              >
+                {isReportCollapsed ? (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>بسط التقرير والأبواب 📖</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5 text-amber-700" />
+                    <span>طي التقرير والأبواب 📁 (سريع)</span>
+                  </>
+                )}
+              </button>
+
+              {/* Action Button: Generate / Update Report */}
+              <button
+                type="button"
+                disabled={loading || !selectedSurahId}
                 onClick={fetchAnalysis}
-                className="px-5 py-2.5 text-xs font-black bg-gradient-to-r from-emerald-800 to-teal-700 hover:from-emerald-900 hover:to-teal-800 text-amber-200 border-2 border-amber-400 rounded-none flex items-center gap-2 transition-all shadow-md cursor-pointer transform hover:scale-[1.02]"
+                className={`px-5 py-2.5 text-xs font-black border-2 rounded-none flex items-center gap-2 transition-all shadow-md ${
+                  loading || !selectedSurahId
+                    ? 'bg-slate-200 border-slate-300 text-slate-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-emerald-800 to-teal-700 hover:from-emerald-900 hover:to-teal-800 text-amber-200 border-amber-400 cursor-pointer transform hover:scale-[1.02]'
+                }`}
               >
                 {loading ? (
                   <RefreshCw className="w-4 h-4 text-amber-300 animate-spin" />
@@ -642,257 +802,376 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
             </div>
           </div>
 
-          {/* Bab 1: Surah Introduction & Themes from Al-Mukhtasar */}
-          <div className="bg-[#fcfbf7] border-2 border-amber-200/80 p-5 space-y-4 relative">
-            <div className="absolute top-0 right-0 left-0 h-1 bg-amber-500" />
-            
-            <div className="flex items-center justify-between border-b border-amber-200/70 pb-3 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-emerald-800" />
-                <h4 className="text-sm font-black text-emerald-950">
-                  🏛️ الباب الأول: معالم ومقاصد سورة {activeSurah.name} في كتاب «المختصر في التفسير»
+          {!activeSurah ? (
+            /* Guidance screen when no surah is chosen */
+            <div className="bg-[#fcfbf7] border-2 border-dashed border-amber-300 p-8 md:p-12 text-center space-y-4 shadow-xs animate-fade-in">
+              <div className="w-16 h-16 bg-amber-100/90 border border-amber-400/60 rounded-2xl flex items-center justify-center mx-auto text-amber-800 shadow-inner">
+                <BookOpen className="w-8 h-8" />
+              </div>
+              <div className="space-y-1.5">
+                <h4 className="text-base sm:text-lg font-black text-slate-900">
+                  اختر سورة قرآنية للبدء في استعراض التقرير وتفاسير المختصر
                 </h4>
+                <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                  يرجى اختيار إحدى السور النورانية الكريمة من القائمة المنسدلة أعلاه لبدء استكشاف معالم ومقاصد كتاب «المختصر في التفسير» وموازين التوافقات وتوليد التقرير الأكاديمي الشامل.
+                </p>
               </div>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 border border-emerald-300">
-                  الفاتحة: {activeSurah.letters}
-                </span>
-                <span className="bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-300">
-                  معامل الاختزال: {activeSurah.digitalRoot}
-                </span>
-                <span className="bg-slate-100 text-slate-800 px-2 py-0.5 border border-slate-300">
-                  جمل الفاتحة: {activeSurah.keyValue}
+              <div className="pt-2">
+                <span className="inline-flex items-center gap-2 text-xs font-bold text-amber-950 bg-amber-100/80 border border-amber-300 px-4 py-2">
+                  <span>👆 القائمة المنسدلة بالأعلى: «-- اختر سورة قرآنية --»</span>
                 </span>
               </div>
             </div>
+          ) : (
+            <>
+              {/* Bab 1: Surah Introduction & Themes from Al-Mukhtasar (Collapsible) */}
+              <div className="bg-[#fcfbf7] border-2 border-amber-200/80 relative shadow-xs">
+                <div className="absolute top-0 right-0 left-0 h-1 bg-amber-500" />
+                
+                <div 
+                  className="p-4 flex items-center justify-between border-b border-amber-200/70 flex-wrap gap-2 cursor-pointer hover:bg-amber-50/60 transition-colors"
+                  onClick={() => setIsBab1Collapsed(!isBab1Collapsed)}
+                  title={isBab1Collapsed ? 'انقر لبسط الباب الأول' : 'انقر لطي الباب الأول'}
+                >
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsBab1Collapsed(!isBab1Collapsed);
+                      }}
+                      className="p-1 rounded bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors cursor-pointer"
+                      aria-label={isBab1Collapsed ? 'بسط الباب الأول' : 'طي الباب الأول'}
+                    >
+                      {isBab1Collapsed ? <ChevronDown className="w-4 h-4 text-amber-800" /> : <ChevronUp className="w-4 h-4 text-amber-800" />}
+                    </button>
+                    <BookOpen className="w-5 h-5 text-emerald-800" />
+                    <h4 className="text-sm font-black text-emerald-950">
+                      🏛️ الباب الأول: معالم ومقاصد سورة {activeSurah.name} في كتاب «المختصر في التفسير»
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-600" onClick={(e) => e.stopPropagation()}>
+                    <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 border border-emerald-300">
+                      الفاتحة: {activeSurah.letters}
+                    </span>
+                    <span className="bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-300">
+                      معامل الاختزال: {activeSurah.digitalRoot}
+                    </span>
+                    <span className="bg-slate-100 text-slate-800 px-2 py-0.5 border border-slate-300">
+                      جمل الفاتحة: {activeSurah.keyValue}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsBab1Collapsed(!isBab1Collapsed)}
+                      className="text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2.5 py-0.5 border border-amber-300 cursor-pointer"
+                    >
+                      {isBab1Collapsed ? 'بسط 🔽' : 'طي 🔼'}
+                    </button>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs leading-relaxed">
-              {/* Tamheed */}
-              <div className="bg-white p-3.5 border border-amber-200 space-y-1.5">
-                <span className="font-black text-amber-900 block flex items-center gap-1.5">
-                  <Bookmark className="w-3.5 h-3.5 text-amber-600" />
-                  📜 تمهيد السورة:
-                </span>
-                <p className="text-slate-700 font-semibold leading-relaxed">
-                  {surahOverview?.tamheed || surahMeta?.revelationReason || 'سورة قرآنية كريمة تفتتح بالحروف النورانية المعجزة.'}
-                </p>
-              </div>
-
-              {/* Maqsad & Mehwar */}
-              <div className="bg-white p-3.5 border border-amber-200 space-y-1.5">
-                <span className="font-black text-emerald-900 block flex items-center gap-1.5">
-                  <Star className="w-3.5 h-3.5 text-emerald-600" />
-                  🎯 مقصد السورة ومحورها العام:
-                </span>
-                <p className="text-slate-700 font-semibold leading-relaxed">
-                  <strong>المقصد:</strong> {surahOverview?.maqsad || 'ترسيخ التوحيد والاستجابة لأمر الله.'}
-                </p>
-                <p className="text-slate-600 text-[11px] font-medium pt-1 border-t border-slate-100">
-                  <strong>المحور العام:</strong> {surahOverview?.mehwar || surahMeta?.briefTopic}
-                </p>
-              </div>
-            </div>
-
-            {/* Tadabbur Touches */}
-            {surahOverview?.tadabburTouches && surahOverview.tadabburTouches.length > 0 && (
-              <div className="bg-white p-3.5 border border-amber-200 space-y-2">
-                <span className="font-black text-slate-900 block text-xs">
-                  ✨ لمسات تدبرية جامعة لسورة {activeSurah.name}:
-                </span>
-                <ul className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-[11px] text-slate-700 font-semibold">
-                  {surahOverview.tadabburTouches.map((touch, tIdx) => (
-                    <li key={tIdx} className="bg-slate-50 p-2 border border-slate-200 flex items-start gap-1.5">
-                      <span className="text-amber-600 font-black shrink-0">🔹</span>
-                      <span>{touch}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          {/* Bab 2: Displayed Verses with Mukhtasar Tafseer, Benefits, and Numerics Analysis */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-amber-600" />
-                <h4 className="text-sm font-black text-slate-900">
-                  📑 الباب الثاني: الآيات المعروضة وقت طلب التقرير ({analyzedVerses.length} آية كريمة)
-                </h4>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                {loadingVersesTafseer && (
-                  <span className="text-amber-700 font-bold flex items-center gap-1 animate-pulse">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    جاري جلب تفاسير وفوائد المختصر...
-                  </span>
-                )}
-                <span className="text-slate-500 font-bold">
-                  * التحليل البنيوي والتوافقات مع المعامل والرقم 14 الصريح
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {analyzedVerses.map((v, idx) => {
-                const key = `${activeSurah.id}:${v.verseNumber}`;
-                const detail = verseDetails[key];
-                const tafseerText = detail?.tafseer || `تفسير الآية [${v.verseNumber}] من كتاب «المختصر في التفسير»: تبيّن الآية الكريمة حكماً جليلاً ودعوة إلى الامتثال والتوحيد.`;
-                const benefitsList = detail?.benefits && detail.benefits.length > 0 
-                  ? detail.benefits 
-                  : generateVerseBenefits(v.text, v.verseNumber);
-                const tadabburText = detail?.tadabbur || generateVerseTadabburTouch(v.text, v.verseNumber, v.jummalValue);
-                const sourceBadge = detail?.source || (isOnline ? 'online' : 'offline');
-
-                return (
-                  <div key={idx} className="bg-white border-2 border-slate-200 p-4 md:p-5 space-y-3.5 relative hover:border-amber-400 transition-colors">
-                    {/* Top Verse Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 text-xs font-black bg-slate-900 text-white font-mono">
-                          آية {v.verseNumber}
+                {!isBab1Collapsed && (
+                  <div className="p-5 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs leading-relaxed">
+                      {/* Tamheed */}
+                      <div className="bg-white p-3.5 border border-amber-200 space-y-1.5">
+                        <span className="font-black text-amber-900 block flex items-center gap-1.5">
+                          <Bookmark className="w-3.5 h-3.5 text-amber-600" />
+                          📜 تمهيد السورة:
                         </span>
-                        <span className="text-xs text-slate-500 font-bold">
-                          سورة {activeSurah.name}
-                        </span>
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                        <span className={`px-2 py-0.5 font-black border ${
-                          sourceBadge === 'online' 
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                            : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}>
-                          {sourceBadge === 'online' ? '🌐 المختصر (أونلاين)' : '📴 المختصر (أوفلاين مدمج)'}
-                        </span>
-                        <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
-                          جمل: {v.jummalValue}
-                        </span>
-                        <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
-                          كلمات: {v.wordCount}
-                        </span>
-                        <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
-                          حروف: {v.letterCount}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Verse Text (Uthmani) */}
-                    <div className="bg-[#faf9f4] p-3 border border-amber-200/60 text-center">
-                      <p className="quran-font text-base sm:text-lg text-slate-950 font-black leading-loose select-all">
-                        « {v.text} »
-                      </p>
-                    </div>
-
-                    {/* Mukhtasar Tafseer Section */}
-                    <div className="space-y-1 bg-slate-50/70 p-3 border border-slate-200 text-xs">
-                      <span className="font-black text-emerald-950 block flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-                        📖 التفسير المختصر (من كتاب «المختصر في التفسير»):
-                      </span>
-                      <p className="text-slate-700 font-semibold leading-relaxed pr-2">
-                        {tafseerText}
-                      </p>
-                    </div>
-
-                    {/* Benefits & Tadabbur */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                      <div className="bg-amber-50/50 p-2.5 border border-amber-200 space-y-1">
-                        <span className="font-black text-amber-950 block text-[11px] flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-amber-700" />
-                          💎 من فوائد الآية واللطائف:
-                        </span>
-                        <ul className="space-y-1 text-[11px] text-slate-700 font-semibold list-disc list-inside pr-1">
-                          {benefitsList.map((b, bIdx) => (
-                            <li key={bIdx}>{b}</li>
-                          ))}
-                        </ul>
+                        <p className="text-slate-700 font-semibold leading-relaxed">
+                          {surahOverview?.tamheed || surahMeta?.revelationReason || 'سورة قرآنية كريمة تفتتح بالحروف النورانية المعجزة.'}
+                        </p>
                       </div>
 
-                      <div className="bg-teal-50/40 p-2.5 border border-teal-200 space-y-1">
-                        <span className="font-black text-teal-950 block text-[11px] flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-teal-700" />
-                          🌿 لمسة تدبرية:
+                      {/* Maqsad & Mehwar */}
+                      <div className="bg-white p-3.5 border border-amber-200 space-y-1.5">
+                        <span className="font-black text-emerald-900 block flex items-center gap-1.5">
+                          <Star className="w-3.5 h-3.5 text-emerald-600" />
+                          🎯 مقصد السورة ومحورها العام:
                         </span>
-                        <p className="text-[11px] text-slate-700 font-semibold leading-relaxed pr-1">
-                          {tadabburText}
+                        <p className="text-slate-700 font-semibold leading-relaxed">
+                          <strong>المقصد:</strong> {surahOverview?.maqsad || 'ترسيخ التوحيد والاستجابة لأمر الله.'}
+                        </p>
+                        <p className="text-slate-600 text-[11px] font-medium pt-1 border-t border-slate-100">
+                          <strong>المحور العام:</strong> {surahOverview?.mehwar || surahMeta?.briefTopic}
                         </p>
                       </div>
                     </div>
 
-                    {/* Al-Bunyan Numerics & Compatibilities Bar */}
-                    <div className="bg-white border border-slate-200 p-3 space-y-2">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 text-[11px] font-black text-slate-800">
-                        <span>⚙️ تحليل البرنامج البنيوي والتوافقات:</span>
-                        <span className="font-mono text-slate-500">
-                          المعادلة: {v.comp.verseDigitalRoot} × ({v.verseNumber} + {v.comp.reducedFactor}) = {v.comp.newColumnProduct} (البصمة: {v.comp.finalSingleDigit})
+                    {/* Tadabbur Touches */}
+                    {surahOverview?.tadabburTouches && surahOverview.tadabburTouches.length > 0 && (
+                      <div className="bg-white p-3.5 border border-amber-200 space-y-2">
+                        <span className="font-black text-slate-900 block text-xs">
+                          ✨ لمسات تدبرية جامعة لسورة {activeSurah.name}:
                         </span>
+                        <ul className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-[11px] text-slate-700 font-semibold">
+                          {surahOverview.tadabburTouches.map((touch, tIdx) => (
+                            <li key={tIdx} className="bg-slate-50 p-2 border border-slate-200 flex items-start gap-1.5">
+                              <span className="text-amber-600 font-black shrink-0">🔹</span>
+                              <span>{touch}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-
-                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                        {/* Coefficient Match */}
-                        <span className={`px-2 py-0.5 text-[10px] font-black border ${
-                          v.isVerified 
-                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300' 
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {v.isVerified 
-                            ? `✅ متوافق مع المعامل (${activeSurah.digitalRoot}) بقوة: ${v.quotient.toFixed(2)}` 
-                            : `⚠️ ميزان كسري (${(v.jummalValue / activeSurah.digitalRoot).toFixed(2)})`}
-                        </span>
-
-                        {/* Surah Rank Match */}
-                        <span className={`px-2 py-0.5 text-[10px] font-black border ${
-                          v.isRankMatch 
-                            ? 'bg-indigo-100 text-indigo-900 border-indigo-300' 
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {v.isRankMatch 
-                            ? `✅ متطابق مع ترتيب السورة (${v.comp.finalSingleDigit})` 
-                            : `➖ غير مقترن برقم السورة`}
-                        </span>
-
-                        {/* STRICT 14 Match (Literal ONLY 14, NEVER 5) */}
-                        <span className={`px-2.5 py-0.5 text-[10px] font-black border ${
-                          v.isExact14 
-                            ? 'bg-amber-100 text-amber-950 border-amber-400 shadow-xs' 
-                            : 'bg-slate-50 text-slate-400 border-slate-200'
-                        }`}>
-                          {v.isExact14 
-                            ? `👑 البصمة 14 الصريحة حصراً [${v.exact14Details.join(' | ')}]` 
-                            : `➖ البصمة 14: لا تنطبق (الشرط = 14 صريحاً)`}
-                        </span>
-
-                        {/* Sovereign 9 Match */}
-                        {v.isSig9 && (
-                          <span className="px-2 py-0.5 text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300">
-                            🌟 بصمة سيادية (9)
-                          </span>
-                        )}
-
-                        {/* Compatibility Score */}
-                        <span className="px-2 py-0.5 text-[10px] font-mono font-black bg-slate-900 text-amber-300">
-                          الميزان: {v.comp.score}/6 ({v.comp.statusLabel})
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                )}
+              </div>
 
-          {/* Active Generated Report View */}
+              {/* Bab 2: Displayed Verses with Mukhtasar Tafseer, Benefits, and Numerics Analysis (Collapsible) */}
+              <div className="bg-white border-2 border-slate-200 relative shadow-xs">
+                <div 
+                  className="p-4 flex items-center justify-between border-b border-slate-200 flex-wrap gap-2 cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => setIsBab2Collapsed(!isBab2Collapsed)}
+                  title={isBab2Collapsed ? 'انقر لبسط آيات الباب الثاني' : 'انقر لطي آيات الباب الثاني لتسريع الشاشة'}
+                >
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsBab2Collapsed(!isBab2Collapsed);
+                      }}
+                      className="p-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                      aria-label={isBab2Collapsed ? 'بسط الآيات' : 'طي الآيات'}
+                    >
+                      {isBab2Collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                    </button>
+                    <Layers className="w-5 h-5 text-amber-600" />
+                    <h4 className="text-sm font-black text-slate-900">
+                      📑 الباب الثاني: الآيات المعروضة وقت طلب التقرير ({analyzedVerses.length} آية كريمة)
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                    {loadingVersesTafseer && (
+                      <span className="text-amber-700 font-bold flex items-center gap-1 animate-pulse">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        جاري جلب تفاسير وفوائد المختصر...
+                      </span>
+                    )}
+                    <span className="text-slate-500 font-bold hidden sm:inline">
+                      * التحليل البنيوي والتوافقات مع المعامل والرقم 14 الصريح
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsBab2Collapsed(!isBab2Collapsed)}
+                      className="text-[11px] font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-0.5 border border-slate-300 cursor-pointer"
+                    >
+                      {isBab2Collapsed ? 'بسط الآيات 🔽' : 'طي الآيات (تسريع) 🔼'}
+                    </button>
+                  </div>
+                </div>
+
+                {!isBab2Collapsed && (
+                  <div className="p-4 space-y-4 bg-slate-50/50">
+                    {analyzedVerses.map((v, idx) => {
+                      const key = `${activeSurah.id}:${v.verseNumber}`;
+                      const detail = verseDetails[key];
+                      const tafseerText = detail?.tafseer || `تفسير الآية [${v.verseNumber}] من كتاب «المختصر في التفسير»: تبيّن الآية الكريمة حكماً جليلاً ودعوة إلى الامتثال والتوحيد.`;
+                      const benefitsList = detail?.benefits && detail.benefits.length > 0 
+                        ? detail.benefits 
+                        : generateVerseBenefits(v.text, v.verseNumber);
+                      const tadabburText = detail?.tadabbur || generateVerseTadabburTouch(v.text, v.verseNumber, v.jummalValue);
+                      const sourceBadge = detail?.source || (isOnline ? 'online' : 'offline');
+
+                      return (
+                        <div key={idx} className="bg-white border-2 border-slate-200 p-4 md:p-5 space-y-3.5 relative hover:border-amber-400 transition-colors shadow-xs">
+                          {/* Top Verse Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 text-xs font-black bg-slate-900 text-white font-mono">
+                                آية {v.verseNumber}
+                              </span>
+                              <span className="text-xs text-slate-500 font-bold">
+                                سورة {activeSurah.name}
+                              </span>
+                            </div>
+                            
+                            <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                              <span className={`px-2 py-0.5 font-black border ${
+                                sourceBadge === 'online' 
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}>
+                                {sourceBadge === 'online' ? '🌐 المختصر (أونلاين)' : '📴 المختصر (أوفلاين مدمج)'}
+                              </span>
+                              <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
+                                جمل: {v.jummalValue}
+                              </span>
+                              <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
+                                كلمات: {v.wordCount}
+                              </span>
+                              <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
+                                حروف: {v.letterCount}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Verse Text (Uthmani) */}
+                          <div className="bg-[#faf9f4] p-3 border border-amber-200/60 text-center">
+                            <p className="quran-font text-base sm:text-lg text-slate-950 font-black leading-loose select-all">
+                              « {v.text} »
+                            </p>
+                          </div>
+
+                          {/* Mukhtasar Tafseer Section */}
+                          <div className="space-y-1 bg-slate-50/70 p-3 border border-slate-200 text-xs">
+                            <span className="font-black text-emerald-950 block flex items-center gap-1.5">
+                              <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+                              📖 التفسير المختصر (من كتاب «المختصر في التفسير»):
+                            </span>
+                            <p className="text-slate-700 font-semibold leading-relaxed pr-2">
+                              {tafseerText}
+                            </p>
+                          </div>
+
+                          {/* Benefits & Tadabbur */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div className="bg-amber-50/50 p-2.5 border border-amber-200 space-y-1">
+                              <span className="font-black text-amber-950 block text-[11px] flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-amber-700" />
+                                💎 من فوائد الآية واللطائف:
+                              </span>
+                              <ul className="space-y-1 text-[11px] text-slate-700 font-semibold list-disc list-inside pr-1">
+                                {benefitsList.map((b, bIdx) => (
+                                  <li key={bIdx}>{b}</li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            <div className="bg-teal-50/40 p-2.5 border border-teal-200 space-y-1">
+                              <span className="font-black text-teal-950 block text-[11px] flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-teal-700" />
+                                🌿 لمسة تدبرية:
+                              </span>
+                              <p className="text-[11px] text-slate-700 font-semibold leading-relaxed pr-1">
+                                {tadabburText}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Al-Bunyan Numerics & Compatibilities Bar */}
+                          <div className="bg-white border border-slate-200 p-3 space-y-2">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 text-[11px] font-black text-slate-800">
+                              <span>⚙️ تحليل البرنامج البنيوي والتوافقات:</span>
+                              <span className="font-mono text-slate-500 text-[10px] sm:text-xs">
+                                المعادلة: {v.comp.verseDigitalRoot} × ({v.verseNumber} + {v.comp.reducedFactor}) = {v.comp.newColumnProduct} (البصمة: {v.comp.finalSingleDigit})
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                              {/* Coefficient Match */}
+                              <span className={`px-2 py-0.5 text-[10px] font-black border ${
+                                v.isVerified 
+                                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300' 
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}>
+                                {v.isVerified 
+                                  ? `✅ متوافق مع المعامل (${activeSurah.digitalRoot}) بقوة: ${v.quotient.toFixed(2)}` 
+                                  : `⚠️ ميزان كسري (${(v.jummalValue / activeSurah.digitalRoot).toFixed(2)})`}
+                              </span>
+
+                              {/* Surah Rank Match */}
+                              <span className={`px-2 py-0.5 text-[10px] font-black border ${
+                                v.isRankMatch 
+                                  ? 'bg-indigo-100 text-indigo-900 border-indigo-300' 
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}>
+                                {v.isRankMatch 
+                                  ? `✅ متطابق مع ترتيب السورة (${v.comp.finalSingleDigit})` 
+                                  : `➖ غير مقترن برقم السورة`}
+                              </span>
+
+                              {/* STRICT 14 Match (Literal ONLY 14, NEVER 5) */}
+                              <span className={`px-2.5 py-0.5 text-[10px] font-black border ${
+                                v.isExact14 
+                                  ? 'bg-amber-100 text-amber-950 border-amber-400 shadow-xs' 
+                                  : 'bg-slate-50 text-slate-400 border-slate-200'
+                              }`}>
+                                {v.isExact14 
+                                  ? `👑 البصمة 14 الصريحة حصراً [${v.exact14Details.join(' | ')}]` 
+                                  : `➖ البصمة 14: لا تنطبق (الشرط = 14 صريحاً)`}
+                              </span>
+
+                              {/* Sovereign 9 Match */}
+                              {v.isSig9 && (
+                                <span className="px-2 py-0.5 text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300">
+                                  🌟 بصمة سيادية (9)
+                                </span>
+                              )}
+
+                              {/* Compatibility Score */}
+                              <span className="px-2 py-0.5 text-[10px] font-mono font-black bg-slate-900 text-amber-300">
+                                الميزان: {v.comp.score}/6 ({v.comp.statusLabel})
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Active Generated Report View (with Folding / Collapsing capability) */}
           {analysis && !loading && (
-            <div className="bg-[#fdfcf9] border-2 border-emerald-300 p-6 space-y-4 relative animate-fade-in shadow-md">
+            <div className="bg-[#fdfcf9] border-2 border-emerald-400 relative animate-fade-in shadow-md overflow-hidden">
               <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-emerald-800" />
               
-              <div className="flex items-center justify-between border-b border-emerald-200 pb-3 flex-wrap gap-2">
-                <span className="text-sm font-black text-emerald-950 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-700" />
-                  مخرجات التقرير الأكاديمي الشامل للمفسر الذكي (جاهز للحفظ والتصدير):
-                </span>
-                <div className="flex items-center gap-2">
+              {/* Report Header: Clickable for Fold / Expand */}
+              <div 
+                className="p-4 md:p-5 flex items-center justify-between border-b border-emerald-200 flex-wrap gap-2 cursor-pointer bg-emerald-50/70 hover:bg-emerald-50 transition-colors"
+                onClick={() => setIsReportCollapsed(!isReportCollapsed)}
+                title={isReportCollapsed ? 'انقر لبسط التقرير وعرضه كاملاً' : 'انقر لطي التقرير وتخفيف الشاشة'}
+              >
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsReportCollapsed(!isReportCollapsed);
+                    }}
+                    className="p-1 rounded bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100 transition-colors cursor-pointer"
+                    aria-label={isReportCollapsed ? 'بسط التقرير' : 'طي التقرير'}
+                  >
+                    {isReportCollapsed ? <ChevronDown className="w-4 h-4 text-emerald-800" /> : <ChevronUp className="w-4 h-4 text-emerald-800" />}
+                  </button>
+                  <div>
+                    <span className="text-sm font-black text-emerald-950 flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-emerald-700" />
+                      مخرجات التقرير الأكاديمي الشامل للمفسر الذكي (جاهز للحفظ والتصدير):
+                    </span>
+                    {isReportCollapsed && (
+                      <span className="text-[11px] text-emerald-800 font-bold block mt-0.5">
+                        ⚡ التقرير مطوي حالياً لتسريع التصفح وتخفيف الحمل على الشاشة - انقر هنا أو على زر البسط للمعاينة الكاملة
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {/* Collapsing toggle button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsReportCollapsed(!isReportCollapsed)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-black bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-400 cursor-pointer shadow-xs"
+                  >
+                    {isReportCollapsed ? (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>بسط التقرير 📖</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5 text-amber-700" />
+                        <span>طي التقرير 📁</span>
+                      </>
+                    )}
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleExportWord}
@@ -923,9 +1202,14 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
                 </div>
               </div>
 
-              <div className="quran-font pr-2 leading-relaxed space-y-2 text-slate-800 max-h-[600px] overflow-y-auto p-2 bg-white border border-slate-200">
-                {renderFormattedText(analysis)}
-              </div>
+              {/* Report Body: conditionally shown when not collapsed */}
+              {!isReportCollapsed && (
+                <div className="p-5 space-y-4">
+                  <div className="quran-font pr-2 leading-relaxed space-y-2 text-slate-800 max-h-[600px] overflow-y-auto p-4 bg-white border border-slate-200 shadow-inner">
+                    {renderFormattedText(analysis)}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

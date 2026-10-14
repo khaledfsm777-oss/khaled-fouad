@@ -38,9 +38,30 @@ export default function MushafReader({
   onAnalyzeSurah,
   onBackToHome
 }: MushafReaderProps) {
-  // Navigation state
-  const [currentSurahId, setCurrentSurahId] = useState<number>(initialSurahId);
+  // Navigation state with persistence across switching apps
+  const [currentSurahId, setCurrentSurahId] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('bonyan_mushaf_last_surah_id');
+      if (saved) {
+        const id = parseInt(saved, 10);
+        if (id >= 1 && id <= 114) return id;
+      }
+    } catch {}
+    return initialSurahId || 1;
+  });
   const [targetVerseToHighlight, setTargetVerseToHighlight] = useState<number | null>(initialVerseNumber || null);
+
+  useEffect(() => {
+    if (initialSurahId && initialSurahId >= 1 && initialSurahId <= 114) {
+      setCurrentSurahId(initialSurahId);
+    }
+  }, [initialSurahId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('bonyan_mushaf_last_surah_id', currentSurahId.toString());
+    } catch {}
+  }, [currentSurahId]);
 
   // Modals & Panels
   const [showSurahPicker, setShowSurahPicker] = useState<boolean>(false);
