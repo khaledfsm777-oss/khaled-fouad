@@ -12,7 +12,6 @@ import {
   getCompatibilityDetails,
   getAchievedCompatibilities,
   isTripleMatchElite,
-  EMPTY_ELITE_RESULT,
   getReductionExplanation,
   getSurahCoefficient,
   getNooraniRank,
@@ -22,23 +21,10 @@ import {
   FileSpreadsheet, Search, Eye, Download, Copy, Share, ArrowUpDown, 
   Hash, BookOpen, AlertCircle, Sparkles, Filter, CheckCircle2, X, Plus, Minus, RefreshCw, Palette,
   AlertTriangle, StickyNote, Edit3, Save, Trash2, CheckSquare,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Crown,
-  Wifi, WifiOff, Printer, FileDown, Maximize2, Minimize2
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { SURAH_METADATA, getSurahMetadata } from '../utils/surahMetadata';
-import { 
-  getMukhtasarSurahOverview, 
-  fetchMukhtasarVerseData, 
-  generateVerseBenefits, 
-  generateVerseTadabburTouch 
-} from '../utils/mukhtasarData';
-import { 
-  generateLocalAcademicAnalysis, 
-  generateTripleMatchEliteReport, 
-  generateIntegratedCompatibilityReport,
-  generateMukhtasarSmartReport,
-  MukhtasarReportVerseDetail
-} from '../utils/reportTemplates';
+import { generateLocalAcademicAnalysis, generateTripleMatchEliteReport, generateIntegratedCompatibilityReport } from '../utils/reportTemplates';
 import QuranFontSizeControl from './QuranFontSizeControl';
 import { ExportModal } from './ExportModal';
 import { generateDefaultExportFileName, getUniqueExportFileName, handleSafeExport } from '../utils/exportHelper';
@@ -129,17 +115,6 @@ export default function QuranOutput({
   const [isReportLoading, setIsReportLoading] = useState(false);
   const [reportProgress, setReportProgress] = useState<{ current: number; total: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Smart Interpreter Report Modal state (linked to Al-Mukhtasar fi Tafsir)
-  const [showSmartReportModal, setShowSmartReportModal] = useState<boolean>(false);
-  const [smartReportText, setSmartReportText] = useState<string>('');
-  const [smartReportVerseDetails, setSmartReportVerseDetails] = useState<MukhtasarReportVerseDetail[]>([]);
-  const [smartReportOnline, setSmartReportOnline] = useState<boolean>(() => {
-    return typeof navigator !== 'undefined' ? navigator.onLine : true;
-  });
-  const [smartReportActiveTab, setSmartReportActiveTab] = useState<'overview' | 'verses' | 'text'>('overview');
-  const [isRefreshingMukhtasar, setIsRefreshingMukhtasar] = useState<boolean>(false);
-  const [smartReportFullscreen, setSmartReportFullscreen] = useState<boolean>(false);
 
   // Interactive Export Modal State for custom naming & direct saving
   const [exportModalState, setExportModalState] = useState<{
@@ -700,11 +675,6 @@ export default function QuranOutput({
     let perfect_matches = 0;
     let unregistered_matches = 0;
     let researcher_notes = 0;
-    let elite_coeff_rank = 0;
-    let elite_sig_14 = 0;
-    let elite_sig_9 = 0;
-    let elite_struct_div = 0;
-    let elite_hex_exact = 0;
 
     if (isNoorani && activeSurah?.id === 42 && selectedShuraTab === 'combined') {
       const sH = { id: 42, name: 'الشورى (حم)', letters: 'حم', keyValue: 48, digitalRoot: 3 };
@@ -779,13 +749,6 @@ export default function QuranOutput({
         if (isSharedEliteShura) {
           triple_match++;
         }
-        const tripleH = isTripleMatchElite(v, sH, surahMeta);
-        const tripleA = isTripleMatchElite(v, sA, surahMeta);
-        if (tripleH.matchesCoeffOrRank || tripleA.matchesCoeffOrRank) elite_coeff_rank++;
-        if (tripleH.matchesSignature14 || tripleA.matchesSignature14) elite_sig_14++;
-        if (tripleH.matchesSignature9 || tripleA.matchesSignature9) elite_sig_9++;
-        if (tripleH.matchesStructuralDiv || tripleA.matchesStructuralDiv) elite_struct_div++;
-        if (tripleH.matchesHexagonalExact || tripleA.matchesHexagonalExact) elite_hex_exact++;
       });
     } else {
       const allItems: { v: any; track: { letters: string; keyValue: number; digitalRoot: number } }[] = [];
@@ -894,21 +857,6 @@ export default function QuranOutput({
         if (tripleRes.isTripleMatch) {
           triple_match++;
         }
-        if (tripleRes.matchesCoeffOrRank) {
-          elite_coeff_rank++;
-        }
-        if (tripleRes.matchesSignature14) {
-          elite_sig_14++;
-        }
-        if (tripleRes.matchesSignature9) {
-          elite_sig_9++;
-        }
-        if (tripleRes.matchesStructuralDiv) {
-          elite_struct_div++;
-        }
-        if (tripleRes.matchesHexagonalExact) {
-          elite_hex_exact++;
-        }
       });
     }
 
@@ -933,12 +881,7 @@ export default function QuranOutput({
       noorani_rank,
       perfect_matches,
       unregistered_matches,
-      researcher_notes,
-      elite_coeff_rank,
-      elite_sig_14,
-      elite_sig_9,
-      elite_struct_div,
-      elite_hex_exact
+      researcher_notes
     };
   }, [verses, activeSurah, isNoorani, selectedShuraTab, researcherNotes]);
 
@@ -1224,46 +1167,13 @@ export default function QuranOutput({
         }
       }
 
-      // 9b. Triple Match Elite Filter (آيات النخبة النورانية المطلقة وتقسيماتها الخمس)
+      // 9b. Triple Match Elite Filter (آيات النخبة النورانية المطلقة)
       if (advancedFilters.tripleMatchOnly) {
         if (isShuraCombined) {
           if (!isTripleCombined) return false;
-          if (advancedFilters.eliteSubCategory && advancedFilters.eliteSubCategory !== 'all') {
-            const tripleH = isTripleMatchElite(v, sH, surahMeta);
-            const tripleA = isTripleMatchElite(v, sA, surahMeta);
-            if (advancedFilters.eliteSubCategory === 'coeff_rank' && !tripleH.matchesCoeffOrRank && !tripleA.matchesCoeffOrRank) return false;
-            if (advancedFilters.eliteSubCategory === 'sig_14' && !tripleH.matchesSignature14 && !tripleA.matchesSignature14) return false;
-            if (advancedFilters.eliteSubCategory === 'sig_9' && !tripleH.matchesSignature9 && !tripleA.matchesSignature9) return false;
-            if (advancedFilters.eliteSubCategory === 'struct_div' && !tripleH.matchesStructuralDiv && !tripleA.matchesStructuralDiv) return false;
-            if (advancedFilters.eliteSubCategory === 'hex_exact' && !tripleH.matchesHexagonalExact && !tripleA.matchesHexagonalExact) return false;
-          }
         } else {
           const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
           if (!tripleRes.isTripleMatch) return false;
-          if (advancedFilters.eliteSubCategory && advancedFilters.eliteSubCategory !== 'all') {
-            if (advancedFilters.eliteSubCategory === 'coeff_rank' && !tripleRes.matchesCoeffOrRank) return false;
-            if (advancedFilters.eliteSubCategory === 'sig_14' && !tripleRes.matchesSignature14) return false;
-            if (advancedFilters.eliteSubCategory === 'sig_9' && !tripleRes.matchesSignature9) return false;
-            if (advancedFilters.eliteSubCategory === 'struct_div' && !tripleRes.matchesStructuralDiv) return false;
-            if (advancedFilters.eliteSubCategory === 'hex_exact' && !tripleRes.matchesHexagonalExact) return false;
-          }
-        }
-      } else if (advancedFilters.eliteSubCategory && advancedFilters.eliteSubCategory !== 'all') {
-        if (isShuraCombined) {
-          const tripleH = isTripleMatchElite(v, sH, surahMeta);
-          const tripleA = isTripleMatchElite(v, sA, surahMeta);
-          if (advancedFilters.eliteSubCategory === 'coeff_rank' && !tripleH.matchesCoeffOrRank && !tripleA.matchesCoeffOrRank) return false;
-          if (advancedFilters.eliteSubCategory === 'sig_14' && !tripleH.matchesSignature14 && !tripleA.matchesSignature14) return false;
-          if (advancedFilters.eliteSubCategory === 'sig_9' && !tripleH.matchesSignature9 && !tripleA.matchesSignature9) return false;
-          if (advancedFilters.eliteSubCategory === 'struct_div' && !tripleH.matchesStructuralDiv && !tripleA.matchesStructuralDiv) return false;
-          if (advancedFilters.eliteSubCategory === 'hex_exact' && !tripleH.matchesHexagonalExact && !tripleA.matchesHexagonalExact) return false;
-        } else {
-          const tripleRes = isTripleMatchElite(v, dummySurah, surahMeta);
-          if (advancedFilters.eliteSubCategory === 'coeff_rank' && !tripleRes.matchesCoeffOrRank) return false;
-          if (advancedFilters.eliteSubCategory === 'sig_14' && !tripleRes.matchesSignature14) return false;
-          if (advancedFilters.eliteSubCategory === 'sig_9' && !tripleRes.matchesSignature9) return false;
-          if (advancedFilters.eliteSubCategory === 'struct_div' && !tripleRes.matchesStructuralDiv) return false;
-          if (advancedFilters.eliteSubCategory === 'hex_exact' && !tripleRes.matchesHexagonalExact) return false;
         }
       }
 
@@ -2006,64 +1916,23 @@ export default function QuranOutput({
         textToCopy += `• نطاق الأجزاء والأحزاب: جزء ${surahMeta.juzStartEnd} | حزب ${surahMeta.hizbStartEnd}\n`;
         textToCopy += `• إجمالي الآيات والكلمات والحروف الكلية: ${surahMeta.totalVerses} آية | ${surahMeta.totalWords} كلمة | ${surahMeta.totalLetters} حرف\n`;
       }
-      // 1. Gather Mukhtasar fi Tafsir details for displayed verses
-      updateProgress(90, 'جلب معالم وتفسير الآيات من «المختصر في التفسير»...');
-      const onlineNow = typeof navigator !== 'undefined' ? navigator.onLine : false;
-      setSmartReportOnline(onlineNow);
+      if (isNoorani) {
+        textToCopy += `• الحروف النورانية (المفتاح): "${activeSurah.letters}" | قيمة الجمل: ${activeSurah.keyValue} | الاختزال: ${activeSurah.digitalRoot}\n`;
+      }
+      textToCopy += `\nإحصائيات الآيات والمقاييس المستخرجة قيد الاستقصاء:\n`;
+      textToCopy += `• عدد الآيات المدروسة: ${processedVerses.length}\n`;
+      textToCopy += `• إجمالي الكلمات للآيات المدروسة: ${processedVerses.reduce((sum, v) => sum + v.wordCount, 0)}\n`;
+      textToCopy += `• إجمالي الحروف للآيات المدروسة: ${processedVerses.reduce((sum, v) => sum + v.letterCount, 0)}\n`;
+      textToCopy += `• إجمالي قياس الجُمّل للآيات المدروسة: ${processedVerses.reduce((sum, v) => sum + v.jummalValue, 0)}\n`;
+      
+      textToCopy += `\n------------------------------------------------------------------------\n`;
+      textToCopy += `📜 نص الدراسة الاستقصائية والتحليل البياني والعددي:\n`;
+      textToCopy += `------------------------------------------------------------------------\n\n`;
+      textToCopy += `${combinedAnalysis}\n\n`;
+      
+      textToCopy += `------------------------------------------------------------------------\n`;
+      textToCopy += `«منظومة البنيان للقرآن الكريم» • تم إعداد وتصدير التقرير بنجاح • ${new Date().toLocaleDateString('ar-EG')}\n`;
 
-      const mukhtasarPromises = processedVerses.map(async (v) => {
-        try {
-          const sId = activeSurah?.id || 2;
-          const vNum = parseInt(String(v.verseNumber), 10) || 1;
-          const res = await fetchMukhtasarVerseData(sId, vNum, v.text, v.jummalValue);
-          return {
-            verseNumber: v.verseNumber,
-            text: v.text,
-            jummalValue: v.jummalValue,
-            wordCount: v.wordCount,
-            letterCount: v.letterCount,
-            tafseer: res.tafseer,
-            benefits: res.benefits,
-            tadabbur: res.tadabbur,
-            source: res.source
-          } as MukhtasarReportVerseDetail;
-        } catch {
-          return {
-            verseNumber: v.verseNumber,
-            text: v.text,
-            jummalValue: v.jummalValue,
-            wordCount: v.wordCount,
-            letterCount: v.letterCount,
-            tafseer: `تفسير الآية [${v.verseNumber}]: ترسيخ مقاصد التوحيد والإيمان والعمل الصالح وفق منهاج «المختصر في التفسير».`,
-            benefits: generateVerseBenefits(v.text, v.verseNumber),
-            tadabbur: generateVerseTadabburTouch(v.text, v.verseNumber, v.jummalValue),
-            source: 'offline' as const
-          };
-        }
-      });
-
-      const gatheredMukhtasar = await Promise.all(mukhtasarPromises);
-      setSmartReportVerseDetails(gatheredMukhtasar);
-
-      // 2. Generate comprehensive Mukhtasar smart report text
-      const mukhtasarReportContent = generateMukhtasarSmartReport({
-        activeSurah: activeSurah ? {
-          id: activeSurah.id,
-          name: activeSurah.name,
-          letters: activeSurah.letters,
-          keyValue: activeSurah.keyValue,
-          digitalRoot: activeSurah.digitalRoot,
-        } : null,
-        surahMeta,
-        verses: analyzedVerses,
-        verseDetails: gatheredMukhtasar,
-        isOnline: onlineNow
-      });
-
-      setSmartReportText(mukhtasarReportContent);
-      setShowSmartReportModal(true); // Open the interactive report modal on screen!
-
-      textToCopy = mukhtasarReportContent;
 
       // Copy text to Clipboard safely without letting permission errors abort export
       await copyToClipboard(textToCopy);
@@ -2211,37 +2080,7 @@ export default function QuranOutput({
           totalJummal,
           combinedAnalysisMarkdown: combinedAnalysis,
           rows: docxRows,
-          nooraniMatches: nooraniMatchesForDocx,
-          mukhtasarOverview: activeSurah ? getMukhtasarSurahOverview(activeSurah.id) : undefined,
-          mukhtasarVerses: gatheredMukhtasar.map(g => {
-            const dummySurah = {
-              id: activeSurah?.id || 1,
-              name: activeSurah?.name || '',
-              letters: activeSurah?.letters || '',
-              keyValue: activeSurah?.keyValue || 0,
-              digitalRoot: activeSurah?.digitalRoot || 1
-            };
-            const comp = getCompatibilityDetails(g as any, dummySurah);
-            const isExact14 = 
-              g.jummalValue === 14 || 
-              g.wordCount === 14 || 
-              g.letterCount === 14 || 
-              comp.newColumnProduct === 14;
-            const details14 = g.jummalValue === 14 ? 'جمل الآية = 14' : g.wordCount === 14 ? 'كلمات الآية = 14' : g.letterCount === 14 ? 'حروف الآية = 14' : comp.newColumnProduct === 14 ? 'ناتج المعادلة = 14' : undefined;
-
-            return {
-              verseNumber: g.verseNumber,
-              text: g.text,
-              tafseer: g.tafseer,
-              benefits: g.benefits,
-              tadabbur: g.tadabbur,
-              jummalValue: g.jummalValue,
-              wordCount: g.wordCount,
-              letterCount: g.letterCount,
-              isExact14Match: isExact14,
-              exact14Details: details14
-            };
-          })
+          nooraniMatches: nooraniMatchesForDocx
         });
       } catch (docxErr) {
         console.warn('DOCX packaging error, creating fallback document', docxErr);
@@ -2832,384 +2671,78 @@ export default function QuranOutput({
             </div>
           )}
 
-          {/* ========================================================================= */}
-          {/* بيان التوافقات والموازين الموحد ودليل الألوان (Unified Compatibility Hub) */}
-          {/* ========================================================================= */}
-          <div className="bg-white border-b-2 border-slate-300 p-3.5 sm:p-4 text-right space-y-3 select-none">
-            
-            {/* Header: Title, Scope, 29 Surahs Toggle */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-                  <span className="p-1 bg-amber-500 text-slate-950 rounded-xs">📋</span>
-                  <span>بيان التوافقات والموازين الموحد:</span>
+          {/* Informative Table Header, Legend Banner, and View Controls */}
+          <div className="bg-slate-50 border-b border-slate-200 p-4 text-right space-y-3 select-none">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                  📋 {searchScopeTitle || 'ميزان التحليل الشامل وجدول استقصاء التوافقات الموحد'}:
                 </h4>
-                <span className="text-xs font-bold text-slate-600">
-                  {searchScopeTitle || 'ميزان التحليل الشامل للآيات'}
-                </span>
-                <span className="text-[11px] font-black text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-xs font-mono">
-                  ({tableRows.length} آية معروضة من {filterCounts.all || verses.length})
+                <span className="text-[11px] font-bold text-slate-500">
+                  ({tableRows.length} آية)
                 </span>
               </div>
 
-              {/* Quick 29 Noorani Surahs Filter Toggle */}
-              {(showSurahNameColumn || verses.some(v => (v as any).surahName)) && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-600" />
-                    <span>السور الـ (29):</span>
-                  </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 border border-emerald-200 rounded-sm">
+                  📖 الرسم العثماني والاختزال
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-600 leading-relaxed">
+              يوضح هذا الجدول البنيان الحسابي الشامل للآيات الكريمة مع تفكيك وقيم الاختزال الرقمي (1-9) للجمّل، والكلمات، والحروف، والمجموع.
+            </p>
+          </div>
+
+          {/* Quick Filter Bar for Noorani 29 Surahs in Comprehensive Search */}
+          {(showSurahNameColumn || verses.some(v => (v as any).surahName)) && (
+            <div className="bg-amber-50/80 border-b border-amber-200/80 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs select-none">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  مجموعة السور النورانية الـ (29):
+                </span>
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => { setNooraniSurahFilter('all'); setCurrentPage(1); }}
-                    className={`px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer rounded-xs ${
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-sm border transition-colors cursor-pointer ${
                       nooraniSurahFilter === 'all'
-                        ? 'bg-slate-900 text-white border-slate-900'
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
                         : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                     }`}
                   >
-                    كل السور
+                    كل السور ({tableRows.length})
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setNooraniSurahFilter(prev => prev === 'all_29' ? 'all' : 'all_29'); setCurrentPage(1); }}
-                    className={`px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer rounded-xs flex items-center gap-1 ${
+                    onClick={() => { setNooraniSurahFilter('all_29'); setCurrentPage(1); }}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-sm border transition-colors cursor-pointer flex items-center gap-1 ${
                       nooraniSurahFilter === 'all_29'
                         ? 'bg-amber-500 text-slate-950 border-amber-600 font-black shadow-xs ring-1 ring-amber-400'
-                        : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                        : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
                     }`}
                   >
-                    <span>✨ الـ 29 فقط</span>
+                    <span>✨ السور الـ 29 فقط</span>
                   </button>
-                  {typeof nooraniSurahFilter === 'number' && (
-                    <button
-                      type="button"
-                      onClick={() => { setNooraniSurahFilter('all'); setCurrentPage(1); }}
-                      className="px-2 py-0.5 text-[10px] font-bold bg-amber-200 text-amber-950 border border-amber-400 rounded-xs flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>سورة #{nooraniSurahFilter}</span>
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
+                </div>
+              </div>
+              {typeof nooraniSurahFilter === 'number' && (
+                <div className="flex items-center gap-2 bg-amber-100/90 border border-amber-300 text-amber-950 px-2.5 py-1 rounded-sm text-xs font-bold">
+                  <span>تصفية مخصصة: {NOORANI_SURAHS.find(s => s.id === nooraniSurahFilter)?.name || `سورة #${nooraniSurahFilter}`}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setNooraniSurahFilter('all'); setCurrentPage(1); }}
+                    className="text-amber-700 hover:text-rose-600 cursor-pointer p-0.5"
+                    title="إلغاء التصفية والعودة للكل"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
             </div>
-
-            {/* Tier 1: الموازين العامة بالألوان المعتمدة (Color-Coded Master Compatibilities) */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1 text-[11px] font-black text-slate-700">
-                <span>🎨 موازين التوافق العامة بالألوان المعتمدة:</span>
-                <span className="text-[10px] font-medium text-slate-500">(اضغط للتصفية المباشرة)</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                {/* 1. All */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdvancedFilters(prev => ({ ...prev, mizanColor: 'all', tripleMatchOnly: false, eliteSubCategory: 'all' }));
-                    setMizanFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.mizanColor === 'all' && !advancedFilters.tripleMatchOnly && (!advancedFilters.eliteSubCategory || advancedFilters.eliteSubCategory === 'all')
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="text-[10px] font-bold block">كل الآيات</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.all || verses.length}</span>
-                </button>
-
-                {/* 2. Golden (5/6 to 6/6) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = advancedFilters.mizanColor === 'golden' ? 'all' : 'golden';
-                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
-                    setMizanFilter(next);
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.mizanColor === 'golden'
-                      ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-sm ring-2 ring-amber-300 font-black'
-                      : 'bg-amber-50/80 border-amber-300 text-amber-950 hover:bg-amber-100'
-                  }`}
-                  title="التوافق التام من 5/6 إلى 6/6 وتحقق أغلب الموازين الستة"
-                >
-                  <span className="text-[10px] font-bold block">🌟 التوافق التام (5-6)</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.golden || 0}</span>
-                </button>
-
-                {/* 3. Exact (Green - Remainder 0) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = advancedFilters.mizanColor === 'exact' ? 'all' : 'exact';
-                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
-                    setMizanFilter(next);
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.mizanColor === 'exact'
-                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm ring-2 ring-emerald-300 font-black'
-                      : 'bg-emerald-50/80 border-emerald-300 text-emerald-950 hover:bg-emerald-100'
-                  }`}
-                  title="التوافق الرياضي الصرف: قسمة حساب الجمل على المعامل بلا باقٍ"
-                >
-                  <span className="text-[10px] font-bold block">🟢 الرياضي الصرف (R=0)</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.exact || 0}</span>
-                </button>
-
-                {/* 4. Structural (Blue) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = advancedFilters.mizanColor === 'structural' ? 'all' : 'structural';
-                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
-                    setMizanFilter(next);
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.mizanColor === 'structural'
-                      ? 'bg-blue-600 text-white border-blue-700 shadow-sm ring-2 ring-blue-300 font-black'
-                      : 'bg-blue-50/80 border-blue-300 text-blue-950 hover:bg-blue-100'
-                  }`}
-                  title="الميزان البنيوي الهيكلي: (الجمل + رقم الآية ÷ المعامل) أو الكثافة"
-                >
-                  <span className="text-[10px] font-bold block">🔵 البنيوي الهيكلي</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.structural || 0}</span>
-                </button>
-
-                {/* 5. Tawheed (Gold/Purple) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = advancedFilters.mizanColor === 'tawheed' ? 'all' : 'tawheed';
-                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
-                    setMizanFilter(next);
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.mizanColor === 'tawheed'
-                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm ring-2 ring-indigo-300 font-black'
-                      : 'bg-indigo-50/80 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
-                  }`}
-                  title="التوافق التوحيدي الذاتي أو المشترك مع الأرقام التوحيدية 11 و 1"
-                >
-                  <span className="text-[10px] font-bold block">💛 التوحيدي المشع</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.tawheed || 0}</span>
-                </button>
-
-                {/* 6. Red (Not Compatible) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = advancedFilters.mizanColor === 'not_compatible' ? 'all' : 'not_compatible';
-                    setAdvancedFilters(prev => ({ ...prev, mizanColor: next, tripleMatchOnly: false, eliteSubCategory: 'all' }));
-                    setMizanFilter(next);
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.mizanColor === 'not_compatible'
-                      ? 'bg-rose-600 text-white border-rose-700 shadow-sm ring-2 ring-rose-300 font-black'
-                      : 'bg-rose-50/80 border-rose-300 text-rose-950 hover:bg-rose-100'
-                  }`}
-                  title="آيات ذات كسر بنياني لم تحقق شروط الموازين"
-                >
-                  <span className="text-[10px] font-bold block">🔴 كسر بنياني</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.not_compatible || 0}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Tier 2: خماسية النخبة النورانية المطلقة (Noorani Elite Partitioning) */}
-            <div className="space-y-1.5 pt-1 border-t border-slate-200">
-              <div className="flex items-center gap-1 text-[11px] font-black text-amber-950">
-                <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
-                <span>موازين النخبة النورانية المطلقة (Triple Match):</span>
-                <span className="text-[10px] font-medium text-slate-500">(فرز متقدم للآيات الأرقى توافقاً)</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                {/* Elite All */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdvancedFilters(prev => ({
-                      ...prev,
-                      mizanColor: 'all',
-                      tripleMatchOnly: prev.tripleMatchOnly && (!prev.eliteSubCategory || prev.eliteSubCategory === 'all') ? false : true,
-                      eliteSubCategory: 'all'
-                    }));
-                    setMizanFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.tripleMatchOnly && (!advancedFilters.eliteSubCategory || advancedFilters.eliteSubCategory === 'all')
-                      ? 'bg-amber-600 text-white border-amber-700 shadow-sm ring-2 ring-amber-300 font-black'
-                      : 'bg-amber-50/90 border-amber-300 text-amber-950 hover:bg-amber-100'
-                  }`}
-                  title="عرض كل آيات النخبة النورانية المحققة للشروط الثلاثية الكاملة"
-                >
-                  <span className="text-[10px] font-bold block">👑 كل النخبة المطلقة</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.triple_match || 0}</span>
-                </button>
-
-                {/* 1. Coeff & Rank */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdvancedFilters(prev => ({
-                      ...prev,
-                      mizanColor: 'all',
-                      tripleMatchOnly: false,
-                      eliteSubCategory: prev.eliteSubCategory === 'coeff_rank' ? 'all' : 'coeff_rank'
-                    }));
-                    setMizanFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.eliteSubCategory === 'coeff_rank'
-                      ? 'bg-amber-600 text-white border-amber-700 shadow-sm ring-2 ring-amber-300 font-black'
-                      : 'bg-white border-slate-300 text-slate-800 hover:bg-amber-50'
-                  }`}
-                  title="الآيات المتفقة مع معامل السورة أو ترتيبها النوراني (1-29)"
-                >
-                  <span className="text-[10px] font-bold block">🏷️ المعامل والترتيب</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.elite_coeff_rank || 0}</span>
-                </button>
-
-                {/* 2. Signature 14 Strict */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdvancedFilters(prev => ({
-                      ...prev,
-                      mizanColor: 'all',
-                      tripleMatchOnly: false,
-                      eliteSubCategory: prev.eliteSubCategory === 'sig_14' ? 'all' : 'sig_14'
-                    }));
-                    setMizanFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.eliteSubCategory === 'sig_14'
-                      ? 'bg-teal-700 text-white border-teal-800 shadow-sm ring-2 ring-teal-300 font-black'
-                      : 'bg-white border-teal-300 text-teal-950 hover:bg-teal-50'
-                  }`}
-                  title="توافق صريح مع الثابت النوراني 14 حصراً (كلمات أو حروف أو كثافة أو معادلة أو رقم الآية = 14)"
-                >
-                  <span className="text-[10px] font-bold block">🔠 بصمة (14) الصريحة</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.elite_sig_14 || 0}</span>
-                </button>
-
-                {/* 3. Signature 9 Dominant */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdvancedFilters(prev => ({
-                      ...prev,
-                      mizanColor: 'all',
-                      tripleMatchOnly: false,
-                      eliteSubCategory: prev.eliteSubCategory === 'sig_9' ? 'all' : 'sig_9'
-                    }));
-                    setMizanFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.eliteSubCategory === 'sig_9'
-                      ? 'bg-purple-700 text-white border-purple-800 shadow-sm ring-2 ring-purple-300 font-black'
-                      : 'bg-white border-purple-300 text-purple-950 hover:bg-purple-50'
-                  }`}
-                  title="توافق الختام التساعي السيادي (9) في البصمة أو الجمل أو الكثافة"
-                >
-                  <span className="text-[10px] font-bold block">⚡ تساعي سيادي (9)</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.elite_sig_9 || 0}</span>
-                </button>
-
-                {/* 4. Structural Sum Divisible by Coeff */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdvancedFilters(prev => ({
-                      ...prev,
-                      mizanColor: 'all',
-                      tripleMatchOnly: false,
-                      eliteSubCategory: prev.eliteSubCategory === 'struct_div' ? 'all' : 'struct_div'
-                    }));
-                    setMizanFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.eliteSubCategory === 'struct_div'
-                      ? 'bg-blue-700 text-white border-blue-800 shadow-sm ring-2 ring-blue-300 font-black'
-                      : 'bg-white border-blue-300 text-blue-950 hover:bg-blue-50'
-                  }`}
-                  title="المجموع البنيوي (الجمل + رقم الآية) مقسوماً على المعامل بلا باقٍ"
-                >
-                  <span className="text-[10px] font-bold block">📐 بنيوي ÷ المعامل</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.elite_struct_div || 0}</span>
-                </button>
-
-                {/* 5. Hexagonal Exact */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdvancedFilters(prev => ({
-                      ...prev,
-                      mizanColor: 'all',
-                      tripleMatchOnly: false,
-                      eliteSubCategory: prev.eliteSubCategory === 'hex_exact' ? 'all' : 'hex_exact'
-                    }));
-                    setMizanFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  className={`p-2 border text-right transition-all cursor-pointer rounded-xs flex flex-col justify-between ${
-                    advancedFilters.eliteSubCategory === 'hex_exact'
-                      ? 'bg-emerald-700 text-white border-emerald-800 shadow-sm ring-2 ring-emerald-300 font-black'
-                      : 'bg-white border-emerald-300 text-emerald-950 hover:bg-emerald-50'
-                  }`}
-                  title="التوافق السداسي التام والأخضر الصرف (6/6 أو 5/6 أو قسمة بلا باقٍ)"
-                >
-                  <span className="text-[10px] font-bold block">🏆 السداسي التام</span>
-                  <span className="text-sm font-black font-mono">{filterCounts.elite_hex_exact || 0}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Unified Active Filter Status & Reset Banner */}
-            {(advancedFilters.mizanColor !== 'all' || advancedFilters.tripleMatchOnly || (advancedFilters.eliteSubCategory && advancedFilters.eliteSubCategory !== 'all')) && (
-              <div className="flex items-center justify-between bg-amber-100/90 border border-amber-300 text-amber-950 px-3 py-1.5 rounded-xs text-xs font-bold animate-fade-in">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping"></span>
-                  <span>
-                    {advancedFilters.mizanColor === 'golden' && '🔍 تصفية نشطة: التوافق التام (5-6) الذهبي'}
-                    {advancedFilters.mizanColor === 'exact' && '🔍 تصفية نشطة: التوافق الرياضي الصرف (الأخضر R=0)'}
-                    {advancedFilters.mizanColor === 'structural' && '🔍 تصفية نشطة: التوافق البنيوي الهيكلي (الأزرق)'}
-                    {advancedFilters.mizanColor === 'tawheed' && '🔍 تصفية نشطة: التوافق التوحيدي المشع (11 / 1)'}
-                    {advancedFilters.mizanColor === 'not_compatible' && '🔍 تصفية نشطة: آيات الكسر البنياني (الأحمر)'}
-                    {advancedFilters.tripleMatchOnly && (!advancedFilters.eliteSubCategory || advancedFilters.eliteSubCategory === 'all') && '👑 تصفية نشطة: كل آيات النخبة النورانية المطلقة (Triple Match)'}
-                    {advancedFilters.eliteSubCategory === 'coeff_rank' && '🏷️ تصفية نشطة: توافق المعامل وترتيب السورة النورانية'}
-                    {advancedFilters.eliteSubCategory === 'sig_14' && '🔠 تصفية نشطة: توافق البصمة النورانية (14) الصريحة'}
-                    {advancedFilters.eliteSubCategory === 'sig_9' && '⚡ تصفية نشطة: توافق البصمة التساعية السيادية (9)'}
-                    {advancedFilters.eliteSubCategory === 'struct_div' && '📐 تصفية نشطة: الميزان البنيوي (الجمل + رقم الآية ÷ المعامل)'}
-                    {advancedFilters.eliteSubCategory === 'hex_exact' && '🏆 تصفية نشطة: التوافق السداسي التام والأخضر الصرف'}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdvancedFilters(prev => ({ ...prev, mizanColor: 'all', tripleMatchOnly: false, eliteSubCategory: 'all' }));
-                    setMizanFilter('all');
-                    setCurrentPage(1);
-                  }}
-                  className="text-amber-900 hover:text-rose-700 underline font-black cursor-pointer text-xs flex items-center gap-1"
-                >
-                  <span>إلغاء التصفية وعرض كل الآيات</span>
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="table-container overflow-x-auto">
             <table className="w-full text-right border-collapse text-[11px] min-w-[950px]">
@@ -3674,7 +3207,7 @@ export default function QuranOutput({
                             keyValue: track.keyValue,
                             digitalRoot: track.digitalRoot
                           } : null;
-                          const tripleRes = dummySurah ? isTripleMatchElite(v, dummySurah, surahMeta) : EMPTY_ELITE_RESULT;
+                          const tripleRes = dummySurah ? isTripleMatchElite(v, dummySurah, surahMeta) : { isTripleMatch: false };
 
                           return (
                           <div className="flex flex-col items-center justify-center gap-1">
@@ -3784,92 +3317,11 @@ export default function QuranOutput({
                               </div>
                             )}
 
-                            {/* Triple Match Badge & Noorani Elite Categories Micro-Tags */}
-                            {tripleRes.isTripleMatch ? (
-                              <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <span className="px-1.5 py-0.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 text-[8px] font-black rounded-xs border border-amber-600 shadow-xs block whitespace-nowrap">
-                                  👑 نخبة نورانية (Triple Match)
-                                </span>
-                                <div className="flex flex-wrap items-center justify-center gap-0.5 max-w-[170px] mt-0.5">
-                                  {tripleRes.matchesCoeffOrRank && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-amber-100 text-amber-950 border border-amber-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title="توافق مع معامل السورة وترتيبها النوراني"
-                                    >
-                                      🏷️ المعامل والترتيب
-                                    </span>
-                                  )}
-                                  {tripleRes.matchesSignature14 && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-teal-100 text-teal-950 border border-teal-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title="توافق البصمة النورانية (14)" 
-                                    >
-                                      🔠 نوراني (14)
-                                    </span>
-                                  )}
-                                  {tripleRes.matchesSignature9 && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-purple-100 text-purple-950 border border-purple-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title="توافق الختام التساعي السيادي (9)" 
-                                    >
-                                      ⚡ تساعي سيادي 9
-                                    </span>
-                                  )}
-                                  {tripleRes.matchesStructuralDiv && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-blue-100 text-blue-950 border border-blue-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title={`المجموع البنيوي (الجمل + رقم الآية = ${tripleRes.structuralSum}) يقبل القسمة على المعامل (${tripleRes.structuralDivisor}) بلا باقٍ`}
-                                    >
-                                      📐 بنيوي ÷ {tripleRes.structuralDivisor}
-                                    </span>
-                                  )}
-                                  {tripleRes.matchesHexagonalExact && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-emerald-100 text-emerald-950 border border-emerald-300 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title="التوافق السداسي التام والأخضر الصرف"
-                                    >
-                                      🏆 سداسي تام
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              (tripleRes.matchesCoeffOrRank || tripleRes.matchesSignature14 || tripleRes.matchesSignature9 || tripleRes.matchesStructuralDiv) && (
-                                <div className="flex flex-wrap items-center justify-center gap-0.5 max-w-[170px] mt-1">
-                                  {tripleRes.matchesCoeffOrRank && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-amber-50 text-amber-900 border border-amber-200 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title="توافق مع معامل السورة وترتيبها النوراني"
-                                    >
-                                      🏷️ المعامل والترتيب
-                                    </span>
-                                  )}
-                                  {tripleRes.matchesSignature14 && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-teal-50 text-teal-900 border border-teal-200 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title="توافق البصمة النورانية (14)" 
-                                    >
-                                      🔠 نوراني (14)
-                                    </span>
-                                  )}
-                                  {tripleRes.matchesSignature9 && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-purple-50 text-purple-900 border border-purple-200 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title="توافق الختام التساعي السيادي (9)"
-                                    >
-                                      ⚡ تساعي سيادي 9
-                                    </span>
-                                  )}
-                                  {tripleRes.matchesStructuralDiv && (
-                                    <span 
-                                      className="px-1 py-0.2 bg-blue-50 text-blue-900 border border-blue-200 text-[7px] font-bold rounded-xs whitespace-nowrap" 
-                                      title={`المجموع البنيوي (الجمل + رقم الآية = ${tripleRes.structuralSum}) يقبل القسمة على المعامل (${tripleRes.structuralDivisor}) بلا باقٍ`}
-                                    >
-                                      📐 بنيوي ÷ {tripleRes.structuralDivisor}
-                                    </span>
-                                  )}
-                                </div>
-                              )
+                            {/* Triple Match Badge */}
+                            {tripleRes.isTripleMatch && (
+                              <span className="px-1.5 py-0.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 text-[8px] font-black rounded-sm border border-amber-600 shadow-xs block mt-1">
+                                🌟 نخبة نورانية (Triple Match)
+                              </span>
                             )}
 
                             {/* Perfect Match Golden Indicator (5/6 to 6/6) */}
@@ -4327,423 +3779,6 @@ export default function QuranOutput({
         <div className="fixed bottom-6 right-6 z-50 bg-[#0f172a]/95 backdrop-blur-sm text-slate-100 px-5 py-3.5 border-l-4 border-amber-500 shadow-2xl max-w-md flex items-center gap-2.5 animate-fade-in font-bold text-xs rounded-none">
           <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
           <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* نافذة تقرير مفسر البنيان الذكي التفاعلية المرتبطة بكتاب المختصر في التفسير */}
-      {showSmartReportModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto" dir="rtl">
-          <div className="bg-white border-2 border-slate-900 shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col relative animate-fade-in my-auto">
-            {/* الشريط الزخرفي العلوي */}
-            <div className="h-1.5 bg-gradient-to-r from-amber-500 via-emerald-600 to-amber-500 w-full shrink-0" />
-            
-            {/* ترويسة النافذة */}
-            <div className="bg-slate-900 text-white p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 border-b border-slate-800">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="p-2 bg-amber-500 text-slate-950 font-black text-xs sm:text-sm">
-                    🌟 تقرير مفسر البنيان الذكي الشامل
-                  </span>
-                  <h3 className="text-base sm:text-xl font-black text-white">
-                    سورة {activeSurah?.name} — المرتبط بكتاب «المختصر في التفسير»
-                  </h3>
-                  <span className={`px-2.5 py-1 text-xs font-black flex items-center gap-1.5 ${
-                    smartReportOnline 
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                  }`}>
-                    {smartReportOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                    <span>{smartReportOnline ? 'متصل أونلاين' : 'محلي أوفلاين (29 سورة)'}</span>
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 font-medium">
-                  مركز تفسير للدراسات القرآنية • تمهيد السورة ومقصدها ومحورها العام، وتفسير الآيات وفوائدها مع موازين البنيان والمعامل والرقم 14
-                </p>
-              </div>
-
-              {/* أزرار الإجراءات السريعة في الترويسة */}
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (smartReportText) {
-                      await copyToClipboard(smartReportText);
-                      showToast('📋 تم نسخ التقرير كاملاً إلى الحافظة!');
-                    }
-                  }}
-                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
-                  title="نسخ التقرير كاملاً"
-                >
-                  <Copy className="w-4 h-4" />
-                  <span>نسخ التقرير</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all border border-slate-700"
-                  title="طباعة التقرير"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span className="hidden sm:inline">طباعة</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSmartReportModal(false)}
-                  className="p-2 bg-slate-800 hover:bg-rose-900/80 hover:text-rose-200 text-slate-400 font-black text-sm cursor-pointer transition-all border border-slate-700"
-                  title="إغلاق النافذة"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* أشرطة التبويب الداخلية */}
-            <div className="bg-slate-100 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-2 overflow-x-auto shrink-0">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSmartReportActiveTab('overview')}
-                  className={`px-3.5 py-1.5 text-xs font-black transition-all cursor-pointer ${
-                    smartReportActiveTab === 'overview'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300'
-                  }`}
-                >
-                  📜 معالم ومقاصد السورة (المختصر)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSmartReportActiveTab('verses')}
-                  className={`px-3.5 py-1.5 text-xs font-black transition-all cursor-pointer ${
-                    smartReportActiveTab === 'verses'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300'
-                  }`}
-                >
-                  📖 الآيات المعروضة وتفسيرها وموازينها ({smartReportVerseDetails.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSmartReportActiveTab('text')}
-                  className={`px-3.5 py-1.5 text-xs font-black transition-all cursor-pointer ${
-                    smartReportActiveTab === 'text'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300'
-                  }`}
-                >
-                  📑 النص الأكاديمي الشامل (Markdown)
-                </button>
-              </div>
-
-              {/* زر التحديث وإعادة التحقق أونلاين / أوفلاين */}
-              <button
-                type="button"
-                onClick={async () => {
-                  setIsRefreshingMukhtasar(true);
-                  try {
-                    const onlineNow = typeof navigator !== 'undefined' ? navigator.onLine : false;
-                    setSmartReportOnline(onlineNow);
-                    const refreshed = await Promise.all(
-                      smartReportVerseDetails.map(async (v) => {
-                        const sId = activeSurah?.id || 2;
-                        const vNum = parseInt(String(v.verseNumber), 10) || 1;
-                        const res = await fetchMukhtasarVerseData(sId, vNum, v.text, v.jummalValue);
-                        return {
-                          ...v,
-                          tafseer: res.tafseer,
-                          benefits: res.benefits,
-                          tadabbur: res.tadabbur,
-                          source: res.source
-                        };
-                      })
-                    );
-                    setSmartReportVerseDetails(refreshed);
-                    const versesWithVerification = processedVerses.map(v => ({
-                      ...v,
-                      isVerified: activeSurah ? (v.jummalValue % activeSurah.digitalRoot === 0) : false,
-                      quotient: activeSurah ? (v.jummalValue / activeSurah.digitalRoot) : 0
-                    }));
-                    const newReport = generateMukhtasarSmartReport({
-                      activeSurah: activeSurah ? {
-                        id: activeSurah.id,
-                        name: activeSurah.name,
-                        letters: activeSurah.letters,
-                        keyValue: activeSurah.keyValue,
-                        digitalRoot: activeSurah.digitalRoot,
-                      } : null,
-                      surahMeta: activeSurah ? getSurahMetadata(activeSurah.id) : null,
-                      verses: versesWithVerification,
-                      verseDetails: refreshed,
-                      isOnline: onlineNow
-                    });
-                    setSmartReportText(newReport);
-                    showToast('🔄 تم تحديث بيانات التفسير بنجاح!');
-                  } catch (e) {
-                    showToast('⚠️ تعذر تحديث بيانات التفسير حالياً');
-                  } finally {
-                    setIsRefreshingMukhtasar(false);
-                  }
-                }}
-                disabled={isRefreshingMukhtasar}
-                className="px-3 py-1 bg-white hover:bg-slate-200 border border-slate-300 text-slate-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shrink-0"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingMukhtasar ? 'animate-spin text-amber-600' : ''}`} />
-                <span>تحديث البيانات</span>
-              </button>
-            </div>
-
-            {/* محتوى النافذة القابل للتمرير */}
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6 text-right select-text bg-[#faf9f6]">
-              {/* التبويب 1: معالم ومقاصد السورة */}
-              {smartReportActiveTab === 'overview' && (
-                <div className="space-y-6">
-                  {(() => {
-                    const mukhtasar = activeSurah ? getMukhtasarSurahOverview(activeSurah.id) : null;
-                    const meta = activeSurah ? getSurahMetadata(activeSurah.id) : null;
-                    return (
-                      <div className="space-y-5">
-                        <div className="bg-white border-2 border-emerald-700/30 p-5 sm:p-6 shadow-sm">
-                          <div className="flex items-center justify-between pb-3 border-b border-emerald-100 mb-4 flex-wrap gap-2">
-                            <h4 className="text-base sm:text-lg font-black text-emerald-950 flex items-center gap-2">
-                              <span>📜</span>
-                              <span>معالم ومقاصد سورة {activeSurah?.name} في «المختصر في التفسير»</span>
-                            </h4>
-                            <span className="text-xs bg-emerald-100 text-emerald-900 font-black px-3 py-1 border border-emerald-300">
-                              مرجع معتمد: مركز تفسير للدراسات القرآنية
-                            </span>
-                          </div>
-
-                          <div className="space-y-4 text-sm leading-relaxed text-slate-800 font-medium">
-                            <div className="bg-amber-50/80 border-r-4 border-amber-500 p-4">
-                              <span className="font-black text-amber-950 block text-xs uppercase mb-1">
-                                📌 تمهيد السورة:
-                              </span>
-                              <p className="text-slate-900 font-semibold">{mukhtasar?.tamheed || 'تمهيد السورة وبيان سياق نزولها وفضلها ومحورها الأساسي.'}</p>
-                            </div>
-
-                            <div className="bg-emerald-50/80 border-r-4 border-emerald-600 p-4">
-                              <span className="font-black text-emerald-950 block text-xs uppercase mb-1">
-                                🎯 مقصد السورة الأساسي:
-                              </span>
-                              <p className="text-slate-900 font-semibold">{mukhtasar?.maqsad || 'مقصد السورة في ترسيخ أصول العقيدة والتوحيد والاستجابة لأمر الله.'}</p>
-                            </div>
-
-                            <div className="bg-blue-50/80 border-r-4 border-blue-600 p-4">
-                              <span className="font-black text-blue-950 block text-xs uppercase mb-1">
-                                🌐 المحور العام للسورة:
-                              </span>
-                              <p className="text-slate-900 font-semibold">{mukhtasar?.mehwar || 'المحور الموضوعي العام الذي تنتظم حوله مقاصد وآيات السورة الكريمة.'}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* إحصائيات ومعاملات السورة */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <div className="bg-white border border-slate-200 p-3 text-center">
-                            <span className="text-[11px] text-slate-500 font-bold block">ترتيب المصحف</span>
-                            <span className="text-base font-black text-slate-900">{meta?.orderInQuran || activeSurah?.id}</span>
-                          </div>
-                          <div className="bg-white border border-slate-200 p-3 text-center">
-                            <span className="text-[11px] text-slate-500 font-bold block">مكان النزول</span>
-                            <span className="text-base font-black text-slate-900">{meta?.revelationPlace || 'مكية'} ({meta?.revelationOrder || '-'})</span>
-                          </div>
-                          <div className="bg-white border border-slate-200 p-3 text-center">
-                            <span className="text-[11px] text-slate-500 font-bold block">المفتاح النوراني</span>
-                            <span className="text-base font-black text-amber-800">{activeSurah?.letters || '-'} (الجمل: {activeSurah?.keyValue || 0})</span>
-                          </div>
-                          <div className="bg-white border border-slate-200 p-3 text-center">
-                            <span className="text-[11px] text-slate-500 font-bold block">معامل الاختزال</span>
-                            <span className="text-base font-black text-emerald-700">{activeSurah?.digitalRoot || 1}</span>
-                          </div>
-                        </div>
-
-                        {/* اللمسات التدبرية العامة */}
-                        <div className="bg-amber-50/50 border border-amber-300 p-5">
-                          <h5 className="text-sm font-black text-amber-950 mb-3 flex items-center gap-2">
-                            <span>✨</span>
-                            <span>لطائف ولمسات تدبرية عامة لآيات السورة:</span>
-                          </h5>
-                          <ul className="space-y-2 text-xs sm:text-sm text-slate-800 font-medium list-disc list-inside leading-relaxed">
-                            <li>ارتباط مطالع السور النورانية بالحروف المقطعة بدعوة العقل البشري للتفكر في مصدر الوحي المعجز.</li>
-                            <li>تكامل البناء الحرفي مع النسق البياني يعكس الإحكام الرياضي الإلهي الذي لا يأتيه الباطل من بين يديه ولا من خلفه.</li>
-                            <li>تناسق فواصل الآيات ومقاطعها مع المحور العام للسورة في إثبات ألوهية الخالق وصدق نبوة خاتم المرسلين.</li>
-                          </ul>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* التبويب 2: بطاقات الآيات المعروضة وتفسيرها وموازينها */}
-              {smartReportActiveTab === 'verses' && (
-                <div className="space-y-4">
-                  <div className="bg-white p-3 border border-slate-200 flex items-center justify-between text-xs font-bold text-slate-700">
-                    <span>عدد الآيات المعروضة في التقرير: <strong>{smartReportVerseDetails.length} آية</strong></span>
-                    <span className="text-slate-500">مدرجة مع التفسير المختصر والفوائد والتحليل البنيوي الرقمي</span>
-                  </div>
-
-                  {smartReportVerseDetails.map((v, idx) => {
-                    const dummySurah = {
-                      id: activeSurah?.id || 2,
-                      name: activeSurah?.name || 'البقرة',
-                      letters: activeSurah?.letters || '',
-                      keyValue: activeSurah?.keyValue || 0,
-                      digitalRoot: activeSurah?.digitalRoot || 1,
-                    };
-                    const comp = getCompatibilityDetails(v as any, dummySurah);
-                    const is14 = 
-                      v.jummalValue === 14 || 
-                      v.wordCount === 14 || 
-                      v.letterCount === 14 || 
-                      comp.newColumnProduct === 14;
-                    const details14 = v.jummalValue === 14 ? 'جمل الآية = 14' : v.wordCount === 14 ? 'كلمات الآية = 14' : v.letterCount === 14 ? 'حروف الآية = 14' : comp.newColumnProduct === 14 ? 'ناتج المعادلة = 14' : '';
-
-                    return (
-                      <div key={idx} className="bg-white border-2 border-slate-200 hover:border-amber-400 p-4 sm:p-5 transition-all shadow-xs space-y-3">
-                        {/* نص الآية ورقمها */}
-                        <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                          <div className="flex items-center gap-2">
-                            <span className="w-8 h-8 rounded-full bg-slate-900 text-white font-black text-xs flex items-center justify-center shrink-0">
-                              {v.verseNumber}
-                            </span>
-                            <span className="text-base sm:text-lg font-bold text-slate-950 quran-font leading-relaxed">
-                              ﴿ {v.text} ﴾
-                            </span>
-                          </div>
-                          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 font-bold shrink-0">
-                            آية {v.verseNumber}
-                          </span>
-                        </div>
-
-                        {/* التفسير المختصر */}
-                        {v.tafseer && (
-                          <div className="bg-emerald-50/60 border-r-3 border-emerald-600 p-3 text-xs sm:text-sm text-slate-900 leading-relaxed font-semibold">
-                            <span className="font-black text-emerald-950 block text-[11px] mb-1">
-                              📖 التفسير المختصر (المختصر في التفسير):
-                            </span>
-                            <p>{v.tafseer}</p>
-                          </div>
-                        )}
-
-                        {/* فوائد الآية */}
-                        {v.benefits && v.benefits.length > 0 && (
-                          <div className="bg-slate-50 border-r-3 border-slate-400 p-3 text-xs text-slate-800 leading-relaxed font-medium">
-                            <span className="font-black text-slate-900 block text-[11px] mb-1">
-                              ✨ فوائد الآية المستنبطة:
-                            </span>
-                            <ul className="list-disc list-inside space-y-1">
-                              {v.benefits.map((b, bIdx) => (
-                                <li key={bIdx}>{b}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* اللمسة التدبرية */}
-                        {v.tadabbur && (
-                          <div className="bg-amber-50/50 border-r-3 border-amber-500 p-2.5 text-xs text-amber-950 font-medium">
-                            <span className="font-black block text-[11px] mb-0.5">💡 لمسة تدبرية:</span>
-                            <p>{v.tadabbur}</p>
-                          </div>
-                        )}
-
-                        {/* شريط التحليل الرقمي والبنيوي الكامل */}
-                        <div className="bg-slate-900 text-slate-200 p-3 text-xs font-mono grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                          <div className="bg-slate-800 p-1.5 text-center">
-                            <span className="text-[10px] text-slate-400 block font-sans">حساب الجمل</span>
-                            <span className="font-black text-amber-400 text-sm">{v.jummalValue}</span>
-                          </div>
-                          <div className="bg-slate-800 p-1.5 text-center">
-                            <span className="text-[10px] text-slate-400 block font-sans">الكلمات | الحروف</span>
-                            <span className="font-black text-slate-100">{v.wordCount} ك | {v.letterCount} ح</span>
-                          </div>
-                          <div className="bg-slate-800 p-1.5 text-center">
-                            <span className="text-[10px] text-slate-400 block font-sans">المجموع الكلي</span>
-                            <span className="font-black text-slate-100">{v.wordCount + v.letterCount}</span>
-                          </div>
-                          <div className="bg-slate-800 p-1.5 text-center">
-                            <span className="text-[10px] text-slate-400 block font-sans">المعامل النوراني</span>
-                            <span className="font-black text-emerald-400">{activeSurah?.digitalRoot || 1} ({v.jummalValue % (activeSurah?.digitalRoot || 1) === 0 ? 'متوافق ✅' : 'كسر ❌'})</span>
-                          </div>
-                          <div className={`p-1.5 text-center ${is14 ? 'bg-amber-950/80 border border-amber-500' : 'bg-slate-800'}`}>
-                            <span className="text-[10px] text-slate-400 block font-sans">التوافق مع 14</span>
-                            <span className={`font-black ${is14 ? 'text-amber-300' : 'text-slate-400'}`}>
-                              {is14 ? `محقق ✅ (${details14})` : 'غير مباشر'}
-                            </span>
-                          </div>
-                          <div className="bg-slate-800 p-1.5 text-center">
-                            <span className="text-[10px] text-slate-400 block font-sans">البصمة والتوافق</span>
-                            <span className="font-black text-cyan-300">{comp.finalSingleDigit} ({comp.statusLabel})</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* التبويب 3: عرض النص المنسق الأكاديمي الكامل */}
-              {smartReportActiveTab === 'text' && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600">نص التقرير المنسق الكامل:</span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await copyToClipboard(smartReportText);
-                        showToast('📋 تم نسخ التقرير كاملاً إلى الحافظة!');
-                      }}
-                      className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1 cursor-pointer"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>نسخ النص</span>
-                    </button>
-                  </div>
-                  <pre className="bg-slate-950 text-slate-100 p-5 font-mono text-xs leading-relaxed overflow-x-auto whitespace-pre-wrap select-all border border-slate-800 max-h-[500px]">
-                    {smartReportText}
-                  </pre>
-                </div>
-              )}
-            </div>
-
-            {/* تذييل النافذة والأزرار الإجرائية */}
-            <div className="bg-white border-t border-slate-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-              <span className="text-xs text-slate-500 font-medium">
-                «منظومة البنيان للقرآن الكريم» • كتاب «المختصر في التفسير» (مركز تفسير للدراسات القرآنية)
-              </span>
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await copyToClipboard(smartReportText);
-                    showToast('📋 تم نسخ التقرير كاملاً إلى الحافظة!');
-                  }}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-300 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>نسخ التقرير</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    handleCopySummary();
-                  }}
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <FileDown className="w-3.5 h-3.5" />
-                  <span>تصدير Word (.docx)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSmartReportModal(false)}
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs cursor-pointer shadow-sm"
-                >
-                  إغلاق
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 

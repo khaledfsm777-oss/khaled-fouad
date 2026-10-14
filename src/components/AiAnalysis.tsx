@@ -1,27 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Verse } from '../types';
 import { 
   NooraniSurah, 
-  NOORANI_SURAHS, 
-  parseAndAnalyzeVerses, 
-  getCompatibilityDetails, 
+  normalizeArabicForSearch, 
+  cleanForCalculations, 
+  analyzeWord, 
   reduceDigitalRoot, 
-  cleanForCalculations 
+  removeTashkeel, 
+  NOORANI_SURAHS 
 } from '../utils/jummal';
 import quranData from '../utils/quranData';
 import { SURAH_METADATA, getSurahMetadata } from '../utils/surahMetadata';
-import { 
-  getMukhtasarSurahOverview, 
-  fetchMukhtasarVerseData, 
-  MUKHTASAR_29_SURAHS, 
-  generateVerseBenefits, 
-  generateVerseTadabburTouch 
-} from '../utils/mukhtasarData';
-import { 
-  generateMukhtasarSmartReport, 
-  MukhtasarReportVerseDetail 
-} from '../utils/reportTemplates';
-import { handleSafeExport } from '../utils/exportHelper';
+import { generateLocalAcademicAnalysis } from '../utils/reportTemplates';
+import { getUniqueExportFileName, handleSafeExport } from '../utils/exportHelper';
 import { copyToClipboard } from '../utils/clipboard';
 import { 
   Sparkles, 
@@ -41,13 +32,7 @@ import {
   ChevronUp,
   History,
   Trash2,
-  Search,
-  Wifi,
-  WifiOff,
-  CheckCircle2,
-  Bookmark,
-  Layers,
-  Star
+  Search
 } from 'lucide-react';
 
 interface AiAnalysisProps {
@@ -57,58 +42,13 @@ interface AiAnalysisProps {
   setHistory: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, history, setHistory }: AiAnalysisProps) {
-  // Local selected Surah (defaults to parent active surah or Surah 2 Al-Baqarah)
-  const [selectedSurahId, setSelectedSurahId] = useState<number>(() => {
-    return parentActiveSurah?.id || 2;
-  });
-
-  const activeSurah = useMemo(() => {
-    return NOORANI_SURAHS.find(s => s.id === selectedSurahId) || NOORANI_SURAHS[0];
-  }, [selectedSurahId]);
-
-  // Keep synced if parent changes
-  useEffect(() => {
-    if (parentActiveSurah && parentActiveSurah.id !== selectedSurahId) {
-      setSelectedSurahId(parentActiveSurah.id);
-    }
-  }, [parentActiveSurah]);
-
-  // Online / Offline connectivity tracker
-  const [isOnline, setIsOnline] = useState<boolean>(() => {
-    return typeof navigator !== 'undefined' ? navigator.onLine : true;
-  });
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
+export default function AiAnalysis({ verses, activeSurah, history, setHistory }: AiAnalysisProps) {
   const [analysis, setAnalysis] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmClearHistory, setConfirmClearHistory] = useState(false);
-  
-  // Verse tafseer & benefits state
-  const [verseDetails, setVerseDetails] = useState<Record<string, { tafseer: string; benefits: string[]; tadabbur: string; source: 'online' | 'offline' }>>({});
-  const [loadingVersesTafseer, setLoadingVersesTafseer] = useState<boolean>(false);
-
-  // Active surah overview from Mukhtasar fi Tafsir
-  const surahOverview = useMemo(() => {
-    return getMukhtasarSurahOverview(activeSurah.id);
-  }, [activeSurah.id]);
-
-  const surahMeta = useMemo(() => {
-    return getSurahMetadata(activeSurah.id);
-  }, [activeSurah.id]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -117,176 +57,65 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     }, 4000);
   };
 
-  // Verses to analyze: if parent passed verses from the active surah, use them; otherwise, load verses from quranData
-  const displayVerses = useMemo(() => {
-    if (verses && verses.length > 0) {
-      // Check if verses belong to current surah or if user imported them
-      return verses;
-    }
-    // Fallback: load first 10 verses of the selected surah from quranData
-    const surahRaw = quranData.filter(v => v.surahId === activeSurah.id).slice(0, 10);
-    const textLines = surahRaw.map(v => `${v.text} (${v.verseNumber})`).join('\n');
-    return parseAndAnalyzeVerses(textLines, 'auto', false, activeSurah.id);
-  }, [verses, activeSurah]);
+  // Pre-calculate target verses and indicators
+  const surahLetters = activeSurah ? activeSurah.letters : '';
+  const letterSet = new Set(surahLetters.split(''));
 
-  // Compute metrics and analysis for display verses
-  const surahLetters = activeSurah.letters || '';
-  const letterSet = useMemo(() => new Set(surahLetters.split('')), [surahLetters]);
-
-  const analyzedVerses = useMemo(() => {
-    return displayVerses.map(v => {
-      const isVerified = activeSurah ? (v.jummalValue % activeSurah.digitalRoot === 0) : false;
-      const quotient = activeSurah ? (v.jummalValue / activeSurah.digitalRoot) : 0;
-      
-      let overlapCount = 0;
-      const cleanText = v.cleanTextForCalculation || v.text || '';
-      for (let i = 0; i < cleanText.length; i++) {
-        if (letterSet.has(cleanText[i])) {
-          overlapCount++;
-        }
-      }
-      const overlapRatio = v.letterCount > 0 ? (overlapCount / v.letterCount) : 0;
-
-      // Compatibility details
-      const dummySurah = {
-        id: activeSurah.id,
-        name: activeSurah.name,
-        letters: activeSurah.letters,
-        keyValue: activeSurah.keyValue,
-        digitalRoot: activeSurah.digitalRoot
-      };
-      const comp = getCompatibilityDetails(v, dummySurah);
-
-      // STRICT 14 check: ONLY literal 14, NEVER reduced to 5
-      const isExact14 = 
-        v.jummalValue === 14 || 
-        v.wordCount === 14 || 
-        v.letterCount === 14 || 
-        comp.newColumnProduct === 14;
-
-      const exact14Details: string[] = [];
-      if (v.jummalValue === 14) exact14Details.push('جمل الآية = 14');
-      if (v.wordCount === 14) exact14Details.push('كلمات الآية = 14');
-      if (v.letterCount === 14) exact14Details.push('حروف الآية = 14');
-      if (comp.newColumnProduct === 14) exact14Details.push('ناتج المعادلة = 14');
-
-      // Rank match
-      const isRankMatch = 
-        comp.finalSingleDigit === reduceDigitalRoot(activeSurah.id) ||
-        (typeof surahMeta?.nooraniOrder === 'number' && comp.finalSingleDigit === reduceDigitalRoot(surahMeta.nooraniOrder));
-
-      // Sovereign 9
-      const isSig9 = 
-        v.jummalValue % 9 === 0 || 
-        comp.newColumnProduct % 9 === 0 || 
-        comp.finalSingleDigit === 9;
-
-      return {
-        ...v,
-        isVerified,
-        quotient,
-        overlapCount,
-        overlapRatio,
-        comp,
-        isExact14,
-        exact14Details,
-        isRankMatch,
-        isSig9
-      };
-    });
-  }, [displayVerses, activeSurah, letterSet, surahMeta]);
-
-  // Load Mukhtasar Tafseer for the display verses
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function loadTafseerForVerses() {
-      if (analyzedVerses.length === 0) return;
-      setLoadingVersesTafseer(true);
-
-      const newDetails: Record<string, { tafseer: string; benefits: string[]; tadabbur: string; source: 'online' | 'offline' }> = {};
-
-      for (const v of analyzedVerses) {
-        if (isCancelled) break;
-        const key = `${activeSurah.id}:${v.verseNumber}`;
-        if (verseDetails[key]) {
-          newDetails[key] = verseDetails[key];
-          continue;
-        }
-
-        try {
-          const num = typeof v.verseNumber === 'number' ? v.verseNumber : parseInt(String(v.verseNumber).replace(/\D/g, '')) || 1;
-          const res = await fetchMukhtasarVerseData(activeSurah.id, num, v.text, v.jummalValue);
-          newDetails[key] = res;
-        } catch (e) {
-          // Graceful fallback
-          newDetails[key] = {
-            tafseer: `تفسير الآية [${v.verseNumber}] من كتاب «المختصر في التفسير»: تبيّن الآية الكريمة حكماً جليلاً وتذكيراً بمقاصد التوحيد والإيمان.`,
-            benefits: generateVerseBenefits(v.text, v.verseNumber),
-            tadabbur: generateVerseTadabburTouch(v.text, v.verseNumber, v.jummalValue),
-            source: 'offline'
-          };
-        }
-      }
-
-      if (!isCancelled) {
-        setVerseDetails(prev => ({ ...prev, ...newDetails }));
-        setLoadingVersesTafseer(false);
+  const analyzedVerses = verses.map(v => {
+    const isVerified = activeSurah ? (v.jummalValue % activeSurah.digitalRoot === 0) : false;
+    const quotient = activeSurah ? (v.jummalValue / activeSurah.digitalRoot) : 0;
+    
+    // Count exact frequency of opening letters in this verse
+    let overlapCount = 0;
+    const cleanText = v.cleanTextForCalculation || '';
+    for (let i = 0; i < cleanText.length; i++) {
+      const char = cleanText[i];
+      if (letterSet.has(char)) {
+        overlapCount++;
       }
     }
+    const overlapRatio = v.letterCount > 0 ? (overlapCount / v.letterCount) : 0;
 
-    loadTafseerForVerses();
-
-    return () => {
-      isCancelled = true;
+    return {
+      ...v,
+      isVerified,
+      quotient,
+      overlapCount,
+      overlapRatio,
     };
-  }, [analyzedVerses, activeSurah.id]);
+  });
 
-  // High Quotient & Density Verses
+  // 1. Highest Quotient (Key Power) Verse among verified ones
   const verifiedVerses = analyzedVerses.filter(v => v.isVerified);
   const maxQuotientVerse = verifiedVerses.length > 0 
     ? [...verifiedVerses].sort((a, b) => (b.quotient || 0) - (a.quotient || 0))[0] 
     : null;
 
+  // 2. Highest Overlap Density of opening letters
   const maxDensityVerse = analyzedVerses.length > 0 
     ? [...analyzedVerses].sort((a, b) => (b.overlapRatio || 0) - (a.overlapRatio || 0))[0] 
     : null;
 
-  // Generate the Comprehensive Mukhtasar Smart Report
   const fetchAnalysis = async () => {
-    if (analyzedVerses.length === 0) return;
+    if (verses.length === 0) return;
     setLoading(true);
     setError(null);
     setAnalysis('');
 
     try {
-      // Small visual delay for silky smooth calculation feedback
-      await new Promise(resolve => setTimeout(resolve, 350));
+      const surahMeta = activeSurah ? getSurahMetadata(activeSurah.id) : null;
 
-      const reportVerseDetails: MukhtasarReportVerseDetail[] = analyzedVerses.map(v => {
-        const key = `${activeSurah.id}:${v.verseNumber}`;
-        const detail = verseDetails[key];
-        return {
-          verseNumber: v.verseNumber,
-          text: v.text,
-          jummalValue: v.jummalValue,
-          wordCount: v.wordCount,
-          letterCount: v.letterCount,
-          tafseer: detail?.tafseer,
-          benefits: detail?.benefits,
-          tadabbur: detail?.tadabbur,
-          source: detail?.source || (isOnline ? 'online' : 'offline')
-        };
-      });
+      // Add a small 400ms delay to simulate deep analytical calculations locally
+      await new Promise(resolve => setTimeout(resolve, 400));
 
-      const generatedAnalysisText = generateMukhtasarSmartReport({
-        activeSurah: {
+      const generatedAnalysisText = generateLocalAcademicAnalysis({
+        activeSurah: activeSurah ? {
           id: activeSurah.id,
           name: activeSurah.name,
           letters: activeSurah.letters,
           keyValue: activeSurah.keyValue,
           digitalRoot: activeSurah.digitalRoot,
-        },
+        } : null,
         surahMeta,
         verses: analyzedVerses.map(v => ({
           verseNumber: v.verseNumber,
@@ -299,21 +128,19 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
           overlapCount: v.overlapCount,
           overlapRatio: v.overlapRatio,
         })),
-        verseDetails: reportVerseDetails,
-        isOnline,
       });
 
       setAnalysis(generatedAnalysisText);
 
-      // Append to session history
+      // Append new study to the history list
       const newHistoryItem = {
         id: Date.now().toString(),
         timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) + ' - ' + new Date().toLocaleDateString('ar-EG'),
-        surahName: activeSurah.name,
-        surahLetters: activeSurah.letters || 'لا يوجد',
-        digitalRoot: activeSurah.digitalRoot,
-        keyValue: activeSurah.keyValue,
-        versesCount: analyzedVerses.length,
+        surahName: activeSurah ? activeSurah.name : 'عامة / غير محددة',
+        surahLetters: activeSurah ? activeSurah.letters : 'لا يوجد',
+        digitalRoot: activeSurah ? activeSurah.digitalRoot : 'لا يوجد',
+        keyValue: activeSurah ? activeSurah.keyValue : 'لا يوجد',
+        versesCount: verses.length,
         maxQuotientVerse: maxQuotientVerse ? {
           verseNumber: maxQuotientVerse.verseNumber,
           text: maxQuotientVerse.text,
@@ -332,21 +159,19 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
           letterCount: maxDensityVerse.letterCount,
         } : null,
         analysisText: generatedAnalysisText,
-        isOnline,
       };
 
       setHistory(prev => [newHistoryItem, ...prev]);
-      showToast('✨ تم توليد تقرير مفسر البنيان الذكي المرتبط بكتاب المختصر في التفسير بنجاح!');
 
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'حدث خطأ أثناء إجراء الاستقصاء الذكي للموازين وتفسير المختصر.');
+      setError(err.message || 'حدث خطأ أثناء إجراء الاستقصاء الذكي للموازين.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Reusable export function for MS Word (.doc) with complete Mukhtasar and numerics layout
+  // Reusable export function for MS Word (.doc) with integrated graphic waves
   const exportToWord = (
     analysisText: string,
     surahName: string,
@@ -354,7 +179,10 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     digitalRoot: number | string,
     keyValue: number | string,
     versesCount: number,
-    timestamp: string
+    maxQuot: any,
+    maxDens: any,
+    timestamp: string,
+    versesList: any[] = []
   ) => {
     if (!analysisText) return;
     const BOM = '\uFEFF';
@@ -385,91 +213,165 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     });
 
     let html = `<html dir="rtl" xmlns:office="urn:schemas-microsoft-com:office:office" xmlns:word="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">`;
-    html += `<head><meta charset="utf-8"><title>تقرير مفسر البنيان الذكي - المختصر في التفسير</title>`;
+    html += `<head><meta charset="utf-8"><title>دراسة مفسر البنيان الذكي</title>`;
     html += `<style>
       body { font-family: 'Arial', sans-serif; direction: rtl; padding: 25px; background-color: #ffffff; text-align: right; }
       h1 { text-align: center; color: #092b22; font-size: 20px; margin-bottom: 15px; border-bottom: 3px double #b45309; padding-bottom: 10px; }
       .meta-box { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; margin-bottom: 20px; font-size: 12px; line-height: 1.6; direction: rtl; text-align: right; }
+      .key-box { background-color: #fffbeb; border: 1.5px solid #f59e0b; padding: 15px; margin-bottom: 20px; font-size: 12.5px; line-height: 1.6; direction: rtl; text-align: right; }
       .footer { text-align: center; font-size: 11px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+      .wave-table { width: 100%; border-collapse: collapse; margin-top: 15px; direction: rtl; text-align: right; }
+      .wave-table th { background-color: #092b22; color: #ffffff; padding: 8px; font-size: 11px; font-weight: bold; border: 1px solid #cbd5e1; }
+      .wave-table td { padding: 8px; font-size: 11px; border: 1px solid #cbd5e1; vertical-align: middle; }
     </style></head><body>`;
     
     html += `<h1>بِرْنَامَج البُنْيَان لِلْقُرْآنِ الكَرِيمِ - مِيزَانُ التَّحَقُّقِ وَالاسْتِقْصَاءِ</h1>`;
+    
     html += `<div class="meta-box">`;
-    html += `<strong>التقرير:</strong> دراسة مفسر البنيان الذكي الشامل المرتبط بكتاب «المختصر في التفسير»<br>`;
+    html += `<strong>التقرير:</strong> دراسة استقصائية وملاحظات تحليلية معمقة من مفسّر البنيان الذكي<br>`;
     html += `<strong>تاريخ الاستخراج:</strong> ${timestamp}<br>`;
     html += `<strong>السورة النشطة:</strong> سورة ${surahName} (معامل الاختزال: ${digitalRoot})<br>`;
     html += `<strong>الحروف الافتتاحية للمقارنة:</strong> ${surahLetters} (حساب الجمل: ${keyValue})<br>`;
-    html += `<strong>عدد الآيات المعروضة:</strong> ${versesCount} آية كريمة<br>`;
-    html += `<strong>حالة الربط:</strong> ${isOnline ? 'أونلاين (قاعدة بيانات المختصر السحابية)' : 'أوفلاين (البيانات المحلية المدمجة)'}<br>`;
+    html += `<strong>عدد الآيات المدروسة:</strong> ${versesCount} آية كريمة<br>`;
     html += `</div>`;
 
+    if (maxQuot || maxDens) {
+      html += `<div class="key-box">`;
+      html += `<h3 style="color: #b45309; margin-top: 0; margin-bottom: 8px; border-bottom: 1px solid #f59e0b; padding-bottom: 5px;">🔑 مفاتيح فك الشفرة والترابط البنيوي المستهدفة:</h3>`;
+      if (maxQuot) {
+        const quotientVal = typeof maxQuot.quotient === 'number' ? maxQuot.quotient.toFixed(4) : maxQuot.quotient;
+        html += `<strong>1. الآية الأعلى تحقيقاً للمعامل النوراني (مفتاح القوة):</strong><br>`;
+        html += `[آية رقم ${maxQuot.verseNumber}]: « ${maxQuot.text} »<br>`;
+        html += `* حساب الجمل الإجمالي: ${maxQuot.jummalValue} | قوة المفتاح النوراني: ${quotientVal} | عدد الكلمات: ${maxQuot.wordCount} | عدد الحروف: ${maxQuot.letterCount}<br><br>`;
+      }
+      if (maxDens) {
+        const densRatio = typeof maxDens.overlapRatio === 'number' ? (maxDens.overlapRatio * 100).toFixed(1) : '0';
+        html += `<strong>2. الآية الأعلى تداخلاً بالحروف الافتتاحية للسورة (كثافة الحروف النورانية):</strong><br>`;
+        html += `[آية رقم ${maxDens.verseNumber}]: « ${maxDens.text} »<br>`;
+        html += `* التداخل بحروف افتتاحية السورة ("${surahLetters}"): ${maxDens.overlapCount} حرفاً بنسبة كثافة ${densRatio}% | حساب الجمل: ${maxDens.jummalValue} | كلمات: ${maxDens.wordCount} | حروف: ${maxDens.letterCount}<br>`;
+      }
+      html += `</div>`;
+    }
+
     html += contentHtml;
-    html += `<div class="footer"><p>«مفسر البنيان الذكي» • المرتبط بكتاب «المختصر في التفسير» (مركز تفسير للدراسات القرآنية)</p></div>`;
+    
+    html += `<div class="footer"><p>«مستشار البنيان الذكي» • منصة التحليل والاستقصاء الرقمي والاتزان العددي</p></div>`;
     html += `</body></html>`;
     
-    handleSafeExport(BOM + html, `البنيان_تقرير_المختصر_${surahName.replace(/\s+/g, '_')}`, 'doc');
+    handleSafeExport(BOM + html, `البنيان_دراسة_مفسر_ذكي_${surahName.replace(/\s+/g, '_')}`, 'doc');
   };
 
-  // Reusable export function for MS Excel (.csv with proper BOM)
+  // Reusable export function for MS Excel (.csv with proper BOM & integrated Sparkline drawing waves)
   const exportToExcel = (
     analysisText: string,
     surahName: string,
     surahLetters: string,
     digitalRoot: number | string,
     versesCount: number,
-    timestamp: string
+    maxQuot: any,
+    maxDens: any,
+    timestamp: string,
+    versesList: any[] = []
   ) => {
     if (!analysisText) return;
     const BOM = '\uFEFF';
     
     let csvRows = [];
-    csvRows.push(`"تقرير مفسّر البنيان الذكي الشامل المرتبط بكتاب المختصر في التفسير"`);
+    csvRows.push(`"تقرير ودراسة مفسّر البنيان الذكي لآيات الذكر الحكيم"`);
     csvRows.push(`"تاريخ الاستخراج:","${timestamp}"`);
-    csvRows.push(`"السورة المرتبطة:","سورة ${surahName}","الفواتح النورانية:","${surahLetters}","معامل الاختزال:","${digitalRoot}"`);
+    csvRows.push(`"السورة المرتبطة:","سورة ${surahName}","معامل الحروف النورانية:","${surahLetters}","قيمة المعامل:","${digitalRoot}"`);
+    
+    if (maxQuot) {
+      const quotientVal = typeof maxQuot.quotient === 'number' ? maxQuot.quotient.toFixed(4) : maxQuot.quotient;
+      csvRows.push(`"الآية الأعلى تحقيقاً (مفتاح القوة):","[آية ${maxQuot.verseNumber}] ${maxQuot.text.replace(/"/g, '""')}","حساب الجمل: ${maxQuot.jummalValue}","قوة المفتاح: ${quotientVal}"`);
+    }
+    if (maxDens) {
+      const densRatio = typeof maxDens.overlapRatio === 'number' ? (maxDens.overlapRatio * 100).toFixed(1) : '0';
+      csvRows.push(`"الآية الأعلى كثافة حروف افتتاحية:","[آية ${maxDens.verseNumber}] ${maxDens.text.replace(/"/g, '""')}","تداخل الحروف: ${maxDens.overlapCount}","كثافة الحروف: ${densRatio}%"`);
+    }
     csvRows.push(`"إجمالي الآيات:","${versesCount} آية"`);
     csvRows.push(``);
 
-    csvRows.push(`"رقم الآية","النص القرآني الكريم","حساب الجُمّل","الكلمات","الحروف","توافق المعامل","البصمة 14 الصريحة حصراً","البصمة السيادية 9","التفسير المختصر"`);
-    
-    analyzedVerses.forEach(v => {
-      const key = `${activeSurah.id}:${v.verseNumber}`;
-      const taf = (verseDetails[key]?.tafseer || '').replace(/"/g, '""');
-      const coeffMatch = v.isVerified ? 'متوافق' : 'غير متوافق';
-      const exact14Match = v.isExact14 ? `محقق [${v.exact14Details.join(' | ')}]` : 'لا ينطبق';
-      const sig9Match = v.isSig9 ? 'محقق' : 'غير مقترن';
-      const cleanText = (v.text || '').replace(/"/g, '""');
+    // 📈 Inject visual sparkline waves inside Excel cells!
+    if (Array.isArray(versesList) && versesList.length > 0) {
+      csvRows.push(`"📊 الرسوم البيانية والأمواج الميزانية الرقمية للآيات (Excel Graphic Sparklines)"`);
+      csvRows.push(`"الآية","النص القرآني الكريم","حساب الجُمّل","رسم موجة الجُمّل البصري","كثافة الحروف النورانية","رسم موجة الكثافة البصري","عدد الكلمات","عدد الحروف"`);
+      
+      let maxJummalCsv = 1;
+      versesList.forEach((v) => {
+        if (v.jummalValue && v.jummalValue > maxJummalCsv) maxJummalCsv = v.jummalValue;
+      });
 
-      csvRows.push(`"[الآية ${v.verseNumber}]","« ${cleanText} »","${v.jummalValue}","${v.wordCount}","${v.letterCount}","${coeffMatch}","${exact14Match}","${sig9Match}","${taf}"`);
+      const drawBar = (val: number, maxVal: number) => {
+        const ratio = maxVal > 0 ? val / maxVal : 0;
+        const count = Math.min(10, Math.max(0, Math.round(ratio * 10)));
+        return '█'.repeat(count) + '░'.repeat(10 - count);
+      };
+
+      versesList.forEach((v) => {
+        const jBar = drawBar(v.jummalValue || 0, maxJummalCsv);
+        const oBar = drawBar(Math.round((v.overlapRatio ?? 0) * 100), 100);
+        const cleanText = (v.text || '').replace(/"/g, '""');
+        
+        csvRows.push(`"[الآية ${v.verseNumber}]","« ${cleanText} »","${v.jummalValue}","${jBar}","${((v.overlapRatio ?? 0) * 100).toFixed(1)}%","${oBar}","${v.wordCount}","${v.letterCount}"`);
+      });
+      csvRows.push(``);
+    }
+
+    csvRows.push(`"الترتيب","الفقرة التحليلية / الملاحظة الاستقصائية للبنيان"`);
+
+    const rawLines = analysisText.split('\n');
+    let idx = 1;
+    rawLines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      
+      const cleanLine = trimmed
+        .replace(/^###\s*/, '')
+        .replace(/^##\s*/, '')
+        .replace(/^#\s*/, '')
+        .replace(/^[\*\-]\s*/, '• ')
+        .replace(/\*\*/g, '')
+        .replace(/"/g, '""');
+        
+      csvRows.push(`"${idx}","${cleanLine}"`);
+      idx++;
     });
 
     const csvContent = BOM + csvRows.join('\n');
-    handleSafeExport(csvContent, `البنيان_تقرير_المختصر_${surahName.replace(/\s+/g, '_')}`, 'csv');
+    handleSafeExport(csvContent, `البنيان_دراسة_مفسر_ذكي_${surahName.replace(/\s+/g, '_')}`, 'csv');
   };
 
   const handleExportWord = () => {
     exportToWord(
       analysis,
-      activeSurah.name,
-      activeSurah.letters || 'لا يوجد',
-      activeSurah.digitalRoot,
-      activeSurah.keyValue,
-      analyzedVerses.length,
-      new Date().toLocaleDateString('ar-EG')
+      activeSurah ? activeSurah.name : 'عامة / غير محددة',
+      activeSurah ? activeSurah.letters : 'لا يوجد',
+      activeSurah ? activeSurah.digitalRoot : 'لا يوجد',
+      activeSurah ? activeSurah.keyValue : 'لا يوجد',
+      verses.length,
+      maxQuotientVerse,
+      maxDensityVerse,
+      new Date().toLocaleDateString('ar-EG'),
+      verses
     );
   };
 
   const handleExportExcel = () => {
     exportToExcel(
       analysis,
-      activeSurah.name,
-      activeSurah.letters || 'لا يوجد',
-      activeSurah.digitalRoot,
-      analyzedVerses.length,
-      new Date().toLocaleDateString('ar-EG')
+      activeSurah ? activeSurah.name : 'عامة / غير محددة',
+      activeSurah ? activeSurah.letters : 'لا يوجد',
+      activeSurah ? activeSurah.digitalRoot : 'لا يوجد',
+      verses.length,
+      maxQuotientVerse,
+      maxDensityVerse,
+      new Date().toLocaleDateString('ar-EG'),
+      verses
     );
   };
 
-  // Safe basic markdown parser
+  // Safe and elegant custom parser to render basic markdown formatting directly without crash risk
   const renderFormattedText = (rawText: string) => {
     if (!rawText) return null;
     
@@ -477,56 +379,45 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     return lines.map((line, idx) => {
       const trimmed = line.trim();
       
-      if (trimmed.startsWith('####')) {
-        return (
-          <h5 key={idx} className="text-xs font-black text-slate-800 mt-3 mb-1.5 border-r-2 border-amber-600 pr-2">
-            {trimmed.replace(/^####\s*/, '')}
-          </h5>
-        );
-      }
+      // Headings
       if (trimmed.startsWith('###')) {
         return (
-          <h4 key={idx} className="text-sm font-black text-slate-900 mt-4 mb-2 border-r-3 border-emerald-700 pr-2.5">
+          <h4 key={idx} className="text-sm font-black text-slate-900 mt-4 mb-2 border-r-2 border-slate-900 pr-2">
             {trimmed.replace(/^###\s*/, '')}
           </h4>
         );
       }
       if (trimmed.startsWith('##')) {
         return (
-          <h3 key={idx} className="text-base font-black text-slate-950 mt-6 mb-3 border-r-4 border-slate-950 pr-3 bg-slate-100/70 p-1.5">
+          <h3 key={idx} className="text-base font-black text-slate-950 mt-5 mb-3 border-r-4 border-slate-900 pr-3">
             {trimmed.replace(/^##\s*/, '')}
           </h3>
         );
       }
       if (trimmed.startsWith('#')) {
         return (
-          <h2 key={idx} className="text-lg font-black text-emerald-950 mt-6 mb-4 font-sans border-b-2 border-amber-500 pb-2 text-center">
+          <h2 key={idx} className="text-lg font-black text-slate-950 mt-6 mb-4 font-sans border-b border-slate-200 pb-2">
             {trimmed.replace(/^#\s*/, '')}
           </h2>
         );
       }
       
-      if (trimmed.startsWith('>')) {
-        return (
-          <blockquote key={idx} className="bg-amber-50/70 border-r-4 border-amber-500 p-2.5 my-2 text-xs text-amber-950 font-semibold leading-relaxed">
-            {trimmed.replace(/^>\s*/, '')}
-          </blockquote>
-        );
-      }
-
+      // Empty lines
       if (!trimmed) {
-        return <div key={idx} className="h-1.5" />;
+        return <div key={idx} className="h-2" />;
       }
 
+      // Check if it's a bullet list item
       const isBullet = trimmed.startsWith('*') || trimmed.startsWith('-');
       const textToProcess = isBullet ? trimmed.replace(/^[\*\-]\s*/, '') : line;
 
+      // Process **bold** text formatting inline
       let finalContent: React.ReactNode = textToProcess;
       if (textToProcess.includes('**')) {
         const parts = textToProcess.split('**');
         finalContent = parts.map((part, pIdx) => (
           pIdx % 2 === 1 ? (
-            <strong key={pIdx} className="text-slate-950 font-black">{part}</strong>
+            <strong key={pIdx} className="text-slate-900 font-extrabold">{part}</strong>
           ) : (
             part
           )
@@ -535,531 +426,596 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
 
       if (isBullet) {
         return (
-          <li key={idx} className="text-xs text-slate-700 mr-4 list-disc leading-relaxed mt-1 list-inside">
+          <li key={idx} className="text-sm text-slate-700 mr-4 list-disc leading-relaxed mt-1.5 list-inside">
             {finalContent}
           </li>
         );
       }
 
+      // Normal paragraphs
       return (
-        <p key={idx} className="text-xs leading-relaxed text-slate-700 mt-1 pb-1">
+        <p key={idx} className="text-sm leading-relaxed text-slate-700 mt-1 pb-1">
           {finalContent}
         </p>
       );
     });
   };
 
+  const loadingQuotes = [
+    "يجري حالياً وزن الحروف النورانية بمقاييس الأبجدية...",
+    "استخلاص العلاقات بين البنية البلاغية والنبض العددي...",
+    "توصيل موازين 8 و 313 بالمسارات الدلالية...",
+    "يصيغ مستشار البنيان الاستقصاء الختامي لآياتك الكريمات..."
+  ];
+
+  const [currentQuoteIdx, setCurrentQuoteIdx] = useState(0);
+
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (loading) {
+      interval = setInterval(() => {
+        setCurrentQuoteIdx(prev => (prev + 1) % loadingQuotes.length);
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  const handleClearCache = () => {
+    setAnalysis('');
+    setError(null);
+    setHistory([]);
+    showToast('تم إخلاء وتفريغ الذاكرة المؤقتة وأرشيف المفسر الذكي بنجاح لتنشيط الجلسة!');
+  };
+
   return (
     <>
-      <div className="space-y-6 text-right animate-fade-in" dir="rtl">
+    <div className="space-y-6 text-right animate-fade-in" dir="rtl">
+      
+      {/* AI Assistant card */}
+      <div className="bg-white border-2 border-slate-200 rounded-none p-6 md:p-8 space-y-6 relative">
+        <div className="absolute top-0 right-0 left-0 h-1 bg-slate-900" />
         
-        {/* Toast Notification */}
-        {toast && (
-          <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-none shadow-2xl border-2 border-amber-400 text-xs font-bold flex items-center gap-2 animate-bounce">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span>{toast}</span>
-          </div>
-        )}
-
-        {/* Top Header Card */}
-        <div className="bg-white border-2 border-slate-200 rounded-none p-6 md:p-8 space-y-6 relative shadow-sm">
-          <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-emerald-700 via-amber-500 to-emerald-700" />
-          
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-slate-200 pb-5">
-            <div className="flex items-start sm:items-center gap-3">
-              <span className="p-3 bg-emerald-50 rounded-none text-emerald-800 border-2 border-emerald-200">
-                <Brain className="w-6 h-6 animate-pulse" />
-              </span>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight font-sans">
-                    مُـفـسّـر الـبـنـيـان الـذكـي الشّـامـل ⚡
-                  </h3>
-                  <span className="px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
-                    مرتبط بكتاب «المختصر في التفسير» (مركز تفسير)
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  ربط التفسير الموضوعي ومقاصد ومحاور السور الـ 29 مع التحليل البنيوي الرقمي لكل آية (المعامل، الترتيب، الرقم 14 الصريح حصراً، والبصمات).
-                </p>
-              </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 bg-slate-100 rounded-none text-slate-900 border border-slate-200">
+              <Brain className="w-5 h-5 animate-pulse" />
+            </span>
+            <div>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight font-sans">مفسّـر الـبـنـيـان الـذكـي ⚡</h3>
+              <p className="text-xs text-slate-500 mt-0.5">تحليل معاني الإعجاز البياني والعلاقات العددية والابتلاءات المتقاطعة بالاستعانة بالذكاء الاصطناعي</p>
             </div>
-
-            {/* Online / Offline status and controls */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Online/Offline Badge */}
-              <div 
-                className={`px-3 py-1.5 text-xs font-black border flex items-center gap-1.5 ${
-                  isOnline 
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
-                    : 'bg-amber-50 border-amber-300 text-amber-900'
-                }`}
-                title={isOnline ? 'البرنامج متصل بالإنترنت: جلب سحابي مباشر للمختصر' : 'البرنامج يعمل أوفلاين: الاعتماد على محاور وبيانات المختصر المدمجة محلياً'}
-              >
-                {isOnline ? (
-                  <>
-                    <Wifi className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>متصل أونلاين 🌐</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-3.5 h-3.5 text-amber-700" />
-                    <span>وضع أوفلاين 📴</span>
-                  </>
-                )}
-              </div>
-
-              {/* Surah Selector for the 29 Noorani Surahs */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 p-1">
-                <span className="text-[11px] font-bold text-slate-600 px-1">السورة النورانية:</span>
-                <select
-                  value={selectedSurahId}
-                  onChange={(e) => setSelectedSurahId(parseInt(e.target.value))}
-                  className="bg-white border text-xs font-black p-1 text-right cursor-pointer"
-                >
-                  {NOORANI_SURAHS.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.id}. سورة {s.name} ({s.letters})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Action Buttons */}
+          </div>
+          
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {(analysis || error || history.length > 0) && (
               <button
                 type="button"
-                disabled={loading}
-                onClick={fetchAnalysis}
-                className="px-5 py-2.5 text-xs font-black bg-gradient-to-r from-emerald-800 to-teal-700 hover:from-emerald-900 hover:to-teal-800 text-amber-200 border-2 border-amber-400 rounded-none flex items-center gap-2 transition-all shadow-md cursor-pointer transform hover:scale-[1.02]"
+                onClick={handleClearCache}
+                className="px-4 py-2.5 text-xs font-black bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                title="تفريغ ذاكرة الجلسة وأرشيف المفسّر لحل أي مشاكل ثقل أو تعليق"
               >
-                {loading ? (
-                  <RefreshCw className="w-4 h-4 text-amber-300 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                )}
-                <span>{analysis ? 'تحديث تقرير المختصر والبنيان 🔄' : '⚡ توليد تقرير المختصر والبنيان'}</span>
+                <Trash2 className="w-3.5 h-3.5 text-amber-700" />
+                <span>إخلاء الذاكرة المؤقتة 🧹</span>
               </button>
-            </div>
-          </div>
+            )}
 
-          {/* Bab 1: Surah Introduction & Themes from Al-Mukhtasar */}
-          <div className="bg-[#fcfbf7] border-2 border-amber-200/80 p-5 space-y-4 relative">
-            <div className="absolute top-0 right-0 left-0 h-1 bg-amber-500" />
-            
-            <div className="flex items-center justify-between border-b border-amber-200/70 pb-3 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-emerald-800" />
-                <h4 className="text-sm font-black text-emerald-950">
-                  🏛️ الباب الأول: معالم ومقاصد سورة {activeSurah.name} في كتاب «المختصر في التفسير»
-                </h4>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 border border-emerald-300">
-                  الفاتحة: {activeSurah.letters}
-                </span>
-                <span className="bg-amber-100 text-amber-900 px-2 py-0.5 border border-amber-300">
-                  معامل الاختزال: {activeSurah.digitalRoot}
-                </span>
-                <span className="bg-slate-100 text-slate-800 px-2 py-0.5 border border-slate-300">
-                  جمل الفاتحة: {activeSurah.keyValue}
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs leading-relaxed">
-              {/* Tamheed */}
-              <div className="bg-white p-3.5 border border-amber-200 space-y-1.5">
-                <span className="font-black text-amber-900 block flex items-center gap-1.5">
-                  <Bookmark className="w-3.5 h-3.5 text-amber-600" />
-                  📜 تمهيد السورة:
-                </span>
-                <p className="text-slate-700 font-semibold leading-relaxed">
-                  {surahOverview?.tamheed || surahMeta?.revelationReason || 'سورة قرآنية كريمة تفتتح بالحروف النورانية المعجزة.'}
-                </p>
-              </div>
-
-              {/* Maqsad & Mehwar */}
-              <div className="bg-white p-3.5 border border-amber-200 space-y-1.5">
-                <span className="font-black text-emerald-900 block flex items-center gap-1.5">
-                  <Star className="w-3.5 h-3.5 text-emerald-600" />
-                  🎯 مقصد السورة ومحورها العام:
-                </span>
-                <p className="text-slate-700 font-semibold leading-relaxed">
-                  <strong>المقصد:</strong> {surahOverview?.maqsad || 'ترسيخ التوحيد والاستجابة لأمر الله.'}
-                </p>
-                <p className="text-slate-600 text-[11px] font-medium pt-1 border-t border-slate-100">
-                  <strong>المحور العام:</strong> {surahOverview?.mehwar || surahMeta?.briefTopic}
-                </p>
-              </div>
-            </div>
-
-            {/* Tadabbur Touches */}
-            {surahOverview?.tadabburTouches && surahOverview.tadabburTouches.length > 0 && (
-              <div className="bg-white p-3.5 border border-amber-200 space-y-2">
-                <span className="font-black text-slate-900 block text-xs">
-                  ✨ لمسات تدبرية جامعة لسورة {activeSurah.name}:
-                </span>
-                <ul className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-[11px] text-slate-700 font-semibold">
-                  {surahOverview.tadabburTouches.map((touch, tIdx) => (
-                    <li key={tIdx} className="bg-slate-50 p-2 border border-slate-200 flex items-start gap-1.5">
-                      <span className="text-amber-600 font-black shrink-0">🔹</span>
-                      <span>{touch}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {verses.length > 0 && !loading && (
+              <button
+                type="button"
+                onClick={fetchAnalysis}
+                className="w-full sm:w-auto px-6 py-3 text-xs font-black bg-slate-950 hover:bg-slate-800 text-amber-300 border-2 border-amber-400 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer transform hover:scale-105"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>{analysis ? 'إعادة الاستقصاء الذكي 🔄' : 'بدء استقصاء موازين الآيات ✨'}</span>
+              </button>
             )}
           </div>
-
-          {/* Bab 2: Displayed Verses with Mukhtasar Tafseer, Benefits, and Numerics Analysis */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-amber-600" />
-                <h4 className="text-sm font-black text-slate-900">
-                  📑 الباب الثاني: الآيات المعروضة وقت طلب التقرير ({analyzedVerses.length} آية كريمة)
-                </h4>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                {loadingVersesTafseer && (
-                  <span className="text-amber-700 font-bold flex items-center gap-1 animate-pulse">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    جاري جلب تفاسير وفوائد المختصر...
-                  </span>
-                )}
-                <span className="text-slate-500 font-bold">
-                  * التحليل البنيوي والتوافقات مع المعامل والرقم 14 الصريح
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {analyzedVerses.map((v, idx) => {
-                const key = `${activeSurah.id}:${v.verseNumber}`;
-                const detail = verseDetails[key];
-                const tafseerText = detail?.tafseer || `تفسير الآية [${v.verseNumber}] من كتاب «المختصر في التفسير»: تبيّن الآية الكريمة حكماً جليلاً ودعوة إلى الامتثال والتوحيد.`;
-                const benefitsList = detail?.benefits && detail.benefits.length > 0 
-                  ? detail.benefits 
-                  : generateVerseBenefits(v.text, v.verseNumber);
-                const tadabburText = detail?.tadabbur || generateVerseTadabburTouch(v.text, v.verseNumber, v.jummalValue);
-                const sourceBadge = detail?.source || (isOnline ? 'online' : 'offline');
-
-                return (
-                  <div key={idx} className="bg-white border-2 border-slate-200 p-4 md:p-5 space-y-3.5 relative hover:border-amber-400 transition-colors">
-                    {/* Top Verse Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 text-xs font-black bg-slate-900 text-white font-mono">
-                          آية {v.verseNumber}
-                        </span>
-                        <span className="text-xs text-slate-500 font-bold">
-                          سورة {activeSurah.name}
-                        </span>
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                        <span className={`px-2 py-0.5 font-black border ${
-                          sourceBadge === 'online' 
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                            : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}>
-                          {sourceBadge === 'online' ? '🌐 المختصر (أونلاين)' : '📴 المختصر (أوفلاين مدمج)'}
-                        </span>
-                        <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
-                          جمل: {v.jummalValue}
-                        </span>
-                        <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
-                          كلمات: {v.wordCount}
-                        </span>
-                        <span className="px-2 py-0.5 font-mono font-bold bg-slate-50 border border-slate-200 text-slate-700">
-                          حروف: {v.letterCount}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Verse Text (Uthmani) */}
-                    <div className="bg-[#faf9f4] p-3 border border-amber-200/60 text-center">
-                      <p className="quran-font text-base sm:text-lg text-slate-950 font-black leading-loose select-all">
-                        « {v.text} »
-                      </p>
-                    </div>
-
-                    {/* Mukhtasar Tafseer Section */}
-                    <div className="space-y-1 bg-slate-50/70 p-3 border border-slate-200 text-xs">
-                      <span className="font-black text-emerald-950 block flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-                        📖 التفسير المختصر (من كتاب «المختصر في التفسير»):
-                      </span>
-                      <p className="text-slate-700 font-semibold leading-relaxed pr-2">
-                        {tafseerText}
-                      </p>
-                    </div>
-
-                    {/* Benefits & Tadabbur */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                      <div className="bg-amber-50/50 p-2.5 border border-amber-200 space-y-1">
-                        <span className="font-black text-amber-950 block text-[11px] flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-amber-700" />
-                          💎 من فوائد الآية واللطائف:
-                        </span>
-                        <ul className="space-y-1 text-[11px] text-slate-700 font-semibold list-disc list-inside pr-1">
-                          {benefitsList.map((b, bIdx) => (
-                            <li key={bIdx}>{b}</li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="bg-teal-50/40 p-2.5 border border-teal-200 space-y-1">
-                        <span className="font-black text-teal-950 block text-[11px] flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-teal-700" />
-                          🌿 لمسة تدبرية:
-                        </span>
-                        <p className="text-[11px] text-slate-700 font-semibold leading-relaxed pr-1">
-                          {tadabburText}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Al-Bunyan Numerics & Compatibilities Bar */}
-                    <div className="bg-white border border-slate-200 p-3 space-y-2">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 text-[11px] font-black text-slate-800">
-                        <span>⚙️ تحليل البرنامج البنيوي والتوافقات:</span>
-                        <span className="font-mono text-slate-500">
-                          المعادلة: {v.comp.verseDigitalRoot} × ({v.verseNumber} + {v.comp.reducedFactor}) = {v.comp.newColumnProduct} (البصمة: {v.comp.finalSingleDigit})
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                        {/* Coefficient Match */}
-                        <span className={`px-2 py-0.5 text-[10px] font-black border ${
-                          v.isVerified 
-                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300' 
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {v.isVerified 
-                            ? `✅ متوافق مع المعامل (${activeSurah.digitalRoot}) بقوة: ${v.quotient.toFixed(2)}` 
-                            : `⚠️ ميزان كسري (${(v.jummalValue / activeSurah.digitalRoot).toFixed(2)})`}
-                        </span>
-
-                        {/* Surah Rank Match */}
-                        <span className={`px-2 py-0.5 text-[10px] font-black border ${
-                          v.isRankMatch 
-                            ? 'bg-indigo-100 text-indigo-900 border-indigo-300' 
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {v.isRankMatch 
-                            ? `✅ متطابق مع ترتيب السورة (${v.comp.finalSingleDigit})` 
-                            : `➖ غير مقترن برقم السورة`}
-                        </span>
-
-                        {/* STRICT 14 Match (Literal ONLY 14, NEVER 5) */}
-                        <span className={`px-2.5 py-0.5 text-[10px] font-black border ${
-                          v.isExact14 
-                            ? 'bg-amber-100 text-amber-950 border-amber-400 shadow-xs' 
-                            : 'bg-slate-50 text-slate-400 border-slate-200'
-                        }`}>
-                          {v.isExact14 
-                            ? `👑 البصمة 14 الصريحة حصراً [${v.exact14Details.join(' | ')}]` 
-                            : `➖ البصمة 14: لا تنطبق (الشرط = 14 صريحاً)`}
-                        </span>
-
-                        {/* Sovereign 9 Match */}
-                        {v.isSig9 && (
-                          <span className="px-2 py-0.5 text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300">
-                            🌟 بصمة سيادية (9)
-                          </span>
-                        )}
-
-                        {/* Compatibility Score */}
-                        <span className="px-2 py-0.5 text-[10px] font-mono font-black bg-slate-900 text-amber-300">
-                          الميزان: {v.comp.score}/6 ({v.comp.statusLabel})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Active Generated Report View */}
-          {analysis && !loading && (
-            <div className="bg-[#fdfcf9] border-2 border-emerald-300 p-6 space-y-4 relative animate-fade-in shadow-md">
-              <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-emerald-800" />
-              
-              <div className="flex items-center justify-between border-b border-emerald-200 pb-3 flex-wrap gap-2">
-                <span className="text-sm font-black text-emerald-950 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-700" />
-                  مخرجات التقرير الأكاديمي الشامل للمفسر الذكي (جاهز للحفظ والتصدير):
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleExportWord}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 cursor-pointer"
-                  >
-                    <FileDown className="w-3.5 h-3.5 text-blue-700" />
-                    <span>تصدير وورد (Word .doc) 📝</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleExportExcel}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>تصدير إكسيل (Excel) 📥</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await copyToClipboard(analysis);
-                      showToast('تم نسخ التقرير الشامل بالكامل للحافظة!');
-                    }}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black bg-slate-900 hover:bg-slate-800 text-white cursor-pointer"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-amber-300" />
-                    <span>نسخ التقرير 📋</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="quran-font pr-2 leading-relaxed space-y-2 text-slate-800 max-h-[600px] overflow-y-auto p-2 bg-white border border-slate-200">
-                {renderFormattedText(analysis)}
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="p-4 bg-rose-50 border-2 border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-rose-700 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
         </div>
 
-        {/* Session History & Archive */}
-        {history.length > 0 && (
-          <div className="bg-white border-2 border-slate-200 p-6 md:p-8 space-y-4 relative shadow-sm">
-            <div className="absolute top-0 right-0 left-0 h-1 bg-slate-500" />
-            
-            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-              <div className="flex items-center gap-2 text-right">
-                <History className="w-5 h-5 text-slate-700" />
-                <div>
-                  <h3 className="text-base font-black text-slate-900 font-sans">
-                    📚 أرشيف وسجل تقارير مفسر البنيان الذكي السابقة
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    التقارير المولدة خلال الجلسة الحالية مرتبة من الأحدث إلى الأقدم
+        {/* Dynamic Decryption Keys and Target Verses Dashboard */}
+        {verses.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200 p-5 space-y-4 rounded-none relative">
+            <div className="absolute top-0 right-0 left-0 h-0.5 bg-amber-500" />
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+              <Key className="w-4 h-4 text-amber-600" />
+              <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                🔑 أوزان فك الشفرة والترابط البنيوي المستهدف (Decryption Keys)
+              </h4>
+            </div>
+
+            {activeSurah ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Column 1: Highest Verification Quotient */}
+                <div className="bg-white border border-slate-200 p-4 space-y-3 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 border border-emerald-100 flex items-center gap-1">
+                      <Award className="w-3 h-3" />
+                      الآية الأعلى تحقيقاً (مفتاح القوة)
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-slate-400">سورة {activeSurah.name}</span>
+                  </div>
+
+                  {maxQuotientVerse ? (
+                    <div className="space-y-3">
+                      <div className="bg-emerald-50/40 p-3 border border-dashed border-emerald-100 rounded-none text-center">
+                        <p className="quran-font text-base text-slate-900 font-extrabold leading-loose select-all">
+                          « {maxQuotientVerse.text} »
+                        </p>
+                        <span className="text-[10px] font-mono font-bold text-emerald-800 mt-1 block">
+                          [ الآية رقم {maxQuotientVerse.verseNumber} ]
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-center">
+                        <div className="bg-slate-50 p-2 border border-slate-100">
+                          <span className="text-[10px] text-slate-500 block">حساب الجمل الإجمالي</span>
+                          <span className="text-xs font-black text-slate-900 font-mono">{maxQuotientVerse.jummalValue}</span>
+                        </div>
+                        <div className="bg-slate-50 p-2 border border-slate-100">
+                          <span className="text-[10px] text-slate-500 block">قوة المفتاح النوراني</span>
+                          <span className="text-xs font-black text-emerald-700 font-mono">
+                            {typeof maxQuotientVerse.quotient === 'number' ? maxQuotientVerse.quotient.toFixed(4) : maxQuotientVerse.quotient}
+                          </span>
+                        </div>
+                        <div className="bg-slate-50 p-2 border border-slate-100">
+                          <span className="text-[10px] text-slate-500 block">عدد الكلمات</span>
+                          <span className="text-xs font-black text-slate-900 font-mono">{maxQuotientVerse.wordCount} كلمة</span>
+                        </div>
+                        <div className="bg-slate-50 p-2 border border-slate-100">
+                          <span className="text-[10px] text-slate-500 block">عدد الحروف</span>
+                          <span className="text-xs font-black text-slate-900 font-mono">{maxQuotientVerse.letterCount} حرفاً</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-slate-400 text-[11px] font-semibold space-y-1">
+                      <AlertCircle className="w-5 h-5 text-slate-300 mx-auto" />
+                      <p>لا توجد آية متوافقة مباشرة (دون كسر عشري)</p>
+                      <p className="text-[10px]">مع المعامل النوراني المختار في الآيات المدخلة حالياً.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Column 2: Highest Letter Density */}
+                <div className="bg-white border border-slate-200 p-4 space-y-3 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 border border-amber-100 flex items-center gap-1">
+                      <Fingerprint className="w-3 h-3" />
+                      الأعلى كثافة بحروف الفاتحة ({activeSurah.letters})
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-slate-400">معامل الاختزال: {activeSurah.digitalRoot}</span>
+                  </div>
+
+                  {maxDensityVerse ? (
+                    <div className="space-y-3">
+                      <div className="bg-amber-50/40 p-3 border border-dashed border-amber-100 rounded-none text-center">
+                        <p className="quran-font text-base text-slate-900 font-extrabold leading-loose select-all">
+                          « {maxDensityVerse.text} »
+                        </p>
+                        <span className="text-[10px] font-mono font-bold text-amber-800 mt-1 block">
+                          [ الآية رقم {maxDensityVerse.verseNumber} ]
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-center">
+                        <div className="bg-slate-50 p-2 border border-slate-100">
+                          <span className="text-[10px] text-slate-500 block">التداخل مع الفواتح</span>
+                          <span className="text-xs font-black text-slate-900 font-mono">{maxDensityVerse.overlapCount ?? 0} حرفاً</span>
+                        </div>
+                        <div className="bg-slate-50 p-2 border border-slate-100">
+                          <span className="text-[10px] text-slate-500 block">نسبة كثافة الحروف</span>
+                          <span className="text-xs font-black text-amber-700 font-mono">
+                            {((maxDensityVerse.overlapRatio ?? 0) * 100).toFixed(1)} %
+                          </span>
+                        </div>
+                        <div className="bg-slate-50 p-2 border border-slate-100">
+                          <span className="text-[10px] text-slate-500 block">حساب الجمل الإجمالي</span>
+                          <span className="text-xs font-black text-slate-900 font-mono">{maxDensityVerse.jummalValue}</span>
+                        </div>
+                        <div className="bg-slate-50 p-2 border border-slate-100">
+                          <span className="text-[10px] text-slate-500 block">عدد الكلمات والحروف</span>
+                          <span className="text-xs font-black text-slate-900 font-mono">{maxDensityVerse.wordCount} ك | {maxDensityVerse.letterCount} ح</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-slate-400 text-[11px] font-semibold">
+                      لا يمكن احتساب كثافة الحروف لعدم توفر معطيات السورة.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 text-amber-800 text-xs flex items-start gap-2 border border-amber-100">
+                <Compass className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-black">ملاحظة الترابط البنيوي للأبجدية:</p>
+                  <p className="text-[11px] text-amber-700/90 font-semibold leading-relaxed">
+                    يرجى تفعيل "السورة النشطة" من القائمة الجانبية أو شريط الأدوات العلوي؛ ليتمكن محلل البنيان من استخلاص "مفاتيح فك الشفرة" ومقدار تداخل حروف الآيات الحالية مع الحروف المقطعة (مثل الم، طه، يس...) الخاصة بسور الإعجاز الـ 29.
                   </p>
                 </div>
               </div>
+            )}
+
+            {activeSurah && (
+              <div className="p-3 bg-white border border-slate-200 text-[11px] leading-relaxed text-slate-600 flex items-start gap-2">
+                <BookOpen className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                <p className="font-semibold">
+                  <strong>💡 أبعاد وفلسفة فك الشفرة:</strong> نعتبر الآية أو الآيات المستهدفة أعلاه بمثابة 
+                  <span className="text-slate-900 font-bold mx-1">"فك شفرة الترابط البنيوي"</span>؛ 
+                  حروف افتتاحية السورة الكريمة تلتحم مع معاني هذه الآيات وعلاقات حساب الجمل لتبين المحور العام للسورة الكريمة.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Input Empty Prompt */}
+        {verses.length === 0 && (
+          <div className="text-center py-12 bg-slate-50 border-2 border-dashed border-slate-200 rounded-none space-y-3">
+            <Compass className="w-8 h-8 text-slate-400 mx-auto animate-spin" style={{ animationDuration: '6s' }} />
+            <p className="text-xs font-bold text-slate-500">
+              برجاء العودة للشاشة الأولى وإدخال وتحليل بعض الكلمات القرآنية أولاً ليتيقّن مفسّر البنيان منها.
+            </p>
+          </div>
+        )}
+
+        {/* Loading status */}
+        {loading && (
+          <div className="text-center py-12 bg-slate-50 border-2 border-slate-200 rounded-none space-y-4">
+            <RefreshCw className="w-8 h-8 text-slate-900 mx-auto animate-spin" />
+            <div className="space-y-1">
+              <p className="text-xs font-black text-slate-900">مستشار البنيان يتأمل أسرار آياتك...</p>
+              <p className="text-[11px] text-slate-500 animate-pulse">{loadingQuotes[currentQuoteIdx]}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error reporting */}
+        {error && (
+          <div className="p-5 bg-rose-50 border-2 border-rose-200 text-rose-800 rounded-none text-xs space-y-3 leading-relaxed">
+            <div className="flex items-center gap-1.5 font-bold text-rose-950">
+              <AlertCircle className="w-4 h-4" />
+              <span>أمر غير متوقع:</span>
+            </div>
+            <p className="font-medium">{error}</p>
+            <div className="flex items-center gap-3 pt-1">
               <button
                 type="button"
-                onClick={() => setConfirmClearHistory(true)}
-                className="px-3 py-1.5 text-[11px] font-black text-rose-800 bg-rose-50 border border-rose-200 hover:bg-rose-100 cursor-pointer"
+                onClick={() => setError(null)}
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 font-black text-[10px] cursor-pointer rounded-none"
               >
-                <Trash2 className="w-3.5 h-3.5 inline mr-1" />
-                <span>تفريغ الأرشيف</span>
+                تراجع وإخفاء الخطأ ❌
+              </button>
+              <button
+                type="button"
+                onClick={handleClearCache}
+                className="px-3 py-1.5 bg-rose-900 hover:bg-rose-850 text-white font-black text-[10px] cursor-pointer rounded-none"
+              >
+                تصفير المحلل وإعادة المحاولة 🧹
               </button>
             </div>
-
-            <div className="space-y-3">
-              {history.map((item) => {
-                const isExpanded = expandedHistoryId === item.id;
-                
-                return (
-                  <div key={item.id} className="border border-slate-200 overflow-hidden">
-                    <div 
-                      onClick={() => setExpandedHistoryId(isExpanded ? null : item.id)}
-                      className="bg-slate-50 hover:bg-slate-100 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer select-none border-b border-slate-200"
-                    >
-                      <div className="flex flex-wrap items-center gap-2 md:gap-3 text-right">
-                        <span className="text-xs font-black text-white bg-slate-900 px-2 py-0.5">
-                          سورة {item.surahName}
-                        </span>
-                        <span className="text-[11px] font-bold text-amber-900 bg-amber-50 px-2 py-0.5 border border-amber-200">
-                          الفواتح: {item.surahLetters}
-                        </span>
-                        <span className="text-[11px] text-slate-600 font-medium">
-                          • {item.versesCount} آية
-                        </span>
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          • {item.timestamp}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            exportToWord(
-                              item.analysisText,
-                              item.surahName,
-                              item.surahLetters,
-                              item.digitalRoot,
-                              item.keyValue,
-                              item.versesCount,
-                              item.timestamp
-                            );
-                          }}
-                          className="px-2 py-0.5 text-[10px] font-black text-blue-900 bg-blue-50 border border-blue-200 cursor-pointer"
-                        >
-                          وورد 📝
-                        </button>
-                        {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />}
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="p-4 bg-white space-y-4 border-t border-slate-100">
-                        <div className="quran-font text-xs text-slate-800 leading-relaxed max-h-96 overflow-y-auto p-2 bg-slate-50 border border-slate-200">
-                          {renderFormattedText(item.analysisText)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <p className="text-[10px] text-rose-600 font-bold pt-1 border-t border-rose-100">
+              * للتفعيل التام، يرجى ملء حقل <strong>GEMINI_API_KEY</strong> في لوحة أسرار البيئة (Secrets) بمفتاح واجهة برمجة تطبيقات Google AI Studio ليكون خادمنا آمناً وم proxy.
+            </p>
           </div>
         )}
 
-        {/* Confirm Clear History Modal */}
-        {confirmClearHistory && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 text-right p-4">
-            <div className="bg-white border-2 border-slate-950 p-6 max-w-sm w-full space-y-3 relative shadow-2xl">
-              <h4 className="text-sm font-black text-slate-950">تأكيد تفريغ أرشيف التقارير</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                هل أنت متأكد من تفريغ كافة التقارير السابقة المخزنة في الجلسة الحالية؟
-              </p>
-              <div className="flex justify-end gap-2 pt-2">
+        {/* Active Analysis feedback rendering */}
+        {analysis && !loading && !error && (
+          <div className="bg-slate-50 border-2 border-slate-200 rounded-none p-6 space-y-4 relative animate-fade-in">
+            <div className="absolute right-0 top-0 bottom-0 w-1 bg-slate-950" />
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-2">
+              <span className="text-xs font-black text-slate-900 flex items-center gap-1 uppercase tracking-wider">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                الدراسة الاستقصائية النشطة الحالية:
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono font-bold">النموذج النشط: Gemini 3.5 Flash</span>
+            </div>
+
+            <div className="quran-font pr-1 leading-relaxed space-y-2 text-slate-700">
+              {renderFormattedText(analysis)}
+            </div>
+            
+            <div className="border-t border-slate-200 pt-4 mt-6 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setConfirmClearHistory(false)}
-                  className="px-3 py-1 text-xs font-bold border border-slate-300"
+                  onClick={handleExportWord}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 transition-colors rounded-none cursor-pointer"
+                  title="تصدير هذه الدراسة إلى ملف مايكروسوفت وورد (Word)"
                 >
-                  إلغاء
+                  <FileDown className="w-3.5 h-3.5 text-blue-700" />
+                  <span>تصدير لوورد (Word) 📝</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setHistory([]);
-                    setConfirmClearHistory(false);
-                    showToast('تم تفريغ أرشيف التقارير بنجاح!');
-                  }}
-                  className="px-3 py-1 text-xs font-bold bg-rose-700 text-white"
+                  onClick={handleExportExcel}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors rounded-none cursor-pointer"
+                  title="تصدير هذه الدراسة إلى جدول إكسيل مبوب (Excel)"
                 >
-                  تأكيد الحذف 🧹
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>تصدير لإكسيل (Excel) 📥</span>
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  await copyToClipboard(analysis);
+                  showToast('تم نسخ الدراسة للذاكرة المؤقتة!');
+                }}
+                className="px-4 py-1.5 text-xs font-bold bg-[#0f172a] hover:bg-slate-800 text-white border border-slate-900 rounded-none transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5 text-slate-300" />
+                <span>نسخ الدراسة بالكامل 📋</span>
+              </button>
             </div>
           </div>
         )}
 
+        {/* Default Help Info box */}
+        {!analysis && !loading && !error && verses.length > 0 && (
+          <div className="p-5 bg-slate-50 border-2 border-slate-200 rounded-none space-y-3 leading-relaxed relative">
+            <div className="absolute right-0 top-0 bottom-0 w-1 bg-slate-900" />
+            <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">✨ ما الذي يمكن أن يوضحه لك مفسّر البنيان؟</h4>
+            <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+              عند تشغيل الاستقصاء، يقوم مفسّـرنا الذكي بقراءة الأوزان الرقمية وخصائص الحروف للآيات التي قمت بتقسيمها، ويكشف لك عن المبررات الهندسية وعلاقات الأرقام بالتشريعات والمعاني، مما يوفر صياغات أكاديمية راقية لبحوث الإعجاز القرآني.
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* History and Archive Section (Older Data) */}
+      {history.length > 0 && (
+        <div className="bg-white border-2 border-slate-200 rounded-none p-6 md:p-8 space-y-4 relative mt-6">
+          <div className="absolute top-0 right-0 left-0 h-1 bg-slate-500" />
+          
+          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+            <div className="flex items-center gap-2 text-right">
+              <History className="w-5 h-5 text-slate-600" />
+              <div>
+                <h3 className="text-base font-black text-slate-900 font-sans">📚 أرشيف وسجل الدراسات الاستقصائية السابقة (البيانات الأقدم)</h3>
+                <p className="text-[11px] text-slate-500">يتضمن هذا الأرشيف كافة الدراسات والبيانات المستهدفة التي أجريت في الجلسة الحالية مرتبة من الأحدث إلى الأقدم</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConfirmClearHistory(true)}
+              className="px-3 py-1.5 text-[11px] font-black text-rose-800 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-none flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>تفريغ الأرشيف</span>
+            </button>
+          </div>
+
+          <div className="space-y-4 text-right">
+            {history.map((item) => {
+              const isExpanded = expandedHistoryId === item.id;
+              
+              return (
+                <div key={item.id} className="border border-slate-200 rounded-none overflow-hidden transition-all duration-200">
+                  {/* History item header */}
+                  <div 
+                    onClick={() => setExpandedHistoryId(isExpanded ? null : item.id)}
+                    className="bg-slate-50/85 hover:bg-slate-100/100 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer select-none border-b border-slate-200"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 md:gap-3 text-right">
+                      <span className="text-xs font-black text-slate-100 bg-[#092b22] px-2 py-1 rounded-sm">
+                        سورة {item.surahName}
+                      </span>
+                      {item.surahLetters && item.surahLetters !== 'لا يوجد' && (
+                        <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 border border-amber-200">
+                          الفواتح: {item.surahLetters} (معامل: {item.digitalRoot})
+                        </span>
+                      )}
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        • {item.versesCount} آية مدروسة
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        • {item.timestamp}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      {/* Direct export buttons in the header for fast export without expanding! */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          exportToWord(
+                            item.analysisText,
+                            item.surahName,
+                            item.surahLetters,
+                            item.digitalRoot,
+                            item.keyValue,
+                            item.versesCount,
+                            item.maxQuotientVerse,
+                            item.maxDensityVerse,
+                            item.timestamp
+                          );
+                        }}
+                        className="p-1 px-2 text-[10px] font-black text-blue-800 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-none cursor-pointer"
+                        title="تصدير هذا الأرشيف لوورد"
+                      >
+                        وورد 📝
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          exportToExcel(
+                            item.analysisText,
+                            item.surahName,
+                            item.surahLetters,
+                            item.digitalRoot,
+                            item.versesCount,
+                            item.maxQuotientVerse,
+                            item.maxDensityVerse,
+                            item.timestamp
+                          );
+                        }}
+                        className="p-1 px-2 text-[10px] font-black text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-none cursor-pointer"
+                        title="تصدير هذا الأرشيف لإكسيل"
+                      >
+                        إكسيل 📥
+                      </button>
+                      {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                    </div>
+                  </div>
+
+                  {/* History item content */}
+                  {isExpanded && (
+                    <div className="p-5 md:p-6 bg-white space-y-6 animate-fade-in border-t border-slate-100">
+                      {/* Decryption summary for this history item */}
+                      {(item.maxQuotientVerse || item.maxDensityVerse) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/50 p-4 border border-slate-200">
+                          {/* Highest quotient */}
+                          {item.maxQuotientVerse && (
+                            <div className="bg-white p-3 border border-slate-200 space-y-2">
+                              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 border border-emerald-100">
+                                الآية الأعلى تحقيقاً (مفتاح القوة)
+                              </span>
+                              <p className="quran-font text-xs text-slate-900 font-extrabold leading-loose">
+                                « {item.maxQuotientVerse.text} » [الآية {item.maxQuotientVerse.verseNumber}]
+                              </p>
+                              <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-mono font-bold text-slate-600 bg-slate-50 p-1.5">
+                                <div>جمل: {item.maxQuotientVerse.jummalValue}</div>
+                                <div>قوة: {typeof item.maxQuotientVerse.quotient === 'number' ? item.maxQuotientVerse.quotient.toFixed(2) : item.maxQuotientVerse.quotient}</div>
+                                <div>حروف: {item.maxQuotientVerse.letterCount}</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Highest density */}
+                          {item.maxDensityVerse && (
+                            <div className="bg-white p-3 border border-slate-200 space-y-2">
+                              <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 border border-amber-100">
+                                الأعلى كثافة بحروف افتتاحية السورة
+                              </span>
+                              <p className="quran-font text-xs text-slate-900 font-extrabold leading-loose">
+                                « {item.maxDensityVerse.text} » [الآية {item.maxDensityVerse.verseNumber}]
+                              </p>
+                              <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-mono font-bold text-slate-600 bg-slate-50 p-1.5">
+                                <div>تداخل: {item.maxDensityVerse.overlapCount}</div>
+                                <div>كثافة: {((item.maxDensityVerse.overlapRatio ?? 0) * 100).toFixed(1)}%</div>
+                                <div>جمل: {item.maxDensityVerse.jummalValue}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Analysis Text of history item */}
+                      <div className="quran-font pr-1 leading-relaxed space-y-2 text-slate-700">
+                        {renderFormattedText(item.analysisText)}
+                      </div>
+
+                      {/* Export buttons for expanded history item */}
+                      <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              exportToWord(
+                                item.analysisText,
+                                item.surahName,
+                                item.surahLetters,
+                                item.digitalRoot,
+                                item.keyValue,
+                                item.versesCount,
+                                item.maxQuotientVerse,
+                                item.maxDensityVerse,
+                                item.timestamp
+                              );
+                            }}
+                            className="flex items-center gap-1 px-3 py-1 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 transition-colors cursor-pointer"
+                          >
+                            <FileDown className="w-3 h-3 text-blue-700" />
+                            <span>تصدير لوورد (Word) 📝</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              exportToExcel(
+                                item.analysisText,
+                                item.surahName,
+                                item.surahLetters,
+                                item.digitalRoot,
+                                item.versesCount,
+                                item.maxQuotientVerse,
+                                item.maxDensityVerse,
+                                item.timestamp
+                              );
+                            }}
+                            className="flex items-center gap-1 px-3 py-1 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
+                          >
+                            <FileSpreadsheet className="w-3 h-3 text-emerald-700" />
+                            <span>تصدير لإكسيل (Excel) 📥</span>
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await copyToClipboard(item.analysisText);
+                            showToast('تم نسخ هذه الدراسة الأرشيفية للذاكرة المؤقتة!');
+                          }}
+                          className="px-3 py-1 text-xs font-bold bg-[#0f172a] hover:bg-slate-800 text-white border border-slate-900 transition-all cursor-pointer flex items-center gap-1"
+                        >
+                          <Copy className="w-3 h-3 text-slate-300" />
+                          <span>نسخ هذه الدراسة 📋</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+
+      {/* Elegant Toast notification instead of window.alert */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#0f172a] text-slate-100 px-5 py-3.5 border-l-4 border-emerald-500 shadow-2xl max-w-md flex items-center gap-2.5 animate-fade-in font-bold text-xs">
+          <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toast}</span>
+        </div>
+      )}
+
+      {/* Modern custom dialog modal instead of window.confirm */}
+      {confirmClearHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs animate-fade-in" dir="rtl">
+          <div className="bg-white border-2 border-slate-950 p-6 max-w-md w-full shadow-2xl relative text-right space-y-4">
+            <div className="absolute top-0 right-0 left-0 h-1 bg-rose-600" />
+            <div className="flex items-center gap-2 text-rose-800">
+              <AlertCircle className="w-5 h-5" />
+              <h4 className="text-sm font-black uppercase tracking-wider">تفريغ الأرشيف الذكي</h4>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+              هل أنت متأكد من رغبتك في مسح سجل الأرشيف بالكامل؟ سيتم تصفير كافة مخرجات الدراسات السابقة المحفوظة مؤقتاً في هذه الجلسة.
+            </p>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmClearHistory(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-750 bg-slate-50 hover:bg-slate-100 border border-slate-300 transition-colors cursor-pointer"
+              >
+                تراجع وإلغاء ❌
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setHistory([]);
+                  setConfirmClearHistory(false);
+                  showToast('تم تفريغ أرشيف مفسّر البنيان بنجاح! 🧹');
+                }}
+                className="px-4 py-2 text-xs font-black text-white bg-rose-700 hover:bg-rose-800 border border-rose-900 transition-colors cursor-pointer"
+              >
+                نعم، تفريغ الآن 🧹
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -4,7 +4,7 @@ import BonyanLogo from './BonyanLogo';
 import { 
   BookOpen, Star, HelpCircle, Shield, Key, Compass, ChevronDown, ChevronUp, 
   Layers, Filter, Sparkles, LogOut, Brain, Info, Mail, Calculator, Search, CheckCircle2,
-  Sliders, Award, FileSpreadsheet, FileText, Hash, SlidersHorizontal, BarChart2, Crown
+  Sliders, Award, FileSpreadsheet, FileText, Hash, SlidersHorizontal, BarChart2
 } from 'lucide-react';
 
 export default function HelpSection() {
@@ -567,86 +567,6 @@ export default function HelpSection() {
 
             </div>
 
-            {/* Noorani Elite Triple Match & 5 Criteria Section */}
-            <div className="pt-4 border-t-2 border-amber-200 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black rounded">
-                  <Crown className="w-4 h-4 fill-slate-950" />
-                </div>
-                <h4 className="text-sm font-black text-amber-950">
-                  منظومة موازين «النخبة النورانية المطلقة» (Triple Match) وخماسيتها الدقيقة:
-                </h4>
-              </div>
-              <p className="text-slate-700 text-xs leading-relaxed font-semibold">
-                تُمثل <strong>«النخبة النورانية المطلقة»</strong> أعلى وأرقى درجات التوافق الرياضي والهندسي لآيات الذكر الحكيم في منظومة البنيان؛ حيث تشترط الآية لاكتساب صفة النخبة تحقيق <strong>«التوافق الثلاثي المتزامن» (Triple Match)</strong>:
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg space-y-1">
-                  <span className="text-[11px] font-black text-amber-950 block">1. الشرط التوافقي العالي:</span>
-                  <span className="text-[10px] text-slate-600 font-medium">تحقيق درجة 5/6 إلى 6/6 في الموازين السداسية، أو التوافق المباشر الصريح للجمل.</span>
-                </div>
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg space-y-1">
-                  <span className="text-[11px] font-black text-amber-950 block">2. شرط البصمة والتحقق الذاتي:</span>
-                  <span className="text-[10px] text-slate-600 font-medium">انطباق البصمة الأحادية على الرقم السيادي 9، أو تطابقها مع بصمة الآية أو رقمها أو رقم السورة أو ترتيبها النوراني.</span>
-                </div>
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg space-y-1">
-                  <span className="text-[11px] font-black text-amber-950 block">3. شرط نفوذ المعامل النوراني:</span>
-                  <span className="text-[10px] text-slate-600 font-medium">انقسام حساب الجمل على المعامل N أو R أو رقم السورة، أو تطابق البصمة مع المعامل المختزل.</span>
-                </div>
-              </div>
-
-              {/* The 5 Criteria of Noorani Elite with STRICT Rule for 14 */}
-              <div className="p-4 bg-[#fbf9f4] border-2 border-amber-300/80 rounded-xl space-y-2.5 mt-3">
-                <span className="text-xs font-black text-emerald-950 block">
-                  🌟 تفصيل الموازين الخمسة للنخبة النورانية وتأصيل قاعدة (14) الصريحة:
-                </span>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg space-y-1">
-                    <span className="font-black text-amber-900 text-xs block">🏷️ 1. ميزان المعامل وترتيب السورة النورانية:</span>
-                    <span className="text-[11px] text-slate-600 font-medium">
-                      توافق حساب الجمل أو المجموع الهيكلي أو الكثافة أو البصمة مع معامل السورة أو ترتيبها النوراني بين السور الـ 29 (من 1 إلى 29).
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 bg-teal-50/70 border-2 border-teal-400 rounded-lg space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-black text-teal-950 text-xs">🔠 2. ميزان البصمة النورانية (14) الصريحة:</span>
-                      <span className="text-[9px] bg-teal-700 text-white font-black px-1.5 py-0.2 rounded font-mono">قاعدة حصرية صارمة</span>
-                    </div>
-                    <span className="text-[11px] text-teal-950 font-bold block">
-                      * الاعتماد الحصري على القيمة العددية = 14 حصراً بالرقم الصريح (عدد الكلمات = 14، عدد الحروف = 14، مجموع الكثافة = 14، ناتج المعادلة المدمجة = 14، أو رقم الآية = 14).
-                    </span>
-                    <span className="text-[10px] text-rose-800 font-black block bg-white/80 p-1 border border-rose-200 rounded">
-                      ⚠️ إلغاء تام ومطلق لاعتبار الرقم 5 أو أي رقم مختزل (مثل 23 أو 32) كبديل عن الـ 14، لأن الرقم 5 ينتج عن جمع أرقام شتى غير الـ 14؛ والاعتماد العلمي محصور في الرقم 14 بذاته كونه عدد الحروف النورانية الفريدة في التنزيل.
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg space-y-1">
-                    <span className="font-black text-purple-900 text-xs block">⚡ 3. ميزان البصمة التساعية السيادية (9):</span>
-                    <span className="text-[11px] text-slate-600 font-medium">
-                      ختام الميزان التساعي السيادي، وتحقق الرقم 9 في البصمة الأحادية، أو حساب الجمل، أو المجموع الهيكلي، أو الكثافة.
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 bg-white border border-slate-200 rounded-lg space-y-1">
-                    <span className="font-black text-blue-900 text-xs block">📐 4. الميزان البنيوي مقسوماً على المعامل:</span>
-                    <span className="text-[11px] text-slate-600 font-medium">
-                      المجموع الهيكلي للآية (حساب الجمل + رقم الآية) يقبل القسمة على المعامل النوراني للسورة بدون باقٍ حصراً (R=0).
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 bg-white border border-emerald-300 rounded-lg space-y-1 sm:col-span-2">
-                    <span className="font-black text-emerald-950 text-xs block">🏆 5. ميزان التوافق السداسي التام والأخضر الصرف:</span>
-                    <span className="text-[11px] text-emerald-900 font-semibold">
-                      الآيات المحققة للتوافق الرياضي الكامل في الموازين الستة (6/6 أو 5/6) أو القسمة المباشرة لحساب الجمل على المعامل بلا باقٍ، مُمثلةً الركيزة الهندسية الصلبة للبنيان القرآني.
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
           </div>
         )}
       </div>
@@ -724,244 +644,79 @@ export default function HelpSection() {
         </button>
 
         {isOpen('legend') && (
-          <div className="p-6 space-y-6 text-xs leading-relaxed text-slate-700 bg-white">
-            
-            {/* Level 1: Master General Compatibilities */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                <span className="text-sm font-black text-slate-900">🎨 أولاً: موازين التوافق العامة بالألوان المعتمدة (في صفوف وأعمدة الجدول):</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                
-                <div className="p-3 bg-amber-50 border-2 border-amber-400 rounded-xl flex items-center gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                    🌟
-                  </div>
-                  <div>
-                    <span className="font-black text-amber-950 block text-xs">🌟 الذهبي الملكي (التوافق التام 5-6)</span>
-                    <span className="text-[11px] text-amber-900 font-semibold">تحقيق 5 من 6 أو 6 من 6 في موازين التوافق، أو توافق الجمل المباشر الصريح.</span>
-                  </div>
+          <div className="p-6 space-y-4 text-xs leading-relaxed text-slate-700 bg-white">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              
+              <div className="p-3 bg-emerald-50 border-2 border-emerald-300 rounded-xl flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  1
                 </div>
-
-                <div className="p-3 bg-emerald-50 border-2 border-emerald-400 rounded-xl flex items-center gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                    🟢
-                  </div>
-                  <div>
-                    <span className="font-black text-emerald-950 block text-xs">🟢 الأخضر الزمردي (الرياضي الصرف R=0)</span>
-                    <span className="text-[11px] text-emerald-900 font-semibold">قسمة حساب الجمل على المعامل النوراني بدون باقٍ حصراً (باقي القسمة = 0).</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-blue-50 border-2 border-blue-400 rounded-xl flex items-center gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                    🔵
-                  </div>
-                  <div>
-                    <span className="font-black text-blue-950 block text-xs">🔵 الأزرق الهيكلي (التوافق البنيوي)</span>
-                    <span className="text-[11px] text-blue-900 font-semibold">انقسام الميزان الهيكلي (الجمل + رقم الآية) أو الكثافة على المعامل بلا باقٍ.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-indigo-50 border-2 border-indigo-400 rounded-xl flex items-center gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                    💛
-                  </div>
-                  <div>
-                    <span className="font-black text-indigo-950 block text-xs">💛 النيلي / التوحيدي المشع</span>
-                    <span className="text-[11px] text-indigo-900 font-semibold">تحقيق شفرة التوحيد المشترك (11) في الكثافة أو الاختزال الذاتي للرقم (1).</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-rose-50 border-2 border-rose-300 rounded-xl flex items-center gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-lg bg-rose-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                    🔴
-                  </div>
-                  <div>
-                    <span className="font-black text-rose-950 block text-xs">🔴 الوردي / الأحمر (كسر بنياني)</span>
-                    <span className="text-[11px] text-rose-900 font-semibold">آيات ذات كسر عشري لم تُحقق شروط التوافق مع المعامل النوراني الحالي.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-900 text-amber-300 border-2 border-amber-400 rounded-xl flex items-center gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                    ✨
-                  </div>
-                  <div>
-                    <span className="font-black text-amber-300 block text-xs">✨ الزمردي الداكن المطرز (التوافق المدمج)</span>
-                    <span className="text-[11px] text-slate-200 font-semibold">تحقق البصمة الأحادية وتطابق معادلة الضرب المدمجة العمودية.</span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Level 2: Noorani Elite Sub-Categorization Badges */}
-            <div className="space-y-3 pt-2 border-t border-slate-200">
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                <Crown className="w-4 h-4 text-amber-600 fill-amber-500" />
-                <span className="text-sm font-black text-amber-950">👑 ثانياً: شارات وألوان موازين «النخبة النورانية المطلقة» (Triple Match):</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                
-                <div className="p-3 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border-2 border-amber-500 rounded-xl flex items-center gap-3">
-                  <span className="px-2 py-1 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black rounded text-[10px] shrink-0">
-                    👑 النخبة
-                  </span>
-                  <div>
-                    <span className="font-black text-amber-950 block text-xs">👑 آيات النخبة النورانية المطلقة</span>
-                    <span className="text-[11px] text-slate-600 font-medium">الآيات المحققة للشروط الثلاثية المتزامنة كاملة.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-3">
-                  <span className="px-1.5 py-0.5 bg-amber-100 text-amber-950 border border-amber-300 font-bold rounded text-[10px] shrink-0">
-                    🏷️ المعامل
-                  </span>
-                  <div>
-                    <span className="font-black text-amber-950 block text-xs">🏷️ المعامل وترتيب السورة النورانية</span>
-                    <span className="text-[11px] text-slate-600 font-medium">التوافق مع معامل السورة أو ترتيبها في الـ 29 سورة.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-teal-50 border-2 border-teal-500 rounded-xl flex items-center gap-3">
-                  <span className="px-1.5 py-0.5 bg-teal-700 text-white font-black rounded text-[10px] shrink-0">
-                    🔠 نوراني (14)
-                  </span>
-                  <div>
-                    <span className="font-black text-teal-950 block text-xs">🔠 البصمة النورانية (14) الصريحة</span>
-                    <span className="text-[11px] text-teal-900 font-bold">القيم الصريحة = 14 حصراً (كلمات، حروف، كثافة، ناتج، آية). إلغاء تام لاختزال 5.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-purple-50 border border-purple-300 rounded-xl flex items-center gap-3">
-                  <span className="px-1.5 py-0.5 bg-purple-700 text-white font-bold rounded text-[10px] shrink-0">
-                    ⚡ تساعي (9)
-                  </span>
-                  <div>
-                    <span className="font-black text-purple-950 block text-xs">⚡ البصمة التساعية السيادية (9)</span>
-                    <span className="text-[11px] text-slate-600 font-medium">ختام الميزان التساعي السيادي للرقم 9.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-blue-50 border border-blue-300 rounded-xl flex items-center gap-3">
-                  <span className="px-1.5 py-0.5 bg-blue-700 text-white font-bold rounded text-[10px] shrink-0">
-                    📐 بنيوي ÷ المعامل
-                  </span>
-                  <div>
-                    <span className="font-black text-blue-950 block text-xs">📐 الميزان البنيوي الهيكلي</span>
-                    <span className="text-[11px] text-slate-600 font-medium">(الجمل + رقم الآية) يقبل القسمة على المعامل بلا باقٍ.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-emerald-50 border-2 border-emerald-400 rounded-xl flex items-center gap-3">
-                  <span className="px-1.5 py-0.5 bg-emerald-700 text-white font-black rounded text-[10px] shrink-0">
-                    🏆 سداسي تام
-                  </span>
-                  <div>
-                    <span className="font-black text-emerald-950 block text-xs">🏆 التوافق السداسي التام والأخضر الصرف</span>
-                    <span className="text-[11px] text-emerald-900 font-semibold">الدرجة الكاملة 6/6 أو 5/6 والقسمة التامة بلا باقٍ.</span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-          </div>
-        )}
-      </div>
-
-      {/* SECTION 6: Mukhtasar fi Tafsir Integration & Al-Bunyan Smart Interpreter Report */}
-      <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
-        <button
-          type="button"
-          onClick={() => toggleSection('section-6')}
-          className="w-full p-5 bg-[#faf9f4] hover:bg-[#f5f3e9] flex items-center justify-between text-right transition-colors cursor-pointer border-b border-amber-200/60"
-        >
-          <div className="flex items-center gap-3">
-            <span className="p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold">📖</span>
-            <div>
-              <h3 className="text-base font-black text-slate-900">6️⃣ منهجية تقرير مفسر البنيان الذكي المرتبط بكتاب «المختصر في التفسير»</h3>
-              <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                ربط التفسير الموضوعي المعتمد من مركز تفسير بالتحليل البنيوي الرقمي لـ 29 سورة نورانية فقط
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-black px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 shadow-xs">
-            {isOpen('section-6') ? 'طَي القسم 🔼' : 'عرض التفاصيل 🔽'}
-          </span>
-        </button>
-
-        {isOpen('section-6') && (
-          <div className="p-6 md:p-8 space-y-6 text-slate-700 text-xs md:text-sm leading-relaxed border-t border-slate-100 animate-fade-in">
-            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl space-y-2">
-              <span className="font-black text-emerald-950 block text-sm flex items-center gap-2">
-                <span>🌟</span>
-                <span>فلسفة ربط منظومة البنيان بكتاب «المختصر في التفسير» (مركز تفسير للدراسات القرآنية):</span>
-              </span>
-              <p className="text-xs text-emerald-900 leading-relaxed font-semibold">
-                يجمع تقرير مفسر البنيان الذكي بين جلال المعنى الشرعي والتفسير الأثري المنضبط وبين دقة الإعجاز الحسابي والاتزان الرقمي. ويعتمد البرنامج كتاب «المختصر في التفسير» الصادر عن مركز تفسير للدراسات القرآنية كمرجع أصيل ومعتمد في بيان معالم ومقاصد السور والآيات.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-sm font-black text-slate-900 border-r-4 border-amber-500 pr-3">
-                📌 الأركان الأربعة الأساسية لتقرير مفسر البنيان الذكي:
-              </h4>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
-                  <span className="font-black text-slate-900 block text-xs">
-                    1. 🏛️ ما يدور حول السورة (للسور الـ 29 النورانية فقط):
-                  </span>
-                  <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside font-medium">
-                    <li><strong>التمهيد:</strong> نبذة تاريخية وسياق نزول السورة وخصائصها ومكانتها.</li>
-                    <li><strong>مقصد السورة ومحورها العام:</strong> الصياغة المعتمدة لمقصد السورة والمحور العام المستمد من كتاب المختصر.</li>
-                    <li><strong>اللمسات التدبرية الجامعة:</strong> استخلاص الملامح الإيمانية والتربوية الجامعة لمقاطع السورة.</li>
-                  </ul>
-                </div>
-
-                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
-                  <span className="font-black text-slate-900 block text-xs">
-                    2. 📑 بيان الآيات المعروضة وقت طلب التقرير:
-                  </span>
-                  <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside font-medium">
-                    <li><strong>نص الآية الكريمة:</strong> بالرسم العثماني المصحفي المعتمد.</li>
-                    <li><strong>التفسير المختصر:</strong> بيان المعنى المباشر الميسر من كتاب المختصر في التفسير.</li>
-                    <li><strong>فوائد الآيات واللطائف:</strong> الفوائد السلوكية والتشريعية المستنبطة من الآية.</li>
-                    <li><strong>اللمسة التدبرية:</strong> لطيفة تدبرية بيانية خاصة بالآية.</li>
-                  </ul>
-                </div>
-
-                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
-                  <span className="font-black text-slate-900 block text-xs">
-                    3. ⚙️ التحليل البنيوي والعددي لكل آية:
-                  </span>
-                  <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside font-medium">
-                    <li>رقم الآية، مجموع الكلمات، ومجموع الحروف بدقة الرسم العثماني.</li>
-                    <li>حساب الجمل الكبير للآية وقابلية القسمة على المعامل النوراني (القسمة الصرفة).</li>
-                    <li><strong>البصمة النورانية (14) الصريحة حصراً:</strong> التحقق المباشر من مساواة الجمل أو الكلمات أو الحروف أو ناتج المعادلة للعدد 14 الصريح دون أي اختزال إلى 5.</li>
-                    <li>البصمة السيادية (9) ومعادلة العمود الجديد والبصمة الأحادية.</li>
-                  </ul>
-                </div>
-
-                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-2">
-                  <span className="font-black text-slate-900 block text-xs">
-                    4. 🌐 العمل في وضعي الاتصال (أونلاين وأوفلاين):
-                  </span>
-                  <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside font-medium">
-                    <li><strong>وضع أونلاين:</strong> جلب سحابي مباشر وفوري من قاعدة بيانات المختصر مع كاش سريع لتوفير البيانات.</li>
-                    <li><strong>وضع أوفلاين:</strong> في حال انقطاع الشبكة، يعرض البرنامج محاور السورة من تمهيد ومقصد ومحور، مع الآيات وتفسيرها وفوائدها والتحليل البنيوي من القاعدة المدمجة بالكامل لـ 29 سورة نورانية دون أي توقف أو أخطاء.</li>
-                  </ul>
+                <div>
+                  <span className="font-black text-emerald-950 block text-xs">🟢 الأخضر الزمردي</span>
+                  <span className="text-[11px] text-emerald-800 font-semibold">توافق الجُمل المباشر مع المعامل النوراني</span>
                 </div>
               </div>
-            </div>
 
-            <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 font-bold space-y-1">
-              <span>⚠️ قاعدة حصرية البصمة 14 الصريحة:</span>
-              <p className="font-semibold text-slate-700">
-                تم اعتماد قاعدة ميزانية صارمة تقضي بأن البصمة النورانية (14) تُمنح حصراً للقيم الصريحة المساوية للعدد 14 (سواء في حساب الجمل، عدد الكلمات، عدد الحروف، أو ناتج معادلة العمود الجديد). وقد تم إلغاء أي اعتبار للرقم 5 كبديل عن 14، لأن الرقم 5 قد ينتج عن اختزال أرقام أخرى كـ 23 أو غيرها.
-              </p>
+              <div className="p-3 bg-sky-50 border-2 border-sky-300 rounded-xl flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-sky-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  2
+                </div>
+                <div>
+                  <span className="font-black text-sky-950 block text-xs">🔵 الأزرق السماوي</span>
+                  <span className="text-[11px] text-sky-800 font-semibold">التوافق الهيكلي (الجمل + رقم الآية)</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border-2 border-amber-300 rounded-xl flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-xs shrink-0">
+                  3
+                </div>
+                <div>
+                  <span className="font-black text-amber-950 block text-xs">🟣 العنبري / الأرجواني</span>
+                  <span className="text-[11px] text-amber-800 font-semibold">التوافق الكثيفي (الكلمات + الحروف)</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-yellow-50 border-2 border-yellow-300 rounded-xl flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-yellow-500 text-slate-950 flex items-center justify-center font-bold text-xs shrink-0">
+                  4
+                </div>
+                <div>
+                  <span className="font-black text-yellow-950 block text-xs">🟡 الذهبي / الأصفر</span>
+                  <span className="text-[11px] text-yellow-800 font-semibold">التوافق التراكمي الشامل للمواصفات</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-teal-50 border-2 border-teal-300 rounded-xl flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-teal-700 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  5
+                </div>
+                <div>
+                  <span className="font-black text-teal-950 block text-xs">🩵 التيل / الكحلي المائي</span>
+                  <span className="text-[11px] text-teal-800 font-semibold">توافق شفرة حم / عسق الحواميم</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-orange-50 border-2 border-orange-300 rounded-xl flex items-center gap-3">
+                <div className="w-6 h-6 rounded-md bg-orange-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                  6
+                </div>
+                <div>
+                  <span className="font-black text-orange-950 block text-xs">🟠 البرتقالي المشرق</span>
+                  <span className="text-[11px] text-orange-800 font-semibold">التوافق التوحيدي (شفرة 11 أو 1)</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#092b22] text-amber-300 border-2 border-amber-400 rounded-xl flex items-center gap-3 col-span-1 sm:col-span-2 lg:col-span-3">
+                <div className="w-6 h-6 rounded-md bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shrink-0">
+                  ✨
+                </div>
+                <div>
+                  <span className="font-black text-amber-300 block text-xs">✨ الزمردي الداكن المطرز بالذهبي (التوافق المدمج البراق)</span>
+                  <span className="text-[11px] text-slate-200 font-semibold">تحقق البصمة الأحادية وتطابق معادلة الضرب المدمجة العمودية</span>
+                </div>
+              </div>
+
             </div>
           </div>
         )}

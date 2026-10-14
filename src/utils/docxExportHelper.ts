@@ -469,19 +469,6 @@ export async function generateTableDocxBlob(options: {
   return await Packer.toBlob(doc);
 }
 
-export interface MukhtasarDocxVerseItem {
-  verseNumber: string | number;
-  text: string;
-  tafseer?: string;
-  benefits?: string[];
-  tadabbur?: string;
-  jummalValue: number;
-  wordCount: number;
-  letterCount: number;
-  isExact14Match?: boolean;
-  exact14Details?: string;
-}
-
 /**
  * Generates a native, compliant, high-quality .docx file for the Comprehensive Academic Report
  */
@@ -494,12 +481,6 @@ export async function generateComprehensiveReportDocxBlob(options: {
   combinedAnalysisMarkdown: string;
   rows: TableRowData[];
   nooraniMatches?: NooraniWordMatch[];
-  mukhtasarOverview?: {
-    tamheed: string;
-    maqsad: string;
-    mehwar: string;
-  };
-  mukhtasarVerses?: MukhtasarDocxVerseItem[];
 }): Promise<Blob> {
   const {
     surahMeta,
@@ -510,8 +491,6 @@ export async function generateComprehensiveReportDocxBlob(options: {
     combinedAnalysisMarkdown,
     rows,
     nooraniMatches = [],
-    mukhtasarOverview,
-    mukhtasarVerses = [],
   } = options;
 
   // Header Titles
@@ -798,200 +777,6 @@ export async function generateComprehensiveReportDocxBlob(options: {
               }),
             ],
           }),
-
-          // Mukhtasar fi Tafsir Section
-          ...(mukhtasarOverview ? [
-            new Paragraph({
-              heading: HeadingLevel.HEADING_2,
-              bidirectional: true,
-              alignment: AlignmentType.RIGHT,
-              spacing: { before: 240, after: 120 },
-              children: [
-                new TextRun({
-                  text: 'معالم ومقاصد السورة في كتاب «المختصر في التفسير» (مركز تفسير للدراسات القرآنية)',
-                  bold: true,
-                  size: 26,
-                  color: '065F46',
-                  font: FONT_NAME,
-                  rightToLeft: true,
-                }),
-              ],
-            }),
-            new Paragraph({
-              bidirectional: true,
-              alignment: AlignmentType.RIGHT,
-              spacing: { after: 100 },
-              children: [
-                new TextRun({
-                  text: '• تمهيد السورة: ',
-                  bold: true,
-                  size: 22,
-                  color: 'B45309',
-                  font: FONT_NAME,
-                  rightToLeft: true,
-                }),
-                new TextRun({
-                  text: mukhtasarOverview.tamheed,
-                  size: 22,
-                  color: '1E293B',
-                  font: FONT_NAME,
-                  rightToLeft: true,
-                }),
-              ],
-            }),
-            new Paragraph({
-              bidirectional: true,
-              alignment: AlignmentType.RIGHT,
-              spacing: { after: 100 },
-              children: [
-                new TextRun({
-                  text: '• مقصد السورة: ',
-                  bold: true,
-                  size: 22,
-                  color: '047857',
-                  font: FONT_NAME,
-                  rightToLeft: true,
-                }),
-                new TextRun({
-                  text: mukhtasarOverview.maqsad,
-                  size: 22,
-                  color: '1E293B',
-                  font: FONT_NAME,
-                  rightToLeft: true,
-                }),
-              ],
-            }),
-            new Paragraph({
-              bidirectional: true,
-              alignment: AlignmentType.RIGHT,
-              spacing: { after: 160 },
-              children: [
-                new TextRun({
-                  text: '• المحور العام للسورة: ',
-                  bold: true,
-                  size: 22,
-                  color: '1E3A8A',
-                  font: FONT_NAME,
-                  rightToLeft: true,
-                }),
-                new TextRun({
-                  text: mukhtasarOverview.mehwar,
-                  size: 22,
-                  color: '1E293B',
-                  font: FONT_NAME,
-                  rightToLeft: true,
-                }),
-              ],
-            })
-          ] : []),
-
-          // Mukhtasar Verses Tafseer and Benefits
-          ...(mukhtasarVerses && mukhtasarVerses.length > 0 ? [
-            new Paragraph({
-              heading: HeadingLevel.HEADING_2,
-              bidirectional: true,
-              alignment: AlignmentType.RIGHT,
-              spacing: { before: 240, after: 120 },
-              children: [
-                new TextRun({
-                  text: 'تفسير الآيات وفوائدها ولطائفها التدبرية مع موازين البنيان (الرقم 14 والمعامل)',
-                  bold: true,
-                  size: 26,
-                  color: '065F46',
-                  font: FONT_NAME,
-                  rightToLeft: true,
-                }),
-              ],
-            }),
-            ...mukhtasarVerses.flatMap((mv) => [
-              new Paragraph({
-                bidirectional: true,
-                alignment: AlignmentType.RIGHT,
-                spacing: { before: 140, after: 60 },
-                children: [
-                  new TextRun({
-                    text: `﴿ ${mv.text} ﴾ [الآية ${mv.verseNumber}]`,
-                    bold: true,
-                    size: 24,
-                    color: '0F172A',
-                    font: FONT_NAME,
-                    rightToLeft: true,
-                  }),
-                ],
-              }),
-              ...(mv.tafseer ? [
-                new Paragraph({
-                  bidirectional: true,
-                  alignment: AlignmentType.RIGHT,
-                  spacing: { after: 60 },
-                  children: [
-                    new TextRun({
-                      text: '📖 التفسير المختصر: ',
-                      bold: true,
-                      size: 21,
-                      color: '047857',
-                      font: FONT_NAME,
-                      rightToLeft: true,
-                    }),
-                    new TextRun({
-                      text: mv.tafseer,
-                      size: 21,
-                      color: '334155',
-                      font: FONT_NAME,
-                      rightToLeft: true,
-                    }),
-                  ],
-                })
-              ] : []),
-              ...(mv.benefits && mv.benefits.length > 0 ? [
-                new Paragraph({
-                  bidirectional: true,
-                  alignment: AlignmentType.RIGHT,
-                  spacing: { after: 60 },
-                  children: [
-                    new TextRun({
-                      text: `✨ فوائد الآية: ${mv.benefits.join(' | ')}`,
-                      size: 20,
-                      color: '475569',
-                      font: FONT_NAME,
-                      rightToLeft: true,
-                    }),
-                  ],
-                })
-              ] : []),
-              ...(mv.tadabbur ? [
-                new Paragraph({
-                  bidirectional: true,
-                  alignment: AlignmentType.RIGHT,
-                  spacing: { after: 60 },
-                  children: [
-                    new TextRun({
-                      text: `💡 لمسة تدبرية: ${mv.tadabbur}`,
-                      size: 20,
-                      color: '854D0E',
-                      font: FONT_NAME,
-                      rightToLeft: true,
-                    }),
-                  ],
-                })
-              ] : []),
-              new Paragraph({
-                bidirectional: true,
-                alignment: AlignmentType.RIGHT,
-                spacing: { after: 120 },
-                children: [
-                  new TextRun({
-                    text: `🔢 الميزان الرقمي: جمل الآية = ${mv.jummalValue} | الكلمات = ${mv.wordCount} | الحروف = ${mv.letterCount} | المجموع = ${mv.wordCount + mv.letterCount}${mv.isExact14Match ? ` | التوافق مع 14: محقق ✅ (${mv.exact14Details || '14'})` : ' | التوافق مع 14: غير مباشر'}`,
-                    bold: true,
-                    size: 20,
-                    color: '1E293B',
-                    font: FONT_NAME,
-                    rightToLeft: true,
-                  }),
-                ],
-              })
-            ])
-          ] : []),
 
           // Section: Academic and Numerical Study Report
           new Paragraph({
