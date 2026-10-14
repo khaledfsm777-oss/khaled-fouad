@@ -354,28 +354,76 @@ export default function AdvancedFilterBar({
         </div>
       </div>
 
-      {/* 3. Essential Tools Bar: Single-Digit Fingerprints (1..9), Elite, Compact & Colors */}
-      <div className="space-y-3 bg-white border border-slate-200 p-4">
-        {/* Single-Digit Fingerprint Strip (1 to 9) */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
+      {/* 3. Essential Tools Bar: Single-Digit Fingerprints (1..9), Mizan Classifications & Noorani Elite */}
+      <div className="space-y-4 bg-white border border-slate-200 p-4">
+        {/* Single-Digit Fingerprint Strip (1 to 9) with distinctive color coding */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-black text-amber-950 flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-amber-500 shrink-0"></span>
-              <span>أزرار البصمة الأحادية للناتج (1 إلى 9):</span>
+            <span className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+              <span className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 shrink-0 shadow-xs"></span>
+              <span>أزرار البصمة الأحادية للناتج (1 إلى 9) بألوانها المعتمدة:</span>
             </span>
             <div className="flex flex-wrap items-center gap-1.5">
               {REDUCED_NUMBERS.map(num => {
                 const isSelected = filters.selectedDigitalRoot === num;
+                // Specific distinctive colors for each fingerprint digit 1..9
+                let colorClass = '';
+                switch (num) {
+                  case 1:
+                    colorClass = isSelected
+                      ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-400 scale-105'
+                      : 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100';
+                    break;
+                  case 2:
+                    colorClass = isSelected
+                      ? 'bg-teal-600 text-white border-teal-700 ring-2 ring-teal-400 scale-105'
+                      : 'bg-teal-50 text-teal-950 border-teal-300 hover:bg-teal-100';
+                    break;
+                  case 3:
+                    colorClass = isSelected
+                      ? 'bg-amber-600 text-white border-amber-700 ring-2 ring-amber-400 scale-105'
+                      : 'bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100';
+                    break;
+                  case 4:
+                    colorClass = isSelected
+                      ? 'bg-sky-600 text-white border-sky-700 ring-2 ring-sky-400 scale-105'
+                      : 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100';
+                    break;
+                  case 5:
+                    colorClass = isSelected
+                      ? 'bg-purple-600 text-white border-purple-700 ring-2 ring-purple-400 scale-105'
+                      : 'bg-purple-50 text-purple-950 border-purple-300 hover:bg-purple-100';
+                    break;
+                  case 6:
+                    colorClass = isSelected
+                      ? 'bg-indigo-600 text-white border-indigo-700 ring-2 ring-indigo-400 scale-105'
+                      : 'bg-indigo-50 text-indigo-950 border-indigo-300 hover:bg-indigo-100';
+                    break;
+                  case 7:
+                    colorClass = isSelected
+                      ? 'bg-cyan-600 text-white border-cyan-700 ring-2 ring-cyan-400 scale-105'
+                      : 'bg-cyan-50 text-cyan-950 border-cyan-300 hover:bg-cyan-100';
+                    break;
+                  case 8:
+                    colorClass = isSelected
+                      ? 'bg-emerald-800 text-white border-emerald-900 ring-2 ring-emerald-500 scale-105'
+                      : 'bg-emerald-100/90 text-emerald-950 border-emerald-400 hover:bg-emerald-200';
+                    break;
+                  case 9:
+                    colorClass = isSelected
+                      ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border-amber-600 ring-2 ring-amber-400 font-black scale-105'
+                      : 'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-950 border-amber-300 hover:from-amber-200 hover:to-yellow-200 font-black';
+                    break;
+                  default:
+                    colorClass = 'bg-slate-100 text-slate-900 border-slate-300';
+                }
+
                 return (
                   <button
                     key={num}
                     type="button"
                     onClick={() => onFilterChange({ ...filters, selectedDigitalRoot: isSelected ? null : num })}
-                    className={`w-9 h-9 rounded-none text-sm font-black font-mono transition-all cursor-pointer flex items-center justify-center border ${
-                      isSelected
-                        ? 'bg-amber-500 text-slate-950 border-amber-600 font-extrabold shadow-sm ring-2 ring-amber-300'
-                        : 'bg-amber-50/60 text-amber-950 border-amber-200 hover:bg-amber-100'
-                    }`}
+                    className={`w-9 h-9 rounded-none text-sm font-black font-mono transition-all cursor-pointer flex items-center justify-center border shadow-xs ${colorClass}`}
                     title={`فلترة بالبصمة الأحادية = ${num}`}
                   >
                     {num}
@@ -387,51 +435,15 @@ export default function AdvancedFilterBar({
               <button
                 type="button"
                 onClick={() => onFilterChange({ ...filters, selectedDigitalRoot: null })}
-                className="text-[11px] text-rose-600 hover:underline font-bold mr-1"
+                className="text-[11px] text-rose-600 hover:underline font-black mr-1 cursor-pointer"
               >
                 إلغاء البصمة ✕
               </button>
             )}
           </div>
 
-          {/* Elite & Compact Buttons */}
+          {/* Quick Actions (Compact & Notes & Sub-Strips Toggle) */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Perfect Match (5/6 to 6/6) */}
-            <button
-              type="button"
-              onClick={() => onFilterChange({ ...filters, perfectMatchOnly: !filters.perfectMatchOnly })}
-              className={`px-3 py-1.5 text-xs font-black border transition-all cursor-pointer flex items-center gap-1.5 rounded-none ${
-                filters.perfectMatchOnly
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border-amber-600 shadow-md ring-2 ring-amber-300'
-                  : 'bg-amber-100/60 text-amber-950 border-amber-300 hover:bg-amber-200'
-              }`}
-              title="عرض الآيات ذات التوافق التام (من 5/6 إلى 6/6)"
-            >
-              <Crown className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
-              <span>التوافق التام (5/6 - 6/6) 🏆</span>
-              {filterCounts?.perfect_matches !== undefined && (
-                <span className="text-[10px] px-1 bg-amber-900 text-white rounded-xs">
-                  {filterCounts.perfect_matches}
-                </span>
-              )}
-            </button>
-
-            {/* Triple Match Elite */}
-            <button
-              type="button"
-              onClick={() => onFilterChange({ ...filters, tripleMatchOnly: !filters.tripleMatchOnly })}
-              className={`px-3 py-1.5 text-xs font-black border transition-all cursor-pointer flex items-center gap-1.5 rounded-none ${
-                filters.tripleMatchOnly
-                  ? 'bg-amber-600 text-white border-amber-800 shadow-md ring-2 ring-amber-300'
-                  : 'bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100'
-              }`}
-              title="عرض آيات النخبة النورانية المحققة للشروط الثلاثية الكاملة"
-            >
-              <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-              <span>آيات النخبة النورانية المطلقة 👑</span>
-              {filterCounts && <span className="text-[10px] opacity-80">({filterCounts.triple_match})</span>}
-            </button>
-
             {/* Compact Matches */}
             <button
               type="button"
@@ -456,7 +468,7 @@ export default function AdvancedFilterBar({
                   ? 'bg-purple-700 text-white border-purple-900 shadow-md ring-2 ring-purple-300'
                   : 'bg-purple-50 text-purple-950 border-purple-300 hover:bg-purple-100'
               }`}
-              title="تصفية وعرض الآيات التي تحوي ملاحظات الباحث المخصصة"
+              title="تصفية وععرض الآيات التي تحوي ملاحظات الباحث المخصصة"
             >
               <span className="text-xs">📝</span>
               <span>ملاحظات الباحث</span>
@@ -466,90 +478,143 @@ export default function AdvancedFilterBar({
                 </span>
               )}
             </button>
+
+            {/* Toggle for Reduced 1..9 Sub-Strips */}
+            <button
+              type="button"
+              onClick={() => setShowReducedDetails(!showReducedDetails)}
+              className="text-xs font-black text-indigo-700 hover:text-indigo-900 flex items-center gap-1 cursor-pointer whitespace-nowrap bg-white border border-indigo-200 px-2.5 py-1.5"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>{showReducedDetails ? 'إخفاء أشرطة الاختزال ▲' : 'أشرطة اختزال الأرقام ▼'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Mizan Colors Classifications */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-black text-slate-800">تصنيفات التوافق الميزاني:</span>
+        {/* Master Mizan & Noorani Elite Color Classifications (Unified, non-duplicated) */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+              <span className="text-base">🎨</span>
+              <span>تصنيفات التوافق الميزاني وآيات النخبة النورانية المطلقة (ألوان المنظومة المعتمدة):</span>
+            </span>
+            {(filters.mizanColor !== 'all' || filters.tripleMatchOnly) && (
+              <button
+                type="button"
+                onClick={() => onFilterChange({ ...filters, mizanColor: 'all', tripleMatchOnly: false })}
+                className="text-[11px] text-rose-600 hover:underline font-black cursor-pointer"
+              >
+                عرض كل التصنيفات ✕
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+            {/* 1. All */}
             <button
               type="button"
-              onClick={() => onFilterChange({ ...filters, mizanColor: 'all' })}
-              className={`px-2.5 py-1 text-xs font-bold transition-all cursor-pointer border rounded-none ${
-                filters.mizanColor === 'all'
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+              onClick={() => onFilterChange({ ...filters, mizanColor: 'all', tripleMatchOnly: false })}
+              className={`p-2.5 rounded-none border text-center transition-all cursor-pointer ${
+                filters.mizanColor === 'all' && !filters.tripleMatchOnly && !filters.compactOnly
+                  ? 'bg-slate-900 text-white border-slate-900 font-black shadow-sm ring-2 ring-slate-400'
+                  : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100 font-bold'
               }`}
             >
-              الكل ({filterCounts?.all || totalCount})
+              <span className="text-xs font-black block">كل الآيات</span>
+              <span className="text-[11px] font-mono mt-0.5 block opacity-90">{filterCounts?.all ?? totalCount} آية</span>
             </button>
+
+            {/* 2. Elite Triple Match */}
             <button
               type="button"
-              onClick={() => onFilterChange({ ...filters, mizanColor: 'golden' })}
-              className={`px-2.5 py-1 text-xs font-bold transition-all cursor-pointer border rounded-none ${
+              onClick={() => onFilterChange({ ...filters, tripleMatchOnly: !filters.tripleMatchOnly, mizanColor: filters.tripleMatchOnly ? 'all' : 'triple_match' })}
+              className={`p-2.5 rounded-none border text-center transition-all cursor-pointer ${
+                filters.tripleMatchOnly || filters.mizanColor === 'triple_match'
+                  ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 text-slate-950 border-amber-700 font-black shadow-md ring-2 ring-amber-400 scale-[1.02]'
+                  : 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-950 border-amber-300 hover:from-amber-100 hover:to-yellow-100 font-black'
+              }`}
+              title="آيات النخبة النورانية المطلقة المحققة للتوافق الثلاثي المتزامن (Triple Match)"
+            >
+              <span className="text-xs font-black flex items-center justify-center gap-1">👑 النخبة المطلقة</span>
+              <span className="text-[11px] font-mono mt-0.5 block font-black text-slate-950">
+                {filterCounts?.triple_match ?? 0} آية
+              </span>
+            </button>
+
+            {/* 3. Golden / Perfect Match 5-6 */}
+            <button
+              type="button"
+              onClick={() => onFilterChange({ ...filters, mizanColor: filters.mizanColor === 'golden' ? 'all' : 'golden', tripleMatchOnly: false })}
+              className={`p-2.5 rounded-none border text-center transition-all cursor-pointer ${
                 filters.mizanColor === 'golden'
-                  ? 'bg-amber-500 text-slate-950 border-amber-600 ring-2 ring-amber-300 font-black'
-                  : 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border-amber-600 font-black shadow-md ring-2 ring-amber-400 scale-[1.02]'
+                  : 'bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100 font-bold'
               }`}
+              title="تحقيق 5 من 6 أو 6 من 6 في موازين التوافق أو توافق مباشر"
             >
-              الذهبي 🌟 ({filterCounts?.golden || 0})
+              <span className="text-xs font-black flex items-center justify-center gap-1">🌟 التوافق التام (5-6)</span>
+              <span className="text-[11px] font-mono mt-0.5 block font-black">{filterCounts?.golden ?? 0} آية</span>
             </button>
+
+            {/* 4. Exact Green R=0 */}
             <button
               type="button"
-              onClick={() => onFilterChange({ ...filters, mizanColor: 'exact' })}
-              className={`px-2.5 py-1 text-xs font-bold transition-all cursor-pointer border rounded-none ${
+              onClick={() => onFilterChange({ ...filters, mizanColor: filters.mizanColor === 'exact' ? 'all' : 'exact', tripleMatchOnly: false })}
+              className={`p-2.5 rounded-none border text-center transition-all cursor-pointer ${
                 filters.mizanColor === 'exact'
-                  ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 font-black'
-                  : 'bg-emerald-50 border-emerald-300 text-emerald-950 hover:bg-emerald-100'
+                  ? 'bg-emerald-600 text-white border-emerald-800 font-black shadow-md ring-2 ring-emerald-300 scale-[1.02]'
+                  : 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100 font-bold'
               }`}
+              title="قسمة الجمل على المعامل بدون باقٍ حصراً (R=0)"
             >
-              الأخضر 🟢 ({filterCounts?.exact || 0})
+              <span className="text-xs font-black flex items-center justify-center gap-1">🟢 الرياضي الصرف (R=0)</span>
+              <span className="text-[11px] font-mono mt-0.5 block font-black">{filterCounts?.exact ?? 0} آية</span>
             </button>
+
+            {/* 5. Structural Blue */}
             <button
               type="button"
-              onClick={() => onFilterChange({ ...filters, mizanColor: 'structural' })}
-              className={`px-2.5 py-1 text-xs font-bold transition-all cursor-pointer border rounded-none ${
+              onClick={() => onFilterChange({ ...filters, mizanColor: filters.mizanColor === 'structural' ? 'all' : 'structural', tripleMatchOnly: false })}
+              className={`p-2.5 rounded-none border text-center transition-all cursor-pointer ${
                 filters.mizanColor === 'structural'
-                  ? 'bg-blue-600 text-white border-blue-700 ring-2 ring-blue-300 font-black'
-                  : 'bg-blue-50 border-blue-300 text-blue-950 hover:bg-blue-100'
+                  ? 'bg-blue-600 text-white border-blue-800 font-black shadow-md ring-2 ring-blue-300 scale-[1.02]'
+                  : 'bg-blue-50 text-blue-950 border-blue-300 hover:bg-blue-100 font-bold'
               }`}
+              title="انقسام الميزان الهيكلي أو الكثافة على المعامل بلا باقٍ"
             >
-              الأزرق 🔵 ({filterCounts?.structural || 0})
+              <span className="text-xs font-black flex items-center justify-center gap-1">🔵 الأزرق الهيكلي</span>
+              <span className="text-[11px] font-mono mt-0.5 block font-black">{filterCounts?.structural ?? 0} آية</span>
             </button>
+
+            {/* 6. Tawheed Yellow/Indigo */}
             <button
               type="button"
-              onClick={() => onFilterChange({ ...filters, mizanColor: 'tawheed' })}
-              className={`px-2.5 py-1 text-xs font-bold transition-all cursor-pointer border rounded-none ${
+              onClick={() => onFilterChange({ ...filters, mizanColor: filters.mizanColor === 'tawheed' ? 'all' : 'tawheed', tripleMatchOnly: false })}
+              className={`p-2.5 rounded-none border text-center transition-all cursor-pointer ${
                 filters.mizanColor === 'tawheed'
-                  ? 'bg-indigo-600 text-white border-indigo-700 ring-2 ring-indigo-300 font-black'
-                  : 'bg-indigo-50 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
+                  ? 'bg-indigo-700 text-white border-indigo-900 font-black shadow-md ring-2 ring-indigo-300 scale-[1.02]'
+                  : 'bg-indigo-50 text-indigo-950 border-indigo-300 hover:bg-indigo-100 font-bold'
               }`}
+              title="تحقيق شفرة التوحيد المشترك (11) في الكثافة أو الاختزال الذاتي للرقم (1)"
             >
-              التوحيدي 💛 ({filterCounts?.tawheed || 0})
+              <span className="text-xs font-black flex items-center justify-center gap-1">💛 التوحيدي المشع</span>
+              <span className="text-[11px] font-mono mt-0.5 block font-black">{filterCounts?.tawheed ?? 0} آية</span>
             </button>
+
+            {/* 7. Not Compatible Pink */}
             <button
               type="button"
-              onClick={() => onFilterChange({ ...filters, mizanColor: 'not_compatible' })}
-              className={`px-2.5 py-1 text-xs font-bold transition-all cursor-pointer border rounded-none ${
+              onClick={() => onFilterChange({ ...filters, mizanColor: filters.mizanColor === 'not_compatible' ? 'all' : 'not_compatible', tripleMatchOnly: false })}
+              className={`p-2.5 rounded-none border text-center transition-all cursor-pointer ${
                 filters.mizanColor === 'not_compatible'
-                  ? 'bg-rose-600 text-white border-rose-700 ring-2 ring-rose-300 font-black'
-                  : 'bg-rose-50 border-rose-300 text-rose-950 hover:bg-rose-100'
+                  ? 'bg-rose-600 text-white border-rose-800 font-black shadow-md ring-2 ring-rose-300 scale-[1.02]'
+                  : 'bg-rose-50 text-rose-950 border-rose-200 hover:bg-rose-100 font-bold'
               }`}
+              title="آيات ذات كسر بنياني لم تُحقق شروط التوافق الحالية"
             >
-              الأحمر 🔴 ({filterCounts?.not_compatible || 0})
+              <span className="text-xs font-black flex items-center justify-center gap-1">🔴 كسر بنياني</span>
+              <span className="text-[11px] font-mono mt-0.5 block font-black">{filterCounts?.not_compatible ?? 0} آية</span>
             </button>
           </div>
-
-          {/* Toggle for Reduced 1..9 Sub-Strips */}
-          <button
-            type="button"
-            onClick={() => setShowReducedDetails(!showReducedDetails)}
-            className="text-xs font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 cursor-pointer"
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>{showReducedDetails ? 'إخفاء أشرطة الاختزال 1-9 ▲' : 'أشرطة اختزال الأرقام (1-9) ▼'}</span>
-          </button>
         </div>
       </div>
 

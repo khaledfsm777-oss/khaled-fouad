@@ -1110,7 +1110,8 @@ export default function QuranOutput({
       const activeColor = advancedFilters.mizanColor !== 'all' ? advancedFilters.mizanColor : mizanFilter;
       if (activeColor !== 'all') {
         if (activeColor === 'verified_exact') {
-          if (v.jummalValue <= 0 || surahCoeff <= 0 || v.jummalValue % surahCoeff !== 0) return false;
+          const divisor = isNoorani ? (track.digitalRoot || 1) : surahCoeff;
+          if (v.jummalValue <= 0 || divisor <= 0 || v.jummalValue % divisor !== 0) return false;
         } else if (activeColor === 'golden') {
           if (isShuraCombined) {
             const isPerf = (compH.score >= 5 || compH.isDirectMatch) || (compA.score >= 5 || compA.isDirectMatch);
@@ -2853,39 +2854,11 @@ export default function QuranOutput({
                   const sumReduction = reduceDigitalRoot(sumValue);
                   const verseNumVal = parseInt(v.verseNumber, 10) || v.id || 1;
 
-                  // ربط مؤشرات المصفوفة الستة دون أدنى إزاحة:
-                  // 1. الميزان الأكبر: قسمة الجمل على المعامل بدون باقٍ حصراً
-                  const m1 = isExact;
-                  // 2. الميزان الهيكلي: (الجمل + رقم الآية) ÷ المعامل بدون باقٍ
-                  const m2 = divisor > 0 && ((v.jummalValue + verseNumVal) % divisor === 0);
-                  // 3. ميزان الكثافة: (الكلمات + الحروف) ÷ المعامل بدون باقٍ
-                  const m3 = divisor > 0 && ((v.wordCount + v.letterCount) % divisor === 0);
-                  // 4. الميزان التراكمي الشامل ÷ المعامل بدون باقٍ
-                  const m4 = divisor > 0 && ((v.jummalValue + (v.jummalValue + verseNumVal) + (v.wordCount + v.letterCount)) % divisor === 0);
-                  // 5. ميزان الاختزال الذاتي: أس الآية = أس المعامل أو الأس السيادي 9
-                  const m5 = (divisor > 0 && reduceDigitalRoot(v.jummalValue) === reduceDigitalRoot(divisor)) || reduceDigitalRoot(v.jummalValue) === 9;
-                  // 6. ميزان رقم الآية السنني: رقم الآية ÷ المعامل بدون باقٍ أو تطابق أس الآية
-                  const m6 = (divisor > 0 && verseNumVal % divisor === 0) || (divisor > 0 && reduceDigitalRoot(verseNumVal) === reduceDigitalRoot(divisor));
-
-                  const strictConditions = [m1, m2, m3, m4, m5, m6];
-                  const strictScore = strictConditions.filter(Boolean).length;
-
-                  let rowStatusLabel = 'غير متوافقة';
-                  let rowStatusColor = 'bg-rose-50 text-rose-700 border-rose-100';
-
-                  if (strictScore === 6) {
-                    rowStatusLabel = 'توافق تام مطلق (6/6) 🌟';
-                    rowStatusColor = 'bg-amber-100 text-amber-950 border-amber-400 font-black';
-                  } else if (strictScore === 5) {
-                    rowStatusLabel = 'توافق تام (5/6) 🌟';
-                    rowStatusColor = 'bg-amber-100 text-amber-950 border-amber-400 font-black';
-                  } else if (isExact) {
-                    rowStatusLabel = 'متوافقة تماماً (قسمة بلا باق) ✅';
-                    rowStatusColor = 'bg-emerald-100 text-emerald-950 border-emerald-300 font-black';
-                  } else if (strictScore >= 1) {
-                    rowStatusLabel = 'متوافقة بنيوياً';
-                    rowStatusColor = 'bg-blue-50 text-blue-700 border-blue-100';
-                  }
+                  // ربط مؤشرات المصفوفة الستة دون أدنى إزاحة من المصدر المركزي الموحد (comp):
+                  const strictConditions = comp.conditions;
+                  const strictScore = comp.score;
+                  const rowStatusLabel = comp.statusLabel;
+                  const rowStatusColor = comp.statusColor;
                   
                   const isDirectMatch = comp?.isDirectMatch;
 
@@ -3093,12 +3066,12 @@ export default function QuranOutput({
                             <div className="flex gap-0.5 justify-center mt-0.5" dir="rtl">
                               {strictConditions.map((c, i) => {
                                 const names = [
-                                  `1. الميزان الأكبر: قسمة الجمل (${v.jummalValue}) على المعامل (${divisor}) [${m1 ? 'متحقق بدون باقٍ ✅' : 'غير متحقق (يوجد باقٍ) ❌'}]`,
-                                  `2. الميزان الهيكلي: (الجمل + رقم الآية = ${v.jummalValue + verseNumVal}) ÷ المعامل (${divisor}) [${m2 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
-                                  `3. ميزان الكثافة: (الكلمات + الحروف = ${v.wordCount + v.letterCount}) ÷ المعامل (${divisor}) [${m3 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
-                                  `4. الميزان التراكمي الشامل ÷ المعامل (${divisor}) [${m4 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
-                                  `5. ميزان الاختزال الذاتي: أس الآية (${reduceDigitalRoot(v.jummalValue)}) = أس المعامل (${reduceDigitalRoot(divisor)}) [${m5 ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
-                                  `6. ميزان رقم الآية السنني: الآية (${verseNumVal}) ÷ (${divisor}) [${m6 ? 'متحقق ✅' : 'غير متحقق ❌'}]`
+                                  `1. الميزان الأكبر: قسمة الجمل (${v.jummalValue}) على المعامل (${divisor}) [${strictConditions[0] ? 'متحقق بدون باقٍ ✅' : 'غير متحقق (يوجد باقٍ) ❌'}]`,
+                                  `2. الميزان الهيكلي: (الجمل + رقم الآية = ${v.jummalValue + verseNumVal}) ÷ المعامل (${divisor}) [${strictConditions[1] ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                  `3. ميزان الكثافة: (الكلمات + الحروف = ${v.wordCount + v.letterCount}) ÷ المعامل (${divisor}) [${strictConditions[2] ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                  `4. الميزان التراكمي الشامل ÷ المعامل (${divisor}) [${strictConditions[3] ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                  `5. ميزان الاختزال الذاتي: أس الآية (${reduceDigitalRoot(v.jummalValue)}) = أس المعامل (${reduceDigitalRoot(divisor)}) أو 9 [${strictConditions[4] ? 'متحقق ✅' : 'غير متحقق ❌'}]`,
+                                  `6. ميزان رقم الآية السنني: الآية (${verseNumVal}) ÷ (${divisor}) أو تطابق الأس [${strictConditions[5] ? 'متحقق ✅' : 'غير متحقق ❌'}]`
                                 ];
                                 return (
                                   <span 
@@ -3145,10 +3118,18 @@ export default function QuranOutput({
                                 <span 
                                   title="البصمة الأحادية لمسار حم"
                                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-xs ${
-                                    compH.isDominantNine ? 'bg-amber-500 ring-1 ring-amber-300' :
+                                    compH.isDominantNine || fpH === 9 ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 ring-1 ring-amber-300 font-black' :
                                     compH.isDigitalMirror ? 'bg-emerald-600 ring-1 ring-emerald-300' :
                                     compH.isVerseFingerprint ? 'bg-indigo-600 ring-1 ring-indigo-300' :
-                                    'bg-slate-400 text-white'
+                                    fpH === 3 ? 'bg-amber-600' :
+                                    fpH === 5 ? 'bg-purple-600' :
+                                    fpH === 1 ? 'bg-emerald-600' :
+                                    fpH === 2 ? 'bg-teal-600' :
+                                    fpH === 4 ? 'bg-sky-600' :
+                                    fpH === 6 ? 'bg-indigo-600' :
+                                    fpH === 7 ? 'bg-cyan-600' :
+                                    fpH === 8 ? 'bg-emerald-800' :
+                                    'bg-slate-700 text-white'
                                   }`}
                                 >
                                   {fpH}
@@ -3168,10 +3149,18 @@ export default function QuranOutput({
                                 <span 
                                   title="البصمة الأحادية لمسار عسق"
                                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-xs ${
-                                    compA.isDominantNine ? 'bg-amber-500 ring-1 ring-amber-300' :
+                                    compA.isDominantNine || fpA === 9 ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 ring-1 ring-amber-300 font-black' :
                                     compA.isDigitalMirror ? 'bg-emerald-600 ring-1 ring-emerald-300' :
                                     compA.isVerseFingerprint ? 'bg-indigo-600 ring-1 ring-indigo-300' :
-                                    'bg-slate-400 text-white'
+                                    fpA === 5 ? 'bg-purple-600' :
+                                    fpA === 3 ? 'bg-amber-600' :
+                                    fpA === 1 ? 'bg-emerald-600' :
+                                    fpA === 2 ? 'bg-teal-600' :
+                                    fpA === 4 ? 'bg-sky-600' :
+                                    fpA === 6 ? 'bg-indigo-600' :
+                                    fpA === 7 ? 'bg-cyan-600' :
+                                    fpA === 8 ? 'bg-emerald-800' :
+                                    'bg-slate-700 text-white'
                                   }`}
                                 >
                                   {fpA}
@@ -3219,12 +3208,20 @@ export default function QuranOutput({
                             {/* Circular color-coded digit badge */}
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span 
-                                title="البصمة الأحادية للآية"
-                                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm transition-all duration-300 ${
-                                  comp.isDominantNine ? 'bg-amber-500 ring-2 ring-amber-300 scale-105 animate-pulse' :
-                                  comp.isDigitalMirror ? 'bg-emerald-600 ring-2 ring-emerald-300' :
-                                  comp.isVerseFingerprint ? 'bg-indigo-600 ring-2 ring-indigo-300' :
-                                  'bg-slate-300 text-slate-700 font-bold'
+                                title={`البصمة الأحادية للآية: ${comp.finalSingleDigit}`}
+                                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shadow-sm transition-all duration-300 ${
+                                  comp.isDominantNine || comp.finalSingleDigit === 9 ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 ring-2 ring-amber-300 scale-105 animate-pulse font-black' :
+                                  comp.isDigitalMirror ? 'bg-emerald-600 text-white ring-2 ring-emerald-300 font-black' :
+                                  comp.isVerseFingerprint ? 'bg-indigo-600 text-white ring-2 ring-indigo-300 font-black' :
+                                  comp.finalSingleDigit === 1 ? 'bg-emerald-600 text-white ring-1 ring-emerald-300 font-black' :
+                                  comp.finalSingleDigit === 2 ? 'bg-teal-600 text-white ring-1 ring-teal-300 font-black' :
+                                  comp.finalSingleDigit === 3 ? 'bg-amber-600 text-white ring-1 ring-amber-300 font-black' :
+                                  comp.finalSingleDigit === 4 ? 'bg-sky-600 text-white ring-1 ring-sky-300 font-black' :
+                                  comp.finalSingleDigit === 5 ? 'bg-purple-600 text-white ring-1 ring-purple-300 font-black' :
+                                  comp.finalSingleDigit === 6 ? 'bg-indigo-600 text-white ring-1 ring-indigo-300 font-black' :
+                                  comp.finalSingleDigit === 7 ? 'bg-cyan-600 text-white ring-1 ring-cyan-300 font-black' :
+                                  comp.finalSingleDigit === 8 ? 'bg-emerald-800 text-white ring-1 ring-emerald-400 font-black' :
+                                  'bg-slate-700 text-white font-bold'
                                 }`}
                               >
                                 {comp.finalSingleDigit}

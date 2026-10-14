@@ -885,12 +885,28 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const verseDigitalRoot = reduceDigitalRoot(jummal);
   const jummalReduced = verseDigitalRoot;
 
-  // Surah Coefficient for Green Compatibility:
-  // For 29 Noorani Surahs -> its Noorani Rank (1..29)
-  // For Regular Surahs -> its Quranic Surah Number (1..114)
+  // --- RESOLVE NOORANI CONTEXT & COEFFICIENTS EARLY ---
+  const localSurah = NOORANI_SURAHS.find(ns => ns.id === (v.surahId || surahId));
+  const isNoorani = Boolean(localSurah || (surahObj.letters && surahObj.letters !== ''));
+  const localR = localSurah?.digitalRoot;
+  const localN = localSurah?.keyValue;
+  const localSurahId = localSurah?.id;
+  const collectiveR = isNoorani ? 8 : 0;
+  const collectiveN = isNoorani ? 733 : 0;
+
   const surahCoeff = getSurahCoefficient(surahId);
-  const isGreenExact = (jummal > 0 && surahCoeff > 0 && jummal % surahCoeff === 0);
-  const divisionQuotient = surahCoeff > 0 ? (jummal / surahCoeff) : 0;
+
+  // Active Divisor for the 6 structural balances:
+  // For Noorani Surahs: the track's digitalRoot (e.g. 8 for الم, 3 for حم, 5 for عسق)
+  // For Regular Surahs: the standard Quranic Surah Number / coefficient (1..114)
+  const activeDivisor = isNoorani
+    ? ((typeof surahObj?.digitalRoot === 'number' && surahObj.digitalRoot > 0)
+        ? surahObj.digitalRoot
+        : ((localR && localR > 0) ? localR : (R > 0 ? R : 1)))
+    : (surahCoeff > 0 ? surahCoeff : (surahId > 0 ? surahId : 1));
+
+  const isGreenExact = (jummal > 0 && activeDivisor > 0 && (jummal % activeDivisor === 0 || (isNoorani && N > 0 && jummal % N === 0)));
+  const divisionQuotient = activeDivisor > 0 ? (jummal / activeDivisor) : 0;
   const reducedQuotient = reduceDigitalRoot(Math.floor(divisionQuotient));
 
   const getDigitSum = (num: number): number => String(num).split('').reduce((sum, d) => sum + (parseInt(d, 10) || 0), 0);
@@ -945,14 +961,6 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   }
 
   // --- NEW INTEGRATED COMPATIBILITY CALCULATIONS ---
-  const localSurah = NOORANI_SURAHS.find(ns => ns.id === (v.surahId || surahId));
-  const isNoorani = Boolean(localSurah || (surahObj.letters && surahObj.letters !== ''));
-  const localR = localSurah?.digitalRoot;
-  const localN = localSurah?.keyValue;
-  const localSurahId = localSurah?.id;
-  const collectiveR = isNoorani ? 8 : 0;
-  const collectiveN = isNoorani ? 733 : 0;
-
   const reducedFactor = (typeof surahObj?.digitalRoot === 'number' && surahObj.digitalRoot > 0)
     ? surahObj.digitalRoot
     : (isNoorani
@@ -1135,14 +1143,11 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const originalFactorValue = isNoorani ? (N || surahId) : surahId;
   const isDirectMatch = jummal === originalFactorValue;
 
-  // Active Divisor: For Noorani surahs, use track digital root R or key value N; for non-Noorani, use Surah number / coefficient
-  const activeDivisor = isNoorani ? (R > 0 ? R : (N || surahCoeff)) : surahCoeff;
-  
   const checkDivisor = (val: number): boolean => {
     if (val <= 0) return false;
     if (activeDivisor > 0 && val % activeDivisor === 0) return true;
-    if (N > 0 && val % N === 0) return true;
-    if (surahCoeff > 0 && val % surahCoeff === 0) return true;
+    if (isNoorani && N > 0 && val % N === 0) return true;
+    if (!isNoorani && surahCoeff > 1 && val % surahCoeff === 0) return true;
     // Only check localR / localN if no explicit digitalRoot was specified in surahObj
     if (!surahObj?.digitalRoot && localR && val % localR === 0) return true;
     if (!surahObj?.keyValue && localN && val % localN === 0) return true;
@@ -1188,14 +1193,11 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
   const compatibilityScore = achievedSixRules.length;
   const score = compatibilityScore;
 
-  const isPerfectMatch = compatibilityScore >= 5; // 5/6 to 6/6 is registered as Perfect Match (توافق تام)!
+  const isPerfectMatch = compatibilityScore >= 5 || isDirectMatch;
 
   let statusLabel = '';
   let statusColor = '';
-  if (compatibilityScore === 0) {
-    statusLabel = 'غير متوافقة';
-    statusColor = 'bg-rose-50 text-rose-700 border-rose-100';
-  } else if (compatibilityScore === 6) {
+  if (compatibilityScore === 6) {
     statusLabel = 'توافق تام مطلق (6/6) 🌟';
     statusColor = 'bg-amber-100 text-amber-950 border-amber-400 font-black';
   } else if (compatibilityScore === 5) {
@@ -1203,10 +1205,13 @@ export function getCompatibilityDetails(v: any, s: NooraniSurah | { id: number; 
     statusColor = 'bg-amber-100 text-amber-950 border-amber-400 font-black';
   } else if (cond1) {
     statusLabel = 'متوافقة تماماً (قسمة بلا باق) ✅';
-    statusColor = 'bg-emerald-50 text-emerald-800 border-emerald-100';
+    statusColor = 'bg-emerald-100 text-emerald-950 border-emerald-300 font-black';
   } else if (compatibilityScore >= 1) {
     statusLabel = 'متوافقة بنيوياً';
     statusColor = 'bg-blue-50 text-blue-700 border-blue-100';
+  } else {
+    statusLabel = 'غير متوافقة';
+    statusColor = 'bg-rose-50 text-rose-700 border-rose-100';
   }
 
   return {
@@ -1365,12 +1370,11 @@ export function isTripleMatchElite(
   const localN = localSurah?.keyValue;
 
   const isCoeffDivisible =
-    comp.conditions[0] || // cond1: jummal % N === 0 or jummal % R === 0
+    comp.conditions[0] || // cond1: jummal % activeDivisor === 0 or jummal % N === 0
     comp.isDirectMatch ||
     (s.keyValue > 0 && v.jummalValue % s.keyValue === 0) ||
     (comp.reducedFactor > 0 && v.jummalValue % comp.reducedFactor === 0) ||
     (localR && v.jummalValue % localR === 0) ||
-    (localN && v.jummalValue % localN === 0) ||
     (effectiveSurahId > 0 && v.jummalValue % effectiveSurahId === 0) ||
     (v.jummalValue % 8 === 0);
 
