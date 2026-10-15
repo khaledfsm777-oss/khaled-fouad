@@ -4,12 +4,10 @@ import { parseAndAnalyzeVerses, NOORANI_SURAHS, NooraniSurah, ALL_29_NOORANI_SUR
 import { ALL_SURAHS } from './utils/surahList';
 import quranData from './utils/quranData';
 import HelpSection from './components/HelpSection';
-import Calculator from './components/Calculator';
 import QuranInput from './components/QuranInput';
 import QuranOutput from './components/QuranOutput';
 import AiAnalysis from './components/AiAnalysis';
 import NooraniCharts from './components/NooraniCharts';
-import SurahCard from './components/SurahCard';
 import BonyanLogo from './components/BonyanLogo';
 import NooraniWordExplorer from './components/NooraniWordExplorer';
 import MushafReader from './components/MushafReader';
@@ -18,7 +16,7 @@ import { defaultAnkabutPresetText } from './utils/presets';
 import { useGlobalProgress } from './context/ProgressContext';
 import { safeStorage } from './utils/safeStorage';
 import { 
-  Compass, LayoutGrid, Calculator as CalcIcon, BookOpen, 
+  Compass, LayoutGrid, BookOpen, 
   Sparkles, FileText, Brain, GraduationCap, BarChart2, CheckCircle2,
   BookOpen as BookIcon, LogOut, Info, RefreshCw, ChevronLeft, Calendar, Mail,
   Download, Smartphone
@@ -26,7 +24,7 @@ import {
 
 interface SavedSessionState {
   currentScreen: 'main' | 'portal' | 'mushaf';
-  activeTab: 'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide';
+  activeTab: 'verses' | 'noorani_words' | 'charts' | 'ai' | 'guide';
   activeSurah: NooraniSurah | null;
   tableCurrentPage: number;
   tablePageSize: number;
@@ -83,8 +81,11 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'main' | 'portal' | 'mushaf'>(() => {
     return initialSession?.currentScreen || 'main';
   });
-  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'metadata' | 'calculator' | 'ai' | 'guide'>(() => {
-    return initialSession?.activeTab || 'verses';
+  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'ai' | 'guide'>(() => {
+    if ((initialSession?.activeTab as any) === 'calculator' || (initialSession?.activeTab as any) === 'metadata') {
+      return 'verses';
+    }
+    return (initialSession?.activeTab as any) || 'verses';
   });
 
   // Shared active Surah selection (persisted across app switches)
@@ -231,9 +232,9 @@ export default function App() {
         setTableCurrentPage(1);
         setSelectedVerseId(results[0]?.id || null);
         updateProgress(90, 'إعداد جداول المخرجات والرسوم...');
-        // Switch view to output verses
+        // Switch view to output verses (preserve ai if navigating to smart report)
         setCurrentScreen('portal');
-        setActiveTab('verses');
+        setActiveTab(prev => (prev === 'ai' ? 'ai' : 'verses'));
         finishProgress(`تم تحليل ${results.length} آية بنجاح تام`);
       } catch (err) {
         console.error('Analysis error:', err);
@@ -378,6 +379,8 @@ export default function App() {
     try {
       safeStorage.removeItem('bonyan_session_state');
       safeStorage.removeItem('bonyan_session_active');
+      safeStorage.removeItem('bonyan_ai_selected_surah');
+      safeStorage.removeItem('bonyan_ai_last_analysis');
       if (typeof window !== 'undefined') {
         try { window.sessionStorage.removeItem('bonyan_session_active'); } catch {}
       }
@@ -400,6 +403,8 @@ export default function App() {
     try {
       safeStorage.removeItem('bonyan_session_state');
       safeStorage.removeItem('bonyan_session_active');
+      safeStorage.removeItem('bonyan_ai_selected_surah');
+      safeStorage.removeItem('bonyan_ai_last_analysis');
       if (typeof window !== 'undefined') {
         try { window.sessionStorage.removeItem('bonyan_session_active'); } catch {}
       }
@@ -730,24 +735,7 @@ export default function App() {
                   </div>
                 </button>
 
-                {/* Button 3: Surah Metadata Card */}
-                <button
-                  onClick={() => {
-                    setCurrentScreen('portal');
-                    setActiveTab('metadata');
-                  }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
-                >
-                  <div className="absolute top-0 right-0 left-0 h-1 bg-teal-600 rounded-t-2xl" />
-                  <div className="flex justify-between items-start w-full">
-                    <span className="text-2xl group-hover:scale-110 transition-transform">📋</span>
-                    <span className="text-[10px] bg-teal-600 text-white font-black px-2 py-0.5 rounded-md">سجل السورة الكبرى</span>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">بطاقات تعريف وإحصائيات السور</h4>
-                    <p className="text-[10px] text-slate-400 mt-1">عرض أسباب النزول والمقاييس الكاملة لـ 29 سورة.</p>
-                  </div>
-                </button>
+
 
                 {/* Button 4: Noorani Wave Charts */}
                 <button
@@ -768,26 +756,7 @@ export default function App() {
                   </div>
                 </button>
 
-                {/* Button 5: Instant Calculator */}
-                <button
-                  onClick={() => {
-                    setCurrentScreen('portal');
-                    setActiveTab('calculator');
-                  }}
-                  className="bg-white border border-slate-200/80 hover:border-amber-500 p-6 text-right transition-all group hover:bg-[#faf9f4] cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
-                >
-                  <div className="absolute top-0 right-0 left-0 h-1 bg-violet-600 rounded-t-2xl" />
-                  <div className="flex justify-between items-start w-full">
-                    <span className="text-2xl group-hover:scale-110 transition-transform">🧮</span>
-                    <span className="text-[10px] bg-violet-600 text-white font-black px-2 py-0.5 rounded-md">حاسبة حرّة</span>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">الحاسبة الأبجدية وحساب الجمل</h4>
-                    <p className="text-[10px] text-slate-400 mt-1">استخراج المعايير للأحرف والجمل والكلمات العشوائية.</p>
-                  </div>
-                </button>
-
-                {/* Button 6: AI Advisor */}
+                {/* Button 5: AI Advisor */}
                 <button
                   onClick={() => {
                     setCurrentScreen('portal');
@@ -944,8 +913,6 @@ export default function App() {
                     {activeTab === 'verses' && 'الشاشة المتكاملة للتحليل والبحث ومخرجات الجداول'}
                     {activeTab === 'noorani_words' && 'مستكشف الكلمات النورانية الشامل (29 سورة)'}
                     {activeTab === 'charts' && 'الرسوم البيانية والموجات'}
-                    {activeTab === 'metadata' && 'الوزن والبطاقة التعريفية للـ 29'}
-                    {activeTab === 'calculator' && 'حاسبة الجمل المفتوحة'}
                     {activeTab === 'ai' && 'مفسّر البنيان بالذكاء الاصطناعي'}
                     {activeTab === 'guide' && 'دليل العمل الأبجدي وقواعد البرنامج'}
                   </span>
@@ -996,32 +963,6 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('metadata')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-black transition-all rounded-xl whitespace-nowrap cursor-pointer ${
-                  activeTab === 'metadata'
-                    ? 'bg-emerald-900 text-white shadow-md'
-                    : 'text-slate-600 hover:text-emerald-900 hover:bg-emerald-50'
-                }`}
-              >
-                <BookIcon className="w-3.5 h-3.5" />
-                <span>بطاقة السورة 📋</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('calculator')}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-black transition-all rounded-xl whitespace-nowrap cursor-pointer ${
-                  activeTab === 'calculator'
-                    ? 'bg-emerald-900 text-white shadow-md'
-                    : 'text-slate-600 hover:text-emerald-900 hover:bg-emerald-50'
-                }`}
-              >
-                <CalcIcon className="w-3.5 h-3.5" />
-                <span>الحاسبة الفورية</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setActiveTab('ai')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-black transition-all rounded-xl whitespace-nowrap cursor-pointer ${
                   activeTab === 'ai'
@@ -1055,7 +996,27 @@ export default function App() {
                     <QuranInput 
                       onAnalyze={handleAnalyze} 
                       onAnalyze29={handleAnalyze29}
-                      onOpenSmartReport={() => setActiveTab('ai')}
+                      onOpenSmartReport={(targetSurahId?: number) => {
+                        if (targetSurahId) {
+                          const matchedNoorani = NOORANI_SURAHS.find(s => s.id === targetSurahId);
+                          if (matchedNoorani) {
+                            setActiveSurah(matchedNoorani);
+                          } else {
+                            const matchedGeneral = ALL_SURAHS.find(s => s.id === targetSurahId);
+                            if (matchedGeneral) {
+                              setActiveSurah({
+                                id: matchedGeneral.id,
+                                name: matchedGeneral.name,
+                                letters: '',
+                                keyValue: 0,
+                                digitalRoot: 0
+                              });
+                            }
+                          }
+                        }
+                        setCurrentScreen('portal');
+                        setActiveTab('ai');
+                      }}
                       isLoading={isLoading} 
                       activeSurah={activeSurah}
                       setActiveSurah={setActiveSurah}
@@ -1097,56 +1058,6 @@ export default function App() {
                   setPreviewChartInOutput={setPreviewChartInOutput}
                 />
               )}
-
-              {activeTab === 'metadata' && (
-                <div className="space-y-6">
-                  {activeSurah ? (
-                    <div className="bg-amber-50 p-4 border border-amber-200 text-right text-xs text-amber-900 font-bold rounded-none flex items-center justify-between">
-                      <span>
-                        📌 هذه البطاقة والوزن الحسابي لأس الكلمات تعتمد على المفتاح النوراني النشط: <strong>سورة {activeSurah.name} ({activeSurah.letters})</strong>
-                      </span>
-                      <select
-                        value={activeSurah.id}
-                        onChange={(e) => {
-                          const selected = NOORANI_SURAHS.find(s => s.id === parseInt(e.target.value));
-                          if (selected) setActiveSurah(selected);
-                        }}
-                        className="bg-white border text-xs font-bold p-1 rounded-none text-right cursor-pointer"
-                      >
-                        {NOORANI_SURAHS.map(s => (
-                          <option key={s.id} value={s.id}>
-                            سورة {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div className="bg-amber-50 p-4 border border-amber-200 text-right text-xs text-amber-900 font-bold rounded-none flex items-center justify-between">
-                      <span>
-                        📌 الرجاء تحديد السورة النورانية لتفعيل بطاقة المعالم والخصائص:
-                      </span>
-                      <select
-                        value=""
-                        onChange={(e) => {
-                          const selected = NOORANI_SURAHS.find(s => s.id === parseInt(e.target.value));
-                          if (selected) setActiveSurah(selected);
-                        }}
-                        className="bg-white border text-xs font-bold p-1 rounded-none text-right cursor-pointer"
-                      >
-                        <option value="">اختر سورة الكريّمة...</option>
-                        {NOORANI_SURAHS.map(s => (
-                          <option key={s.id} value={s.id}>
-                            سورة {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <SurahCard activeSurah={activeSurah} />
-                </div>
-              )}
-
-              {activeTab === 'calculator' && <Calculator />}
 
               {activeTab === 'guide' && <HelpSection />}
 

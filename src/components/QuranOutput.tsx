@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Verse, AnalysisSummary } from '../types';
+import { Verse } from '../types';
 import { 
-  calculateSummary, 
   reduceDigitalRoot, 
   NOORANI_SURAHS, 
   cleanForCalculations, 
@@ -586,10 +585,6 @@ export default function QuranOutput({
     };
   }, [activeSurah, isNoorani, selectedShuraTab]);
 
-  // Calculate stats on currently loaded verses
-  const summary = useMemo(() => {
-    return calculateSummary(verses);
-  }, [verses]);
 
   // Count verified verses for active surah key
   const verificationStats = useMemo(() => {
@@ -2309,129 +2304,7 @@ export default function QuranOutput({
         )}
       </div>
 
-      {/* DEDICATED SMART INTERPRETER CONTROL CENTER - HIGH-VISIBILITY FOR LAPTOPS */}
-      {verses.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-500/10 to-amber-600/5 border-2 border-amber-500/40 p-6 rounded-none relative shadow-md flex flex-col md:flex-row items-center justify-between gap-6 animate-fade-in">
-          <div className="absolute top-0 right-0 left-0 h-1 bg-amber-500" />
-          <div className="space-y-2 text-right flex-1">
-            <h4 className="text-sm font-black text-amber-900 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-600 animate-pulse" />
-              مُـفـسّـر الـبـنـيـان الـذكـي الشّـامـل (الـتـقـريـر الـذهـبـي الأكـاديـمـي) 🌟
-            </h4>
-            <p className="text-xs text-slate-700 leading-relaxed max-w-4xl">
-              اضغط على الزر الذهبي لبدء تشغيل محرّك الاستقصاء النوراني والتحقق الميزاني. يقوم المفسّر بتحليل شامل لكافة الآيات المُستخرجة، وتصنيف درجات توافقها بالألوان البنيوية (الذهبي، الأخضر، الأزرق، الأحمر) وموازين التوحيد، مع صياغة التفسير الرياضي والملاحظات العلمية القيمة لكل آية وحفظها في التقرير تلقائياً.
-            </p>
-          </div>
-          <div className="flex flex-col items-stretch sm:items-end gap-2 w-full md:w-auto">
-            <button
-              type="button"
-              disabled={isReportLoading}
-              onClick={handleCopySummary}
-              className={`px-6 py-3.5 text-xs font-black border-2 rounded-none flex items-center justify-center gap-2 transition-all cursor-pointer transform hover:scale-[1.01] active:scale-[0.99] ${
-                isReportLoading 
-                  ? 'bg-amber-100 border-amber-300 text-amber-800 cursor-not-allowed animate-pulse'
-                  : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white border-amber-400 hover:border-amber-500 shadow-md shadow-amber-500/15'
-              }`}
-              title="توليد وتصدير دراسة موازين الألوان بالمفسر الذكي"
-            >
-              {isReportLoading ? (
-                <RefreshCw className="w-4 h-4 text-white animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4 text-amber-100 animate-bounce" />
-              )}
-              <span>
-                {isReportLoading 
-                  ? 'جاري تجميع دراسة الألوان والتحقق الأكاديمي...' 
-                  : isCopied 
-                    ? 'تم نسخ وحفظ التقرير والدراسة بنجاح! 📄✨' 
-                    : '⚡ تشغيل المفسّر الذكي وتصدير دراسة الألوان المشرقة'}
-              </span>
-            </button>
-            <p className="text-[10px] text-amber-700 text-center md:text-left">
-              * يدعم التقرير تصدير الرسوم البيانية وموجات التحقق الرقمي والتأويل العقائدي للأرقام.
-            </p>
-          </div>
-        </div>
-      )}
 
-      {/* Current Active Key badge panel */}
-      {isNoorani && (
-        <div className="bg-white border-2 border-slate-200 p-4 rounded-none relative">
-          <div className="absolute top-0 right-0 left-0 h-1 bg-teal-600" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-            <div className="bg-teal-50/80 border border-teal-200 p-2.5 rounded-none text-center">
-              <span className="text-[10px] text-teal-700 font-bold block">
-                {activeSurah.id === 42 
-                  ? (selectedShuraTab === 'combined' 
-                      ? 'المساران المستقلان (حم 1 و عسق 2)' 
-                      : selectedShuraTab === 'asaq' ? 'المفتاح النشط: عسق (الآية 2)' : 'المفتاح النشط: حم (الآية 1)')
-                  : `المفتاح النشط للسورة (${activeSurah.name})`
-                }
-              </span>
-              <span className="text-base sm:text-lg font-black text-teal-950 block quran-font mt-0.5">
-                {activeSurah.id === 42
-                  ? (selectedShuraTab === 'combined' ? 'حم ⟷ عسق' : selectedShuraTab === 'asaq' ? 'عسق' : 'حم')
-                  : activeSurah.letters
-                }
-              </span>
-            </div>
-            <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-none text-center">
-              <span className="text-[10px] text-slate-500 font-bold block">قيمة الثابت للأصل (Key)</span>
-              <span className="text-base sm:text-lg font-black text-slate-900 font-mono block mt-0.5">
-                {activeSurah.id === 42
-                  ? (selectedShuraTab === 'combined' ? '48 (حم) | 230 (عسق)' : selectedShuraTab === 'asaq' ? '230' : '48')
-                  : activeSurah.keyValue
-                }
-              </span>
-            </div>
-            <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-none text-center">
-              <span className="text-[10px] text-slate-500 font-bold block">المعامل النوراني (الاختزال)</span>
-              <span className="text-base sm:text-lg font-black text-slate-800 font-mono block mt-0.5">
-                {activeSurah.id === 42
-                  ? (selectedShuraTab === 'combined' ? '3 (حم) | 5 (عسق)' : selectedShuraTab === 'asaq' ? '5' : '3')
-                  : activeSurah.digitalRoot
-                }
-              </span>
-            </div>
-            <div className="bg-slate-900 text-white p-2.5 rounded-none text-center flex flex-col justify-center">
-              <span className="text-[10px] text-slate-300 font-bold block">مجموع الآيات المحقّقة</span>
-              <span className="text-xs sm:text-sm font-black text-emerald-400 mt-0.5 block">
-                {activeSurah.id === 42 && selectedShuraTab === 'combined'
-                  ? `${verificationStats.exactCount} آية متوافقة مع المسارين (÷ 15)`
-                  : `${verificationStats.exactCount} آيات متوافقة`
-                }
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Aggregate Overview Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
-        <div className="bg-white border-2 border-slate-200 rounded-none p-3 sm:p-3.5 text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-8 h-1 bg-slate-400" />
-          <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">إجمالي الآيات</span>
-          <span className="text-xl sm:text-2xl font-black text-slate-900 font-sans block mt-1">{summary.totalVerses}</span>
-          <span className="text-[9px] text-slate-400 mt-0.5 block font-medium">بنية لغوية كاملة</span>
-        </div>
-        <div className="bg-white border-2 border-slate-200 rounded-none p-3 sm:p-3.5 text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-8 h-1 bg-slate-600" />
-          <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">إجمالي الكلمات</span>
-          <span className="text-xl sm:text-2xl font-black text-slate-900 font-sans block mt-1">{summary.totalWords}</span>
-          <span className="text-[9px] text-slate-400 mt-0.5 block font-medium">نبضات لغوية متكاملة</span>
-        </div>
-        <div className="bg-white border-2 border-slate-200 rounded-none p-3 sm:p-3.5 text-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-8 h-1 bg-slate-800" />
-          <span className="text-[11px] font-bold text-slate-500 block uppercase tracking-wider">إجمالي الحروف</span>
-          <span className="text-xl sm:text-2xl font-black text-slate-900 font-sans block mt-1">{summary.totalLetters}</span>
-          <span className="text-[9px] text-slate-400 mt-0.5 block font-medium">رسم المصحف المستقصى</span>
-        </div>
-        <div className="bg-slate-900 border-2 border-slate-900 text-white rounded-none p-3 sm:p-3.5 text-center relative overflow-hidden">
-          <span className="text-[11px] font-bold text-slate-300 block uppercase tracking-wider">إجمالي حساب الجمل</span>
-          <span className="text-xl sm:text-2xl font-black text-emerald-400 font-sans block mt-1">{summary.totalJummal}</span>
-          <span className="text-[9px] text-slate-400 mt-0.5 block font-medium">الوزن التشغيلي الأكبر</span>
-        </div>
-      </div>
 
       {/* Wave Preview inside Output Screen for Al-Bunyan */}
       {previewChartInOutput && activeSurah && points.length > 0 && (

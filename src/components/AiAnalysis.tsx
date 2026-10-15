@@ -59,17 +59,8 @@ interface AiAnalysisProps {
 }
 
 export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, history, setHistory }: AiAnalysisProps) {
-  // Local selected Surah (restored from safeStorage, or parent surah, or null for default "اختر سورة قرآنية")
+  // Local selected Surah: synchronized with active surah, defaults to null ("اختيار سورة") so it stands at selection state on exit/re-entry
   const [selectedSurahId, setSelectedSurahId] = useState<number | null>(() => {
-    try {
-      const saved = safeStorage.getItem('bonyan_ai_selected_surah');
-      if (saved !== null && saved !== '') {
-        const id = parseInt(saved, 10);
-        if (!isNaN(id) && NOORANI_SURAHS.some(s => s.id === id)) {
-          return id;
-        }
-      }
-    } catch {}
     if (parentActiveSurah && NOORANI_SURAHS.some(s => s.id === parentActiveSurah.id)) {
       return parentActiveSurah.id;
     }
@@ -81,23 +72,22 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     return NOORANI_SURAHS.find(s => s.id === selectedSurahId) || null;
   }, [selectedSurahId]);
 
-  // Keep synced if parent changes
+  // Keep synced if parent changes or resets
   useEffect(() => {
-    if (parentActiveSurah && NOORANI_SURAHS.some(s => s.id === parentActiveSurah.id) && parentActiveSurah.id !== selectedSurahId) {
-      setSelectedSurahId(parentActiveSurah.id);
+    if (parentActiveSurah && NOORANI_SURAHS.some(s => s.id === parentActiveSurah.id)) {
+      if (parentActiveSurah.id !== selectedSurahId) {
+        setSelectedSurahId(parentActiveSurah.id);
+      }
+    } else if (!parentActiveSurah) {
+      // When exiting the program or resetting, stand at "اختيار سورة" rather than holding the last surah
+      setSelectedSurahId(null);
+      setAnalysis('');
+      try {
+        safeStorage.removeItem('bonyan_ai_selected_surah');
+        safeStorage.removeItem('bonyan_ai_last_analysis');
+      } catch {}
     }
   }, [parentActiveSurah]);
-
-  // Persist selected surah
-  useEffect(() => {
-    try {
-      if (selectedSurahId !== null) {
-        safeStorage.setItem('bonyan_ai_selected_surah', selectedSurahId.toString());
-      } else {
-        safeStorage.removeItem('bonyan_ai_selected_surah');
-      }
-    } catch {}
-  }, [selectedSurahId]);
 
   // Persistent Fold / Collapse states to keep screen blazing fast
   const [isReportCollapsed, setIsReportCollapsed] = useState<boolean>(() => {
@@ -687,6 +677,7 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
           </div>
         )}
 
+
         {/* Top Header Card */}
         <div className="bg-white border-2 border-slate-200 rounded-none p-6 md:p-8 space-y-6 relative shadow-sm">
           <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-emerald-700 via-amber-500 to-emerald-700" />
@@ -746,7 +737,7 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
                   }}
                   className="bg-white border text-xs font-black p-1 text-right cursor-pointer"
                 >
-                  <option value="">-- اختر سورة قرآنية --</option>
+                  <option value="">-- اختيار سورة --</option>
                   {NOORANI_SURAHS.map(s => (
                     <option key={s.id} value={s.id}>
                       {s.id}. سورة {s.name} ({s.letters})
@@ -781,8 +772,9 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
                 )}
               </button>
 
-              {/* Action Button: Generate / Update Report */}
+              {/* Single Unified Action Button: Run Smart Interpreter & Generate Comprehensive Report */}
               <button
+                id="btn-run-smart-interpreter"
                 type="button"
                 disabled={loading || !selectedSurahId}
                 onClick={fetchAnalysis}
@@ -797,7 +789,7 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
                 ) : (
                   <Sparkles className="w-4 h-4 text-amber-300" />
                 )}
-                <span>{analysis ? 'تحديث تقرير المختصر والبنيان 🔄' : '⚡ توليد تقرير المختصر والبنيان'}</span>
+                <span>{analysis ? 'تحديث تقرير المفسر الذكي الشامل 🔄' : '⚡ تشغيل المفسر الذكي وتوليد التقرير'}</span>
               </button>
             </div>
           </div>
@@ -818,7 +810,7 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
               </div>
               <div className="pt-2">
                 <span className="inline-flex items-center gap-2 text-xs font-bold text-amber-950 bg-amber-100/80 border border-amber-300 px-4 py-2">
-                  <span>👆 القائمة المنسدلة بالأعلى: «-- اختر سورة قرآنية --»</span>
+                  <span>👆 القائمة المنسدلة بالأعلى: «-- اختيار سورة --»</span>
                 </span>
               </div>
             </div>
