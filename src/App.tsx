@@ -19,7 +19,7 @@ import {
   Compass, LayoutGrid, BookOpen, 
   Sparkles, FileText, Brain, GraduationCap, BarChart2, CheckCircle2,
   BookOpen as BookIcon, LogOut, Info, RefreshCw, ChevronLeft, Calendar, Mail,
-  Download, Smartphone
+  Download, Smartphone, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 interface SavedSessionState {
@@ -100,6 +100,8 @@ export default function App() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [isLoggedOut, setIsLoggedOut] = useState(false);
   const [showOfflineModal, setShowOfflineModal] = useState(false);
+  // Collapsible state for 'About Program' card on main screen (folded by default)
+  const [isAboutExpanded, setIsAboutExpanded] = useState(false);
 
   // Toggle state to preview chart inside output screen
   const [previewChartInOutput, setPreviewChartInOutput] = useState<boolean>(() => {
@@ -813,65 +815,104 @@ export default function App() {
             </div>
 
             
-{/* About Program section on Home Screen */}
-            <div className="bg-white border text-right border-amber-200/50 p-6 md:p-8 space-y-5 rounded-2xl relative shadow-md">
-              <div className="absolute top-0 bottom-0 right-0 w-1.5 bg-emerald-800 rounded-r-2xl" />
+            {/* About Program section on Home Screen - Collapsible (Folded by default) */}
+            <div className="bg-white border text-right border-amber-200/70 rounded-2xl relative shadow-sm overflow-hidden transition-all">
+              <div className="absolute top-0 bottom-0 right-0 w-1.5 bg-emerald-800" />
               
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-100/80 pb-3">
-                <h3 className="text-base font-black text-emerald-950 flex items-center gap-2">
-                  <Info className="w-5 h-5 text-amber-500" />
-                  حول برنامج ومؤشرات «البنيان للقرآن الكريم»
-                </h3>
-                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-xl text-xs text-emerald-900 font-bold">
-                  <Mail className="w-4 h-4 text-emerald-700" />
-                  <span>للتواصل مع الباحث:</span>
-                  <a href="mailto:k.bonyan7@gmail.com" className="text-amber-700 hover:text-amber-800 font-black font-mono underline underline-offset-2">
-                    k.bonyan7@gmail.com
-                  </a>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-600 leading-relaxed font-semibold">
-                <div className="space-y-3">
-                  <p>
-                    <strong>منهجية توحيد الحروف والاستيقار:</strong> يعتمد البرنامج نموذجاً بيانياً موحداً للأبجدية العربية، مما يضمن ثبات مخرجات العمل عند إعادة الحساب بغض النظر عن تفاوتات الرسم العثماني الإلكترونية والترميزات.
-                  </p>
-                  <p>
-                    <strong>قواعد المعالجة والتوحيد الحرفي:</strong> إزالة كافة علامات التشكيل والحركات، التنوين بأنواعه، الشدّة، السكون، علامات المد، والتطويل (الكشيدة ـ)، بالإضافة إلى علامات الوقف والضبط القرآني والرموز غير الأبجدية.
-                  </p>
-                  <p>
-                    <strong>قاعدة الرسم العثماني للحروف المكتوبة:</strong> تثبيت الألف الخنجرية (\u0670 / ٰ) كألف بقيمة عددية (1)، واحتساب الحرف المشدد كحرف واحد فقط دون مضاعفة. توحيد الهمزات (أ، إ، آ، ٱ، ء) بقيمة (1)، والتاء والتاء المربوطة (ت، ة) بقيمة (400)، والهاء بقيمة (5)، والياء والألف المقصورة (ي، ى، ئ) بقيمة (10).
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  <p>
-                    <strong>أصل الموازنة وعمود التحقق:</strong> ينقل جدول المخرجات إحداثية الآيات مستعرضاً ناتج قسمة حساب جمل الآية الكلي على وزن "حروف الفاتح النوراني" للسورة النشطة. وفي حال كان الناتج رقماً صحيحاً تماماً دون كسور، يستقر المؤشر على الحالة كـ <span className="bg-emerald-50 text-emerald-800 font-bold px-1.5 py-0.5 rounded">متوافقة</span>.
-                  </p>
-                  <p>
-                    <strong>نطاق الاستقصاء:</strong> تأسس نموذج البنيان كدراسة تخصصية تخدم أغراض التقصي العددي والاتزان الرياضي للحروف المقطعة لـ 29 سورة نورانية وتيسير حساب الجمل الكبير للألفاظ بيسر وموثوقية بالغة.
-                  </p>
-                </div>
-              </div>
-
-              {/* Contact card for Researcher Khaled Fouad El-Sayed */}
-              <div className="bg-[#fcfbf7] border border-amber-200/80 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-700">
+              {/* Collapsible Header Button */}
+              <button
+                type="button"
+                onClick={() => setIsAboutExpanded(prev => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-right hover:bg-amber-50/40 transition-colors cursor-pointer select-none"
+                aria-expanded={isAboutExpanded}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-amber-500/10 text-amber-700 rounded-xl border border-amber-300/50 font-bold flex items-center justify-center">
-                    <Mail className="w-5 h-5 text-amber-600" />
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-300/40 flex items-center justify-center text-amber-600 shrink-0">
+                    <Info className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
-                    <span className="font-black text-emerald-950 block text-sm">وسيلة الاتصال المعتمدة للتواصل مع الباحث:</span>
-                    <span className="text-slate-600">لأية استفسارات بحثية أو ملحوظات علمية حول نموذج البنيان مع <strong className="text-emerald-900 font-black">الأستاذ خالد فؤاد السيد</strong></span>
+                    <h3 className="text-sm sm:text-base font-black text-emerald-950 flex items-center gap-2">
+                      حول برنامج ومؤشرات «البنيان للقرآن الكريم»
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                      {isAboutExpanded 
+                        ? 'المنهجية العلمية، قواعد المعالجة الحرفية، وبيانات التواصل'
+                        : 'اضغط هنا لاستعراض المنهجية العلمية وقواعد المعالجة الحرفية وبيانات التواصل مع الباحث'}
+                    </p>
                   </div>
                 </div>
-                <a 
-                  href="mailto:k.bonyan7@gmail.com" 
-                  className="bg-[#092b22] hover:bg-[#051c16] text-amber-300 hover:text-amber-200 font-black px-4 py-2.5 rounded-xl border border-amber-500/40 flex items-center gap-2 transition-all shadow-sm font-mono dir-ltr select-all text-xs"
-                >
-                  <Mail className="w-4 h-4 text-amber-400" />
-                  <span>k.bonyan7@gmail.com</span>
-                </a>
-              </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <span className={`text-[11px] font-black px-2.5 py-1 rounded-lg border transition-all ${
+                    isAboutExpanded 
+                      ? 'text-amber-800 bg-amber-50 border-amber-200' 
+                      : 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                  }`}>
+                    {isAboutExpanded ? 'طي البطاقة 🔼' : 'عرض التفاصيل 🔽'}
+                  </span>
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 transition-colors">
+                    {isAboutExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
+                </div>
+              </button>
+
+              {/* Collapsible Body */}
+              {isAboutExpanded && (
+                <div className="px-5 pb-6 pt-1 md:px-8 md:pb-8 space-y-5 border-t border-amber-100/80">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-100/80 pb-3 pt-3">
+                    <span className="text-xs font-bold text-slate-500">الضوابط الحرفية والمنهجية المعتمدة في محرك البنيان:</span>
+                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-xl text-xs text-emerald-900 font-bold">
+                      <Mail className="w-4 h-4 text-emerald-700" />
+                      <span>للتواصل مع الباحث:</span>
+                      <a href="mailto:k.bonyan7@gmail.com" className="text-amber-700 hover:text-amber-800 font-black font-mono underline underline-offset-2">
+                        k.bonyan7@gmail.com
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-600 leading-relaxed font-semibold">
+                    <div className="space-y-3">
+                      <p>
+                        <strong>منهجية توحيد الحروف والاستيقار:</strong> يعتمد البرنامج نموذجاً بيانياً موحداً للأبجدية العربية، مما يضمن ثبات مخرجات العمل عند إعادة الحساب بغض النظر عن تفاوتات الرسم العثماني الإلكترونية والترميزات.
+                      </p>
+                      <p>
+                        <strong>قواعد المعالجة والتوحيد الحرفي:</strong> إزالة كافة علامات التشكيل والحركات، التنوين بأنواعه، الشدّة، السكون، علامات المد، والتطويل (الكشيدة ـ)، بالإضافة إلى علامات الوقف والضبط القرآني والرموز غير الأبجدية.
+                      </p>
+                      <p>
+                        <strong>قاعدة الرسم العثماني للحروف المكتوبة:</strong> تثبيت الألف الخنجرية (\u0670 / ٰ) كألف بقيمة عددية (1)، واحتساب الحرف المشدد كحرف واحد فقط دون مضاعفة. توحيد الهمزات (أ، إ، آ، ٱ، ء) بقيمة (1)، والتاء والتاء المربوطة (ت، ة) بقيمة (400)، والهاء بقيمة (5)، والياء والألف المقصورة (ي، ى، ئ) بقيمة (10).
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <p>
+                        <strong>أصل الموازنة وعمود التحقق:</strong> ينقل جدول المخرجات إحداثية الآيات مستعرضاً ناتج قسمة حساب جمل الآية الكلي على وزن "حروف الفاتح النوراني" للسورة النشطة. وفي حال كان الناتج رقماً صحيحاً تماماً دون كسور، يستقر المؤشر على الحالة كـ <span className="bg-emerald-50 text-emerald-800 font-bold px-1.5 py-0.5 rounded">متوافقة</span>.
+                      </p>
+                      <p>
+                        <strong>نطاق الاستقصاء:</strong> تأسس نموذج البنيان كدراسة تخصصية تخدم أغراض التقصي العددي والاتزان الرياضي للحروف المقطعة لـ 29 سورة نورانية وتيسير حساب الجمل الكبير للألفاظ بيسر وموثوقية بالغة.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Contact card for Researcher Khaled Fouad El-Sayed */}
+                  <div className="bg-[#fcfbf7] border border-amber-200/80 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-700">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-amber-500/10 text-amber-700 rounded-xl border border-amber-300/50 font-bold flex items-center justify-center">
+                        <Mail className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <span className="font-black text-emerald-950 block text-sm">وسيلة الاتصال المعتمدة للتواصل مع الباحث:</span>
+                        <span className="text-slate-600">لأية استفسارات بحثية أو ملحوظات علمية حول نموذج البنيان مع <strong className="text-emerald-900 font-black">الأستاذ خالد فؤاد السيد</strong></span>
+                      </div>
+                    </div>
+                    <a 
+                      href="mailto:k.bonyan7@gmail.com" 
+                      className="bg-[#092b22] hover:bg-[#051c16] text-amber-300 hover:text-amber-200 font-black px-4 py-2.5 rounded-xl border border-amber-500/40 flex items-center gap-2 transition-all shadow-sm font-mono dir-ltr select-all text-xs"
+                    >
+                      <Mail className="w-4 h-4 text-amber-400" />
+                      <span>k.bonyan7@gmail.com</span>
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>
