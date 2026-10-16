@@ -41,23 +41,23 @@ const sessionAvailable = isSessionStorageAvailable();
 
 export const safeStorage = {
   getItem(key: string, defaultValue: string | null = null): string | null {
-    // 1. Try sessionStorage first for session state
-    try {
-      if (sessionAvailable && typeof window !== 'undefined') {
-        const sVal = window.sessionStorage.getItem(key);
-        if (sVal !== null) return sVal;
-      }
-    } catch {}
-
-    // 2. Try localStorage
+    // 1. Try localStorage first for reliable persistence across PWA restarts and app-switching
     try {
       if (localAvailable && typeof window !== 'undefined') {
         const lVal = window.localStorage.getItem(key);
         if (lVal !== null) return lVal;
       }
     } catch (e) {
-      console.warn(`[SafeStorage] Failed to getItem('${key}'):`, e);
+      console.warn(`[SafeStorage] Failed to getItem('${key}') from localStorage:`, e);
     }
+
+    // 2. Try sessionStorage
+    try {
+      if (sessionAvailable && typeof window !== 'undefined') {
+        const sVal = window.sessionStorage.getItem(key);
+        if (sVal !== null) return sVal;
+      }
+    } catch {}
 
     // 3. Try in-memory fallback
     return memoryFallback.has(key) ? memoryFallback.get(key)! : defaultValue;

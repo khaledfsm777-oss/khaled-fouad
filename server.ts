@@ -9,8 +9,20 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  // Listen on process.env.PORT in production (Cloud Run) and 3000 in development
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  // Parse CLI flags and environment variables for port and host
+  const args = process.argv.slice(2);
+  let port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  let host = process.env.HOST || '0.0.0.0';
+
+  for (let i = 0; i < args.length; i++) {
+    if ((args[i] === '--port' || args[i] === '-p') && args[i + 1]) {
+      const parsedPort = parseInt(args[i + 1], 10);
+      if (!isNaN(parsedPort)) port = parsedPort;
+    }
+    if ((args[i] === '--host' || args[i] === '-h') && args[i + 1]) {
+      host = args[i + 1];
+    }
+  }
 
   // Middleware with increased limits to support large Surahs (e.g., Al-Baqarah/Ali-Imran)
   app.use(express.json({ limit: '10mb' }));
@@ -333,8 +345,10 @@ async function startServer() {
   const indexHtmlPath = path.join(distPath, 'index.html');
   const hasDist = fs.existsSync(indexHtmlPath);
 
-  // Serve static files immediately if dist build exists or if in production
-  if (process.env.NODE_ENV === 'production' || hasDist) {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // In production, serve pre-built static bundle. In development, mount Vite middleware.
+  if (isProduction && hasDist) {
     app.use('/khaled-fouad', express.static(distPath));
     app.use(express.static(distPath));
     app.get('/khaled-fouad*', (req, res) => {
@@ -354,8 +368,8 @@ async function startServer() {
     console.log('In development mode: Mounted Vite middleware.');
   }
 
-  const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Al-Bunyan Al-Noorani server is running on port ${PORT}`);
+  const server = app.listen(port, host, () => {
+    console.log(`Al-Bunyan Al-Noorani server is running on http://${host}:${port}`);
   });
 
   // Cloud Run / HTTP Keep-Alive settings to prevent proxy hangs during deployment and publish

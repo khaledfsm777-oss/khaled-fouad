@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Verse } from './types';
 import { parseAndAnalyzeVerses, NOORANI_SURAHS, NooraniSurah, ALL_29_NOORANI_SURAH, getNoorani29Verses, stripBismillah, buildVersesFromReferenceList } from './utils/jummal';
 import { ALL_SURAHS } from './utils/surahList';
@@ -29,18 +29,33 @@ interface SavedSessionState {
   tableCurrentPage: number;
   tablePageSize: number;
   selectedVerseId: number | null;
-  verses: Verse[];
   previewChartInOutput?: boolean;
+  customInputText?: string;
+  verses?: Verse[];
+  timestamp?: number;
 }
 
 function getInitialSavedSession(): SavedSessionState | null {
   try {
-    const saved = safeStorage.getJSON<SavedSessionState | null>('bonyan_session_state', null);
-    if (saved && typeof saved === 'object' && saved.currentScreen) {
-      return saved;
+    let raw: string | null = null;
+    // 1. Direct explicit localStorage lookup (crucial for PWA restart / app switching)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        raw = window.localStorage.getItem('bonyan_session_state');
+      } catch {}
+    }
+    // 2. SafeStorage fallback
+    if (!raw) {
+      raw = safeStorage.getItem('bonyan_session_state');
+    }
+    if (raw) {
+      const saved = JSON.parse(raw);
+      if (saved && typeof saved === 'object' && saved.currentScreen) {
+        return saved as SavedSessionState;
+      }
     }
   } catch (err) {
-    console.warn('Error retrieving saved session state:', err);
+    console.warn('[PWA Storage] Error retrieving initial saved session state:', err);
   }
   return null;
 }
@@ -119,12 +134,21 @@ export default function App() {
     return initialSession?.selectedVerseId ?? null;
   });
 
+  const [customInputText, setCustomInputText] = useState<string>(() => {
+    return initialSession?.customInputText || '';
+  });
+
   const [verses, setVerses] = useState<Verse[]>(() => {
     if (initialSession?.verses && Array.isArray(initialSession.verses) && initialSession.verses.length > 0) {
       return initialSession.verses;
     }
     if (initialSession?.activeSurah) {
       return reconstituteVersesForSurah(initialSession.activeSurah);
+    }
+    if (initialSession?.customInputText) {
+      try {
+        return parseAndAnalyzeVerses(initialSession.customInputText, 'auto', true);
+      } catch {}
     }
     return [];
   });
@@ -140,23 +164,67 @@ export default function App() {
     }
   }, [activeSurah, verses.length, isLoading, currentScreen]);
 
-  // Continuously persist current session so switching to Word or other apps never loses state
+  // Keep a ref of loggedOut status for lifecycle callbacks
+  const isLoggedOutRef = useRef(isLoggedOut);
   useEffect(() => {
-    if (isLoggedOut) return;
+    isLoggedOutRef.current = isLoggedOut;
+  }, [isLoggedOut]);
+
+  // Keep an always up-to-date ref of current session state to avoid stale closures in event listeners
+  const latestSessionRef = useRef<SavedSessionState>({
+    currentScreen,
+    activeTab,
+    activeSurah,
+    tableCurrentPage,
+    tablePageSize,
+    selectedVerseId,
+    previewChartInOutput,
+    customInputText,
+    timestamp: Date.now(),
+  });
+
+  useEffect(() => {
+    latestSessionRef.current = {
+      currentScreen,
+      activeTab,
+      activeSurah,
+      tableCurrentPage,
+      tablePageSize,
+      selectedVerseId,
+      previewChartInOutput,
+      customInputText: !activeSurah ? customInputText : undefined,
+      timestamp: Date.now(),
+    };
+  }, [
+    currentScreen,
+    activeTab,
+    activeSurah,
+    tableCurrentPage,
+    tablePageSize,
+    selectedVerseId,
+    previewChartInOutput,
+    customInputText,
+  ]);
+
+  // Direct, lightweight persistence to localStorage (under 1KB, writes in 0.1ms without storage/quota issues)
+  const saveSessionToLocalStorage = useCallback(() => {
+    if (isLoggedOutRef.current) return;
     try {
-      const stateToSave: SavedSessionState = {
-        currentScreen,
-        activeTab,
-        activeSurah,
-        tableCurrentPage,
-        tablePageSize,
-        selectedVerseId,
-        previewChartInOutput,
-        verses: verses.length > 0 && verses.length <= 400 ? verses : [],
-      };
-      safeStorage.setJSON('bonyan_session_state', stateToSave);
-    } catch (e) {
-      console.warn('Failed to persist session state:', e);
+      const stateToSave = latestSessionRef.current;
+      const serialized = JSON.stringify(stateToSave);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('bonyan_session_state', serialized);
+      }
+      safeStorage.setItem('bonyan_session_state', serialized);
+    } catch (err) {
+      console.warn('[PWA Persistence] Error writing to localStorage:', err);
+    }
+  }, []);
+
+  // 1. Immediately persist whenever any session state changes
+  useEffect(() => {
+    if (!isLoggedOut) {
+      saveSessionToLocalStorage();
     }
   }, [
     currentScreen,
@@ -166,61 +234,44 @@ export default function App() {
     tablePageSize,
     selectedVerseId,
     previewChartInOutput,
-    verses,
+    customInputText,
     isLoggedOut,
+    saveSessionToLocalStorage,
   ]);
 
-  // Immediate save on backgrounding / window blur / switching to Word or other applications
+  // 2. Lifecycle listeners: visibilitychange, pagehide, freeze, blur, beforeunload
+  // Guarantees state is safely flushed to localStorage when mobile OS suspends/switches app
   useEffect(() => {
-    const handleSaveOnBackground = () => {
-      if (isLoggedOut) return;
-      try {
-        const stateToSave: SavedSessionState = {
-          currentScreen,
-          activeTab,
-          activeSurah,
-          tableCurrentPage,
-          tablePageSize,
-          selectedVerseId,
-          previewChartInOutput,
-          verses: verses.length > 0 && verses.length <= 400 ? verses : [],
-        };
-        safeStorage.setJSON('bonyan_session_state', stateToSave);
-      } catch {}
+    const handleSaveImmediate = () => {
+      saveSessionToLocalStorage();
     };
 
-    const handleVisibility = () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        handleSaveOnBackground();
+        saveSessionToLocalStorage();
       }
     };
 
-    window.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('pagehide', handleSaveOnBackground);
-    window.addEventListener('beforeunload', handleSaveOnBackground);
-    window.addEventListener('blur', handleSaveOnBackground);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handleSaveImmediate);
+    window.addEventListener('beforeunload', handleSaveImmediate);
+    window.addEventListener('blur', handleSaveImmediate);
+    // Page Lifecycle API for mobile Chromium / Android PWA
+    document.addEventListener('freeze', handleSaveImmediate);
 
     return () => {
-      window.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('pagehide', handleSaveOnBackground);
-      window.removeEventListener('beforeunload', handleSaveOnBackground);
-      window.removeEventListener('blur', handleSaveOnBackground);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handleSaveImmediate);
+      window.removeEventListener('beforeunload', handleSaveImmediate);
+      window.removeEventListener('blur', handleSaveImmediate);
+      document.removeEventListener('freeze', handleSaveImmediate);
     };
-  }, [
-    currentScreen,
-    activeTab,
-    activeSurah,
-    tableCurrentPage,
-    tablePageSize,
-    selectedVerseId,
-    previewChartInOutput,
-    verses,
-    isLoggedOut,
-  ]);
+  }, [saveSessionToLocalStorage]);
 
   // Trigger main extraction analyzer
   const handleAnalyze = (text: string, separator: 'parentheses' | 'curly' | 'auto', excludeBismillah: boolean = true) => {
     setIsLoading(true);
+    setCustomInputText(activeSurah ? '' : text);
     const surahName = activeSurah?.name ? `سورة ${activeSurah.name}` : 'الآيات المدخلة';
     startProgress(`تحليل واستقصاء ${surahName}`, 'جارٍ تجريد وضبط الرسم واستخراج حساب الجُمّل...');
     
@@ -250,6 +301,7 @@ export default function App() {
   // Trigger unified batch extraction across all 29 Noorani Surahs
   const handleAnalyze29 = () => {
     setIsLoading(true);
+    setCustomInputText('');
     startProgress('التنقيب والبحث الشامل لـ 29 سورة نورانية', 'جارٍ فحص 2,743 آية قرآنية مع الفواتح...');
     updateProgress(20, 'تحميل الفهارس وقواعد بيانات السور النورانية...');
 
@@ -376,9 +428,13 @@ export default function App() {
   const handleReset = () => {
     setVerses([]);
     setActiveSurah(null);
+    setCustomInputText('');
     setTableCurrentPage(1);
     setSelectedVerseId(null);
     try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('bonyan_session_state');
+      }
       safeStorage.removeItem('bonyan_session_state');
       safeStorage.removeItem('bonyan_session_active');
       safeStorage.removeItem('bonyan_ai_selected_surah');
@@ -400,9 +456,14 @@ export default function App() {
   const confirmExit = () => {
     setVerses([]);
     setActiveSurah(null);
+    setCustomInputText('');
     setShowExitModal(false);
     setIsLoggedOut(true);
+    isLoggedOutRef.current = true;
     try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('bonyan_session_state');
+      }
       safeStorage.removeItem('bonyan_session_state');
       safeStorage.removeItem('bonyan_session_active');
       safeStorage.removeItem('bonyan_ai_selected_surah');
