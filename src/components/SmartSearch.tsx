@@ -1013,7 +1013,7 @@ export default function SmartSearch({ verses, activeSurah }: SmartSearchProps) {
                 >
                   <Sparkles className="w-4 h-4 text-amber-500" />
                   <span>
-                    الكلمات النورانية الشاملة ✨ {searchNooraniWordsOnly ? '✓' : ''}
+                    الحروف النورانية الشاملة ✨ {searchNooraniWordsOnly ? '✓' : ''}
                   </span>
                 </button>
 

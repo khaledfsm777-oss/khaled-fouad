@@ -1465,14 +1465,85 @@ export interface NooraniMatchedWordResult {
   quotientStr: string;
 }
 
+export interface VerseNooraniGatheringResult {
+  isGatheringAll: boolean;
+  matchedCount: number;
+  totalRequired: number;
+  matchedLetters: string[];
+  missingLetters: string[];
+  summaryLabel: string;
+}
+
+/**
+ * Checks whether a verse gathers all distinct opening Noorani letters of a Surah (e.g. all 5 letters of كهيعص in Maryam)
+ */
+export function checkVerseNooraniGathering(
+  verseText: string,
+  openingLetters: string
+): VerseNooraniGatheringResult {
+  if (!verseText || !openingLetters) {
+    return {
+      isGatheringAll: false,
+      matchedCount: 0,
+      totalRequired: 0,
+      matchedLetters: [],
+      missingLetters: [],
+      summaryLabel: ''
+    };
+  }
+
+  const normalizeChar = (char: string): string => {
+    if (['ا', 'أ', 'إ', 'آ', 'ٱ', 'ء', '\u0670'].includes(char)) return 'ا';
+    if (['ي', 'ى', 'ئ', '\u06CC'].includes(char)) return 'ي';
+    if (['و', 'ؤ'].includes(char)) return 'و';
+    if (['ه', 'ة', 'هـ'].includes(char)) return 'ه';
+    return char;
+  };
+
+  const rawChars = openingLetters.split('');
+  const distinctRequired = Array.from(
+    new Set(rawChars.map(normalizeChar).filter(c => c.trim().length > 0))
+  );
+
+  const cleanVerse = removeTashkeel(verseText);
+  const verseCharSet = new Set(cleanVerse.split('').map(normalizeChar));
+
+  const matchedLetters: string[] = [];
+  const missingLetters: string[] = [];
+
+  distinctRequired.forEach(c => {
+    if (verseCharSet.has(c)) {
+      matchedLetters.push(c);
+    } else {
+      missingLetters.push(c);
+    }
+  });
+
+  const isGatheringAll = missingLetters.length === 0;
+  const summaryLabel = isGatheringAll 
+    ? `جامعة لكافة الحروف (${matchedLetters.length}/${distinctRequired.length}) ⭐` 
+    : `تحوي (${matchedLetters.length}/${distinctRequired.length})`;
+
+  return {
+    isGatheringAll,
+    matchedCount: matchedLetters.length,
+    totalRequired: distinctRequired.length,
+    matchedLetters,
+    missingLetters,
+    summaryLabel
+  };
+}
+
 /**
  * Extracts and calculates words containing all Noorani opening letters and determines mathematical exactness.
+ * Supports matchMode: 'all_letters' (requires every letter) or 'any_letter' (matches if word has any of the letters).
  */
 export function getNooraniWordMatches(
   verseText: string,
   letters: string,
   digitalRoot: number,
-  onlyCompatible: boolean = true
+  onlyCompatible: boolean = true,
+  matchMode: 'all_letters' | 'any_letter' = 'all_letters'
 ): NooraniMatchedWordResult[] {
   if (!letters || !verseText) return [];
 
@@ -1500,8 +1571,11 @@ export function getNooraniWordMatches(
 
     const wordNormalizedSet = new Set(cleanW.split('').map(normalizeChar));
 
-    const hasAllLetters = requiredNormalizedLetters.every(reqChar => wordNormalizedSet.has(reqChar));
-    if (!hasAllLetters) return;
+    const hasRequiredLetters = matchMode === 'any_letter'
+      ? requiredNormalizedLetters.some(reqChar => wordNormalizedSet.has(reqChar))
+      : requiredNormalizedLetters.every(reqChar => wordNormalizedSet.has(reqChar));
+      
+    if (!hasRequiredLetters) return;
 
     let wordJummal = 0;
     for (const char of cleanW) {

@@ -15,18 +15,31 @@ import {
   Hash, 
   Share2,
   X,
-  RotateCcw
+  RotateCcw,
+  Star,
+  CheckCheck,
+  Bookmark
 } from 'lucide-react';
-import { NOORANI_SURAHS, NooraniSurah, getNooraniWordMatches, NooraniMatchedWordResult } from '../utils/jummal';
+import { 
+  NOORANI_SURAHS, 
+  NooraniSurah, 
+  getNooraniWordMatches, 
+  NooraniMatchedWordResult,
+  checkVerseNooraniGathering,
+  VerseNooraniGatheringResult,
+  normalizeArabicForSearch,
+  JUMMAL_MAP,
+  removeTashkeel
+} from '../utils/jummal';
 import quranData, { QuranVerse } from '../utils/quranData';
 import { copyToClipboard } from '../utils/clipboard';
-import { generateNooraniWordsDocxBlob } from '../utils/docxExportHelper';
+import { generateNooraniWordsDocxBlob, generateNooraniGatheringVersesDocxBlob } from '../utils/docxExportHelper';
 import { generateTableExcelBlob } from '../utils/excelExportHelper';
 import { handleSafeExport } from '../utils/exportHelper';
 import { ExportModal } from './ExportModal';
 
 interface NooraniWordExplorerProps {
-  initialSurahId?: number;
+  initialSurahId?: number | null;
   onSelectSurahForAnalysis?: (surah: NooraniSurah) => void;
   onTransferVersesToOutput?: (
     matchingRefs: { surahId: number; verseNumber: number }[],
@@ -42,6 +55,9 @@ interface ExtractedWordRow extends NooraniMatchedWordResult {
   verseNumber: number;
   verseText: string;
   trackLabel?: string;
+  isGatheringAllVerse: boolean;
+  verseGatheringLetters: string[];
+  verseGatheringSummary: string;
 }
 
 // 14 Individual Noorani Letters ("نص حكيم قاطع له سر")
@@ -63,14 +79,17 @@ export const NOORANI_INDIVIDUAL_LETTERS = [
 ];
 
 export default function NooraniWordExplorer({
-  initialSurahId = 2,
+  initialSurahId = 0,
   onSelectSurahForAnalysis,
   onTransferVersesToOutput
 }: NooraniWordExplorerProps) {
-  // Selected Noorani Surah (default to 2: Al-Baqarah)
-  const [selectedSurahId, setSelectedSurahId] = useState<number>(initialSurahId);
+  // Selected Noorani Surah (default to 0: اختيار سورة)
+  const [selectedSurahId, setSelectedSurahId] = useState<number>(initialSurahId || 0);
   const [searchScope, setSearchScope] = useState<'single_surah' | 'all_29' | 'all_quran'>('single_surah');
-  const [onlyCompatible, setOnlyCompatible] = useState<boolean>(true);
+  
+  // Default to false so all extracted words are visible by default and not filtered out to 0
+  const [onlyCompatible, setOnlyCompatible] = useState<boolean>(false);
+  
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [shuraTrack, setShuraTrack] = useState<'both' | 'hameem' | 'asaq'>('both');
   const [isCopied, setIsCopied] = useState<boolean>(false);
@@ -81,19 +100,146 @@ export default function NooraniWordExplorer({
   const [activeFormula, setActiveFormula] = useState<string | null>(null);
   // Active individual letter filter (null when no letter is active - toggle on/off)
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
-  // Control table visibility: closed when no search, opens automatically when searching
-  const [isTableManuallyOpen, setIsTableManuallyOpen] = useState<boolean>(false);
+  
+  // Specific letter filter for the active Surah (e.g. 'ك' or 'ص' in Maryam)
+  const [activeSurahLetter, setActiveSurahLetter] = useState<string | null>(null);
+  // Filter exclusively for verses that gather all opening letters of the Surah (e.g. 11 verses in Maryam)
+  const [isGatheringVersesOnly, setIsGatheringVersesOnly] = useState<boolean>(false);
+  // Filter for words containing the whole formula in a single word
+  const [isWholeFormulaOnly, setIsWholeFormulaOnly] = useState<boolean>(false);
+
+  // Control table visibility: open by default so users see data immediately
+  const [isTableManuallyOpen, setIsTableManuallyOpen] = useState<boolean>(true);
+
+  // Find active Noorani Surah object (or null if selectedSurahId is 0)
+  const activeSurah = useMemo(() => {
+    if (!selectedSurahId || selectedSurahId <= 0) return null;
+    return NOORANI_SURAHS.find(s => s.id === selectedSurahId) || null;
+  }, [selectedSurahId]);
+
+  // Extract distinct letters of the active Surah with their individual metadata
+  const surahDistinctLetters = useMemo(() => {
+    if (!activeSurah || !activeSurah.letters) return [];
+    const normalizeChar = (char: string): string => {
+      if (['ا', 'أ', 'إ', 'آ', 'ٱ', 'ء', '\u0670'].includes(char)) return 'ا';
+      if (['ي', 'ى', 'ئ', '\u06CC'].includes(char)) return 'ي';
+      if (['و', 'ؤ'].includes(char)) return 'و';
+      if (['ه', 'ة', 'هـ'].includes(char)) return 'ه';
+      return char;
+    };
+    
+    const raw = activeSurah.letters.split('');
+    const lettersList: { char: string; norm: string; jummal: number }[] = [];
+    const seen = new Set<string>();
+
+    raw.forEach(c => {
+      const norm = normalizeChar(c);
+      if (c.trim() && !seen.has(norm)) {
+        seen.add(norm);
+        const jVal = JUMMAL_MAP[c] || JUMMAL_MAP[norm] || 0;
+        lettersList.push({ char: c, norm, jummal: jVal });
+      }
+    });
+
+    return lettersList;
+  }, [activeSurah]);
+
+  // Verses in this Surah that gather ALL distinct letters of the opening formula
+  const surahGatheringVerses = useMemo(() => {
+    if (!activeSurah) return [];
+    const versesInSurah = (quranData as QuranVerse[]).filter(v => v.surahId === activeSurah.id);
+    return versesInSurah.filter(v => {
+      const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
+      return g.isGatheringAll;
+    });
+  }, [activeSurah]);
+
+  // Count words containing each letter in the current Surah
+  const surahLetterWordCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (!activeSurah) return counts;
+    const versesInSurah = (quranData as QuranVerse[]).filter(v => v.surahId === activeSurah.id);
+    
+    surahDistinctLetters.forEach(l => {
+      let count = 0;
+      versesInSurah.forEach(v => {
+        const matches = getNooraniWordMatches(v.text, l.char, activeSurah.digitalRoot, false, 'any_letter');
+        count += matches.length;
+      });
+      counts[l.norm] = count;
+      counts[l.char] = count;
+    });
+
+    return counts;
+  }, [activeSurah, surahDistinctLetters]);
+
+  // Handle Surah change: reset sub-filters cleanly
+  const handleSelectSurah = (id: number) => {
+    setSelectedSurahId(id);
+    setActiveSurahLetter(null);
+    setIsGatheringVersesOnly(false);
+    setIsWholeFormulaOnly(false);
+    setActiveLetter(null);
+    setActiveFormula(null);
+    setSearchQuery('');
+  };
+
+  const handleToggleSurahLetter = (letter: string) => {
+    if (!activeSurah) return;
+    if (activeSurahLetter === letter) {
+      setActiveSurahLetter(null);
+      showToast(`تم إلغاء فلترة حرف [${letter}].`);
+    } else {
+      setActiveSurahLetter(letter);
+      setActiveLetter(null);
+      setActiveFormula(null);
+      setIsGatheringVersesOnly(false);
+      setIsWholeFormulaOnly(false);
+      showToast(`تم تنشيط فلترة حرف [${letter}] بسورة ${activeSurah.name}.`);
+    }
+  };
+
+  const handleToggleGatheringVersesOnly = () => {
+    if (!activeSurah) return;
+    if (isGatheringVersesOnly) {
+      setIsGatheringVersesOnly(false);
+      showToast(`تم إلغاء حصر الآيات الجامعة والعودة للعرض العام.`);
+    } else {
+      setIsGatheringVersesOnly(true);
+      setActiveSurahLetter(null);
+      setActiveLetter(null);
+      setActiveFormula(null);
+      setIsWholeFormulaOnly(false);
+      showToast(`تم حصر الآيات الجامعة لكافة حروف (${activeSurah.letters}) (${surahGatheringVerses.length} آية). ⭐`);
+    }
+  };
+
+  const handleToggleWholeFormulaOnly = () => {
+    if (!activeSurah) return;
+    if (isWholeFormulaOnly) {
+      setIsWholeFormulaOnly(false);
+      showToast(`تم إلغاء حصر الكلمات الجامعة لحروف (${activeSurah.letters}) مجتمعة.`);
+    } else {
+      setIsWholeFormulaOnly(true);
+      setIsGatheringVersesOnly(false);
+      setActiveSurahLetter(null);
+      setActiveLetter(null);
+      setActiveFormula(null);
+      showToast(`تم حصر الكلمات المشتملة على حروف (${activeSurah.letters}) كاملة في كلمة واحدة.`);
+    }
+  };
 
   const handleToggleFormula = (formula: string, surahIds: number[]) => {
     if (activeFormula === formula) {
-      // Toggle OFF: deactivate
       setActiveFormula(null);
       showToast(`تم إلغاء تنشيط صيغة [${formula}] وعرض الحالة العامة.`);
     } else {
-      // Toggle ON: activate
       setActiveFormula(formula);
       setActiveLetter(null);
-      if (!surahIds.includes(selectedSurahId)) {
+      setActiveSurahLetter(null);
+      setIsGatheringVersesOnly(false);
+      setIsWholeFormulaOnly(false);
+      if (!selectedSurahId || !surahIds.includes(selectedSurahId)) {
         setSelectedSurahId(surahIds[0]);
       }
       showToast(`تم تنشيط صيغة [${formula}] - انقر عليها مجدداً لإلغائها.`);
@@ -102,13 +248,14 @@ export default function NooraniWordExplorer({
 
   const handleToggleLetter = (letter: string) => {
     if (activeLetter === letter) {
-      // Toggle OFF: deactivate
       setActiveLetter(null);
       showToast(`تم إلغاء تنشيط حرف [${letter}].`);
     } else {
-      // Toggle ON: activate
       setActiveLetter(letter);
       setActiveFormula(null);
+      setActiveSurahLetter(null);
+      setIsGatheringVersesOnly(false);
+      setIsWholeFormulaOnly(false);
       showToast(`تم تنشيط حرف [${letter}] - انقر عليه مجدداً لإلغائه.`);
     }
   };
@@ -116,15 +263,22 @@ export default function NooraniWordExplorer({
   const handleClearLettersActivation = () => {
     setActiveFormula(null);
     setActiveLetter(null);
-    showToast('تم إلغاء تنشيط كافة الحروف والصيغ النورانية.');
+    setActiveSurahLetter(null);
+    setIsGatheringVersesOnly(false);
+    setIsWholeFormulaOnly(false);
+    showToast('تم إلغاء تنشيط كافة الحروف والصيغ والعودة للوضع العام.');
   };
 
   const handleResetAll = () => {
     setSearchQuery('');
     setActiveFormula(null);
     setActiveLetter(null);
+    setActiveSurahLetter(null);
+    setIsGatheringVersesOnly(false);
+    setIsWholeFormulaOnly(false);
     setSearchScope('single_surah');
-    setOnlyCompatible(true);
+    setOnlyCompatible(false);
+    setIsTableManuallyOpen(true);
     showToast('تم تفريغ مربع البحث وإعادة ضبط كافة الفلاتر بنجاح! ✨');
   };
 
@@ -162,11 +316,6 @@ export default function NooraniWordExplorer({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Find active Noorani Surah object
-  const activeSurah = useMemo(() => {
-    return NOORANI_SURAHS.find(s => s.id === selectedSurahId) || NOORANI_SURAHS[0];
-  }, [selectedSurahId]);
-
   // Grouped formulas for quick-filter tabs
   const formulaGroups = useMemo(() => [
     { label: 'الم (6 سور)', formula: 'الم', surahIds: [2, 3, 29, 30, 31, 32] },
@@ -199,13 +348,26 @@ export default function NooraniWordExplorer({
       targetVerses = quranData as QuranVerse[];
     }
 
+    // Filter to gathering verses if gathering filter is active
+    if (isGatheringVersesOnly) {
+      targetVerses = targetVerses.filter(v => {
+        const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
+        return g.isGatheringAll;
+      });
+    }
+
     const results: ExtractedWordRow[] = [];
     let counter = 1;
 
+    // Check what letter or formula is effective
+    const effectiveLetter = activeSurahLetter || activeLetter;
+
     targetVerses.forEach(verse => {
-      // Determine letters and root to use
-      if (activeLetter) {
-        const matches = getNooraniWordMatches(verse.text, activeLetter, activeSurah.digitalRoot, onlyCompatible);
+      const gatheringInfo = checkVerseNooraniGathering(verse.text, activeSurah.letters);
+
+      if (effectiveLetter) {
+        // Individual letter match: matches any word having this letter
+        const matches = getNooraniWordMatches(verse.text, effectiveLetter, activeSurah.digitalRoot, onlyCompatible, 'any_letter');
         matches.forEach(m => {
           results.push({
             index: counter++,
@@ -213,12 +375,16 @@ export default function NooraniWordExplorer({
             surahName: verse.surahName,
             verseNumber: verse.verseNumber,
             verseText: verse.text,
-            trackLabel: `فلترة حرف [${activeLetter}]`,
+            trackLabel: `فلترة حرف [${effectiveLetter}]`,
+            isGatheringAllVerse: gatheringInfo.isGatheringAll,
+            verseGatheringLetters: gatheringInfo.matchedLetters,
+            verseGatheringSummary: gatheringInfo.summaryLabel,
             ...m
           });
         });
       } else if (activeFormula) {
-        const matches = getNooraniWordMatches(verse.text, activeFormula, activeSurah.digitalRoot, onlyCompatible);
+        // Compound formula from top pills
+        const matches = getNooraniWordMatches(verse.text, activeFormula, activeSurah.digitalRoot, onlyCompatible, 'all_letters');
         matches.forEach(m => {
           results.push({
             index: counter++,
@@ -227,13 +393,33 @@ export default function NooraniWordExplorer({
             verseNumber: verse.verseNumber,
             verseText: verse.text,
             trackLabel: `صيغة [${activeFormula}]`,
+            isGatheringAllVerse: gatheringInfo.isGatheringAll,
+            verseGatheringLetters: gatheringInfo.matchedLetters,
+            verseGatheringSummary: gatheringInfo.summaryLabel,
+            ...m
+          });
+        });
+      } else if (isWholeFormulaOnly) {
+        // Whole formula in single word
+        const matches = getNooraniWordMatches(verse.text, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible, 'all_letters');
+        matches.forEach(m => {
+          results.push({
+            index: counter++,
+            surahId: verse.surahId,
+            surahName: verse.surahName,
+            verseNumber: verse.verseNumber,
+            verseText: verse.text,
+            trackLabel: `حروف [${activeSurah.letters}] مجتمعة`,
+            isGatheringAllVerse: gatheringInfo.isGatheringAll,
+            verseGatheringLetters: gatheringInfo.matchedLetters,
+            verseGatheringSummary: gatheringInfo.summaryLabel,
             ...m
           });
         });
       } else if (activeSurah.id === 42 && searchScope === 'single_surah') {
         // Handle Surah Al-Shura tracks
         if (shuraTrack === 'both' || shuraTrack === 'hameem') {
-          const matchesH = getNooraniWordMatches(verse.text, 'حم', 3, onlyCompatible);
+          const matchesH = getNooraniWordMatches(verse.text, 'حم', 3, onlyCompatible, 'all_letters');
           matchesH.forEach(m => {
             results.push({
               index: counter++,
@@ -242,12 +428,15 @@ export default function NooraniWordExplorer({
               verseNumber: verse.verseNumber,
               verseText: verse.text,
               trackLabel: 'مسار حم (معامل 3)',
+              isGatheringAllVerse: gatheringInfo.isGatheringAll,
+              verseGatheringLetters: gatheringInfo.matchedLetters,
+              verseGatheringSummary: gatheringInfo.summaryLabel,
               ...m
             });
           });
         }
         if (shuraTrack === 'both' || shuraTrack === 'asaq') {
-          const matchesA = getNooraniWordMatches(verse.text, 'عسق', 5, onlyCompatible);
+          const matchesA = getNooraniWordMatches(verse.text, 'عسق', 5, onlyCompatible, 'all_letters');
           matchesA.forEach(m => {
             results.push({
               index: counter++,
@@ -256,12 +445,19 @@ export default function NooraniWordExplorer({
               verseNumber: verse.verseNumber,
               verseText: verse.text,
               trackLabel: 'مسار عسق (معامل 5)',
+              isGatheringAllVerse: gatheringInfo.isGatheringAll,
+              verseGatheringLetters: gatheringInfo.matchedLetters,
+              verseGatheringSummary: gatheringInfo.summaryLabel,
               ...m
             });
           });
         }
       } else {
-        const matches = getNooraniWordMatches(verse.text, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible);
+        // Default extraction:
+        // For formulas of length >= 4 (like كهيعص, المص, المر), match words containing ANY of the letters
+        // to prevent empty results, while formulas with 1-3 letters match all letters
+        const defaultMatchMode = activeSurah.letters.length >= 4 ? 'any_letter' : 'all_letters';
+        const matches = getNooraniWordMatches(verse.text, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible, defaultMatchMode);
         matches.forEach(m => {
           results.push({
             index: counter++,
@@ -269,6 +465,9 @@ export default function NooraniWordExplorer({
             surahName: verse.surahName,
             verseNumber: verse.verseNumber,
             verseText: verse.text,
+            isGatheringAllVerse: gatheringInfo.isGatheringAll,
+            verseGatheringLetters: gatheringInfo.matchedLetters,
+            verseGatheringSummary: gatheringInfo.summaryLabel,
             ...m
           });
         });
@@ -276,19 +475,44 @@ export default function NooraniWordExplorer({
     });
 
     return results;
-  }, [activeSurah, searchScope, onlyCompatible, shuraTrack, activeFormula, activeLetter]);
+  }, [
+    activeSurah, 
+    searchScope, 
+    onlyCompatible, 
+    shuraTrack, 
+    activeFormula, 
+    activeLetter, 
+    activeSurahLetter, 
+    isGatheringVersesOnly, 
+    isWholeFormulaOnly
+  ]);
 
-  // Filter extracted words by live search text query
+  // Robust live search across extracted words and Quranic text
   const filteredWords = useMemo(() => {
     if (!searchQuery.trim()) return extractedWords;
-    const q = searchQuery.trim().toLowerCase();
-    return extractedWords.filter(item => 
-      item.word.toLowerCase().includes(q) ||
-      item.verseText.toLowerCase().includes(q) ||
-      item.surahName.toLowerCase().includes(q) ||
-      String(item.verseNumber) === q ||
-      String(item.wordJummal) === q
-    );
+    const qRaw = searchQuery.trim();
+    const qLower = qRaw.toLowerCase();
+    const normQ = normalizeArabicForSearch(qRaw);
+
+    return extractedWords.filter(item => {
+      // 1. Direct word or verse match
+      if (item.word.toLowerCase().includes(qLower)) return true;
+      if (item.verseText.toLowerCase().includes(qLower)) return true;
+      if (item.surahName.toLowerCase().includes(qLower)) return true;
+      if (String(item.verseNumber) === qRaw) return true;
+      if (String(item.wordJummal) === qRaw) return true;
+
+      // 2. Direct letter search in matched letters
+      if (item.matchedLetters.some(l => l.includes(qRaw) || normalizeArabicForSearch(l) === normQ)) return true;
+
+      // 3. Normalized search on word & verse (handles tashkeel, dagger alifs, hamzas, taa marbuta)
+      if (normQ) {
+        if (normalizeArabicForSearch(item.word).includes(normQ)) return true;
+        if (normalizeArabicForSearch(item.verseText).includes(normQ)) return true;
+      }
+
+      return false;
+    });
   }, [extractedWords, searchQuery]);
 
   // Statistics calculation
@@ -298,13 +522,17 @@ export default function NooraniWordExplorer({
     const exactPct = total > 0 ? Math.round((exactCount / total) * 100) : 0;
     const totalJummal = filteredWords.reduce((s, w) => s + w.wordJummal, 0);
     const avgJummal = total > 0 ? Math.round(totalJummal / total) : 0;
+    const gatheringVersesCount = new Set(
+      filteredWords.filter(w => w.isGatheringAllVerse).map(w => `${w.surahId}_${w.verseNumber}`)
+    ).size;
 
     return {
       total,
       exactCount,
       exactPct,
       totalJummal,
-      avgJummal
+      avgJummal,
+      gatheringVersesCount
     };
   }, [filteredWords]);
 
@@ -331,22 +559,175 @@ export default function NooraniWordExplorer({
     if (onTransferVersesToOutput && activeSurah) {
       const filterDesc = searchQuery.trim() 
         ? `بحث: «${searchQuery}»`
-        : activeFormula 
-          ? `صيغة [${activeFormula}]` 
-          : activeLetter 
-            ? `حرف [${activeLetter}]` 
-            : 'الكلمات النورانية المفلترة';
+        : isGatheringVersesOnly
+          ? `الآيات الجامعة لحروف ${activeSurah.letters}`
+          : activeSurahLetter
+            ? `حرف [${activeSurahLetter}]`
+            : activeFormula 
+              ? `صيغة [${activeFormula}]` 
+              : activeLetter 
+                ? `حرف [${activeLetter}]` 
+                : 'الحروف النورانية والآيات المفلترة';
       onTransferVersesToOutput(matchingVerseRefs, `سورة ${activeSurah.name} (${filterDesc})`, activeSurah);
     } else if (onSelectSurahForAnalysis && activeSurah) {
       onSelectSurahForAnalysis(activeSurah);
     }
   };
 
+  // Transfer specifically the gathering verses to the output screen
+  const handleTransferGatheringVersesToOutput = () => {
+    if (!activeSurah || surahGatheringVerses.length === 0 || !onTransferVersesToOutput) return;
+    const refs = surahGatheringVerses.map(v => ({ surahId: v.surahId, verseNumber: v.verseNumber }));
+    onTransferVersesToOutput(
+      refs, 
+      `الآيات الجامعة لكافة حروف ${activeSurah.letters} (${refs.length} آية)`, 
+      activeSurah
+    );
+    showToast(`تم نقل ${refs.length} آية جامعة إلى شاشة المخرجات بنجاح! 🚀`);
+  };
+
+  // Export specifically the gathering verses to Excel (.xlsx)
+  const handleExportGatheringVersesExcel = async () => {
+    if (!activeSurah || surahGatheringVerses.length === 0) return;
+    
+    const headers = [
+      'م',
+      'السورة',
+      'رقم الآية',
+      'النص القرآني الكريـم',
+      'حساب الجمل الكبير',
+      'عدد الكلمات',
+      'عدد الحروف',
+      'الحروف النورانية المتوفرة بالآية',
+      'المعامل النوراني',
+      'ناتج القسمة',
+      'حالة التوافق الرياضي',
+      'الجمع النوراني'
+    ];
+    
+    const colWidths = [6, 16, 12, 60, 16, 14, 14, 24, 14, 16, 16, 26];
+    
+    const rows = surahGatheringVerses.map((v, idx) => {
+      const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
+      const cleanW = removeTashkeel(v.text).split(/\s+/).filter(Boolean);
+      let vJummal = 0;
+      cleanW.forEach(w => {
+        const clean = w.replace(/[^\u0621-\u064A]/g, '');
+        for (const ch of clean) {
+          vJummal += JUMMAL_MAP[ch] || 0;
+        }
+      });
+      const divisor = activeSurah.digitalRoot > 0 ? activeSurah.digitalRoot : 1;
+      const isExact = vJummal % divisor === 0;
+      const quotientStr = isExact ? (vJummal / divisor).toString() : (vJummal / divisor).toFixed(2);
+      
+      return [
+        idx + 1,
+        v.surahName,
+        v.verseNumber,
+        v.text,
+        vJummal,
+        cleanW.length,
+        v.text.replace(/[^\u0621-\u064A]/g, '').length,
+        g.matchedLetters.join(' - '),
+        activeSurah.digitalRoot,
+        quotientStr,
+        isExact ? 'متوافقة ✅' : 'كسر ⭕',
+        `آية جامعة لكافة حروف (${activeSurah.letters}) ⭐`
+      ];
+    });
+
+    const excelBlob = await generateTableExcelBlob({
+      sheetTitle: `آيات جامعة ${activeSurah.letters}`,
+      headers,
+      rows,
+      colWidths,
+      rightToLeft: true
+    });
+
+    setExportModalState({
+      isOpen: true,
+      format: 'xlsx',
+      defaultFileName: `الآيات_الجامعة_لحروف_${activeSurah.letters}_سورة_${activeSurah.name}`,
+      data: excelBlob,
+      onSuccessToast: `تم تصدير ملف Excel للآيات الجامعة (${surahGatheringVerses.length} آية) بنجاح! 📊✨`
+    });
+  };
+
+  // Export specifically the gathering verses to Word (.docx)
+  const handleExportGatheringVersesDocx = async () => {
+    if (!activeSurah || surahGatheringVerses.length === 0) return;
+    try {
+      const versesData = surahGatheringVerses.map((v, idx) => {
+        const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
+        const cleanW = removeTashkeel(v.text).split(/\s+/).filter(Boolean);
+        let vJummal = 0;
+        cleanW.forEach(w => {
+          const clean = w.replace(/[^\u0621-\u064A]/g, '');
+          for (const ch of clean) {
+            vJummal += JUMMAL_MAP[ch] || 0;
+          }
+        });
+        const divisor = activeSurah.digitalRoot > 0 ? activeSurah.digitalRoot : 1;
+        const isExact = vJummal % divisor === 0;
+        const quotientStr = isExact ? (vJummal / divisor).toString() : (vJummal / divisor).toFixed(2);
+
+        return {
+          index: idx + 1,
+          verseNumber: v.verseNumber,
+          verseText: v.text,
+          jummalValue: vJummal,
+          wordCount: cleanW.length,
+          letterCount: v.text.replace(/[^\u0621-\u064A]/g, '').length,
+          matchedLetters: g.matchedLetters,
+          isExact,
+          quotientStr
+        };
+      });
+
+      const blob = await generateNooraniGatheringVersesDocxBlob({
+        surahTitle: `سورة ${activeSurah.name}`,
+        surahNumber: activeSurah.id,
+        openingLetters: activeSurah.letters,
+        digitalRoot: activeSurah.digitalRoot,
+        verses: versesData
+      });
+
+      setExportModalState({
+        isOpen: true,
+        format: 'docx',
+        defaultFileName: `الآيات_الجامعة_لحروف_${activeSurah.letters}_سورة_${activeSurah.name}`,
+        data: blob,
+        onSuccessToast: `تم تصدير مستند Word الأصلي للآيات الجامعة (${surahGatheringVerses.length} آية) بنجاح! 📄✨`
+      });
+    } catch (err) {
+      console.error(err);
+      showToast('حدث خطأ أثناء تصدير ملف Word للآيات الجامعة.');
+    }
+  };
+
+  // Copy specifically the gathering verses text
+  const handleCopyGatheringVerses = async () => {
+    if (!activeSurah || surahGatheringVerses.length === 0) return;
+    let text = `⭐ قائمة الآيات الجامعة لكافة حروف الفاتحة النورانية («${activeSurah.letters}») - سورة ${activeSurah.name}:\n`;
+    text += `• عدد الآيات الجامعة: ${surahGatheringVerses.length} آية شريفة\n`;
+    text += `• المعامل النوراني: ${activeSurah.digitalRoot} | جمل الفاتحة: ${activeSurah.keyValue}\n`;
+    text += `------------------------------------------------------------\n`;
+    surahGatheringVerses.forEach((v, idx) => {
+      const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
+      text += `${idx + 1}. [آية ${v.verseNumber}]: ( ${v.text} )\n`;
+      text += `   - الحروف المتوفرة: [${g.matchedLetters.join(' - ')}] (كاملة ⭐)\n\n`;
+    });
+    text += `«منظومة البنيان الرقمي للقرآن الكريم» • تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`;
+    await copyToClipboard(text);
+    showToast(`تم نسخ الآيات الجامعة (${surahGatheringVerses.length} آية) بنجاح! 📋✨`);
+  };
+
   // Copy full table to clipboard
   const handleCopyResults = async () => {
-    if (filteredWords.length === 0) return;
+    if (!activeSurah || filteredWords.length === 0) return;
 
-    let textToCopy = `📋 نتائج استخراج الكلمات المشتملة على الأحرف النورانية (${activeSurah.letters}) - سورة ${activeSurah.name}:\n`;
+    let textToCopy = `📋 نتائج استخراج الحروف النورانية والكلمات (${activeSurah.letters}) - سورة ${activeSurah.name}:\n`;
     textToCopy += `• المعامل النوراني الحاكم: ${activeSurah.digitalRoot} (جمل الفاتحة: ${activeSurah.keyValue})\n`;
     textToCopy += `• نطاق البحث: ${searchScope === 'single_surah' ? `سورة ${activeSurah.name}` : searchScope === 'all_29' ? 'كافة السور الـ 29 النورانية' : 'المصحف كاملاً 114 سورة'}\n`;
     textToCopy += `• إجمالي الكلمات المستخرجة: ${stats.total} كلمة | الكلمات المتوافقة تماماً: ${stats.exactCount} (${stats.exactPct}%)\n`;
@@ -356,25 +737,28 @@ export default function NooraniWordExplorer({
       textToCopy += `${idx + 1}. كلمة [${w.word}] | سورة ${w.surahName} آية (${w.verseNumber})\n`;
       textToCopy += `   - الحروف النورانية فيها: [${w.matchedLetters.join(' - ')}] | حساب الجمل: ${w.wordJummal} | جمل الحروف: ${w.lettersJummal}\n`;
       textToCopy += `   - القسمة على المعامل (${activeSurah.digitalRoot}): ${w.quotientStr} ${w.isExact ? '✅ [متوافقة]' : '❌ [كسر]'}\n`;
+      textToCopy += `   - الجمع النوراني للآية: ${w.isGatheringAllVerse ? `⭐ آية جامعة لكافة حروف (${activeSurah.letters})` : w.verseGatheringSummary}\n`;
       textToCopy += `   - نص الآية: ( ${w.verseText} )\n\n`;
     });
 
-    textToCopy += `«برنامج البنيان للقرآن الكريم» • تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`;
+    textToCopy += `«منظومة البنيان للقرآن الكريم» • تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`;
 
     await copyToClipboard(textToCopy);
     setIsCopied(true);
-    showToast('تم نسخ جدول الكلمات النورانية بنجاح! 📋✨');
+    showToast('تم نسخ جدول الحروف النورانية بنجاح! 📋✨');
     setTimeout(() => setIsCopied(false), 2500);
   };
 
   // Copy single word row
   const handleCopySingleRow = async (row: ExtractedWordRow) => {
+    if (!activeSurah) return;
     const rowKey = `${row.surahId}_${row.verseNumber}_${row.word}_${row.index}`;
-    let text = `الكلمة النورانية المستخرجة: [${row.word}]\n`;
+    let text = `الكلمة القرآنية المستخرجة: [${row.word}]\n`;
     text += `• السورة: ${row.surahName} (آية ${row.verseNumber})\n`;
     text += `• الحروف النورانية الشاملة: [${row.matchedLetters.join(' - ')}]\n`;
     text += `• حساب جمل الكلمة: ${row.wordJummal} | جمل الحروف: ${row.lettersJummal}\n`;
     text += `• القسمة على المعامل (${activeSurah.digitalRoot}): ${row.quotientStr} ${row.isExact ? '✅ متوافقة' : '❌ كسر'}\n`;
+    text += `• الجمع النوراني للآية: ${row.isGatheringAllVerse ? `⭐ آية جامعة لكافة حروف (${activeSurah.letters})` : row.verseGatheringSummary}\n`;
     text += `• الآية الكريمة: ( ${row.verseText} )`;
 
     await copyToClipboard(text);
@@ -385,7 +769,7 @@ export default function NooraniWordExplorer({
 
   // Export to native Word (.docx)
   const handleExportDocx = async () => {
-    if (filteredWords.length === 0) return;
+    if (!activeSurah || filteredWords.length === 0) return;
     try {
       const blob = await generateNooraniWordsDocxBlob({
         surahTitle: searchScope === 'single_surah' ? `سورة ${activeSurah.name}` : searchScope === 'all_29' ? 'كافة السور الـ 29 النورانية' : 'المصحف الشريف',
@@ -408,7 +792,7 @@ export default function NooraniWordExplorer({
       setExportModalState({
         isOpen: true,
         format: 'docx',
-        defaultFileName: `استخراج_كلمات_الحروف_النورانية_${activeSurah.letters}_سورة_${activeSurah.name}`,
+        defaultFileName: `استخراج_الحروف_النورانية_${activeSurah.letters}_سورة_${activeSurah.name}`,
         data: blob,
         onSuccessToast: 'تم تصدير مستند Word الأصلي بنجاح! 📄✨'
       });
@@ -420,13 +804,27 @@ export default function NooraniWordExplorer({
 
   // Export to Excel (.xlsx) with table columns
   const handleExportCsv = async () => {
-    if (filteredWords.length === 0) return;
-    const headers = ['م', 'السورة', 'رقم الآية', 'الكلمة القرآنية', 'الحروف النورانية', 'حساب جمل الكلمة', 'جمل الحروف', 'ناتج القسمة', 'المعامل', 'حالة التوافق', 'نص الآية الكريمة'];
-    const colWidths = [6, 16, 10, 18, 18, 14, 14, 14, 12, 14, 68];
+    if (!activeSurah || filteredWords.length === 0) return;
+    const headers = [
+      'م', 
+      'السورة', 
+      'رقم الآية', 
+      'الجمع النوراني للآية',
+      'الكلمة القرآنية', 
+      'الحروف النورانية', 
+      'حساب جمل الكلمة', 
+      'جمل الحروف', 
+      'ناتج القسمة', 
+      'المعامل', 
+      'حالة التوافق', 
+      'نص الآية الكريمة'
+    ];
+    const colWidths = [6, 16, 10, 22, 18, 18, 14, 14, 14, 12, 14, 68];
     const rows = filteredWords.map((w, idx) => [
       idx + 1,
       w.surahName,
       w.verseNumber,
+      w.isGatheringAllVerse ? `آية جامعة لكافة حروف (${activeSurah.letters}) ⭐` : w.verseGatheringSummary,
       w.word,
       w.matchedLetters.join(' '),
       w.wordJummal,
@@ -438,7 +836,7 @@ export default function NooraniWordExplorer({
     ]);
 
     const excelBlob = await generateTableExcelBlob({
-      sheetTitle: 'كلمات نورانية',
+      sheetTitle: 'الحروف النورانية',
       headers,
       rows,
       colWidths,
@@ -448,7 +846,7 @@ export default function NooraniWordExplorer({
     setExportModalState({
       isOpen: true,
       format: 'xlsx',
-      defaultFileName: `كلمات_الحروف_النورانية_${activeSurah.letters}_${activeSurah.name}`,
+      defaultFileName: `الحروف_النورانية_${activeSurah.letters}_${activeSurah.name}`,
       data: excelBlob,
       onSuccessToast: 'تم تصدير ملف Excel (.xlsx) الأصلي بنجاح مع ضبط الأعمدة والجداول! 📊'
     });
@@ -467,14 +865,14 @@ export default function NooraniWordExplorer({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg md:text-xl font-black text-emerald-950">
-                مستكشف وباحث الكلمات ذات الأحرف النورانية (29 سورة)
+                مستكشف وباحث الحروف النورانية (29 سورة)
               </h3>
               <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-full border border-amber-300">
                 محرك الاستقصاء المباشر
               </span>
             </div>
             <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              استخراج وحصر الكلمات القرآنية المشتملة على حروف الفواتح النورانية وحساب توافقاتها الرياضية بدقة
+              استخراج وفلترة الحروف المقطعة والكلمات المشتملة عليها والآيات الجامعة للفواتح وتوافقاتها الرياضية بدقة
             </p>
           </div>
         </div>
@@ -483,9 +881,9 @@ export default function NooraniWordExplorer({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleCopyResults}
-            disabled={filteredWords.length === 0}
+            disabled={!activeSurah || filteredWords.length === 0}
             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            title="نسخ جدول الكلمات"
+            title="نسخ جدول الحروف النورانية"
           >
             {isCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-600" />}
             <span>{isCopied ? 'تم النسخ' : 'نسخ النتائج'}</span>
@@ -493,7 +891,7 @@ export default function NooraniWordExplorer({
 
           <button
             onClick={handleExportDocx}
-            disabled={filteredWords.length === 0}
+            disabled={!activeSurah || filteredWords.length === 0}
             className="px-3.5 py-2 bg-emerald-900 hover:bg-emerald-950 text-amber-200 font-bold text-xs rounded-xl border border-emerald-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
             title="تصدير ملف Word (.docx)"
           >
@@ -503,7 +901,7 @@ export default function NooraniWordExplorer({
 
           <button
             onClick={handleExportCsv}
-            disabled={filteredWords.length === 0}
+            disabled={!activeSurah || filteredWords.length === 0}
             className="px-3.5 py-2 bg-white hover:bg-amber-50 text-emerald-900 font-bold text-xs rounded-xl border border-emerald-300 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
             title="تصدير ملف Excel"
           >
@@ -521,105 +919,9 @@ export default function NooraniWordExplorer({
         </div>
       )}
 
-      {/* Quick Formula & Individual Letters Toggle Section */}
-      <div className="space-y-3 bg-[#FAF8F5] p-4 rounded-2xl border border-amber-200/80 shadow-xs">
-        {/* Status bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-black text-emerald-950">
-              ⚡ حالة تنشيط الحروف والصيغ:
-            </span>
-            {activeFormula ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500 text-slate-950 border border-amber-600 shadow-xs">
-                <Check className="w-3.5 h-3.5" />
-                الصيغة المنشطة: « {activeFormula} » (انقر عليها مجدداً للإلغاء)
-              </span>
-            ) : activeLetter ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-800 text-amber-200 border border-emerald-900 shadow-xs">
-                <Check className="w-3.5 h-3.5" />
-                الحرف المنشط: « {activeLetter} » (انقر عليه مجدداً للإلغاء)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-white text-slate-600 border border-slate-300">
-                ⚪ الحروف غير منشطة (اضغط على أي حرف أو صيغة لتنشيطها والعكس)
-              </span>
-            )}
-          </div>
-
-          {(activeFormula || activeLetter) && (
-            <button
-              type="button"
-              onClick={handleClearLettersActivation}
-              className="self-start sm:self-auto px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-700 font-black text-[11px] rounded-lg border border-rose-300 transition-all flex items-center gap-1 cursor-pointer shadow-xs"
-              title="إلغاء تنشيط الحروف والعودة للوضع الطبيعي"
-            >
-              <X className="w-3 h-3" />
-              <span>إلغاء تنشيط الحروف</span>
-            </button>
-          )}
-        </div>
-
-        {/* Formula Pills */}
-        <div className="space-y-1.5">
-          <label className="block text-[11px] font-black text-slate-700">
-            • الصيغ النورانية المركبة (اضغط للتنشيط واضغط مجدداً للإلغاء):
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {formulaGroups.map(fg => {
-              const isGroupActive = activeFormula === fg.formula;
-              return (
-                <button
-                  type="button"
-                  key={fg.formula}
-                  onClick={() => handleToggleFormula(fg.formula, fg.surahIds)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isGroupActive 
-                      ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-md font-black ring-2 ring-amber-400/60 scale-105' 
-                      : 'bg-white hover:bg-emerald-50 text-slate-700 border-slate-300 hover:border-emerald-400'
-                  }`}
-                  title={isGroupActive ? 'انقر لإلغاء تنشيط هذه الصيغة' : 'انقر لتنشيط هذه الصيغة'}
-                >
-                  {isGroupActive && <Check className="w-3.5 h-3.5 text-slate-950 shrink-0" />}
-                  <span>{fg.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 14 Individual Letters */}
-        <div className="space-y-1.5 pt-2.5 border-t border-amber-200/60">
-          <label className="block text-[11px] font-black text-slate-700">
-            • الأحرف النورانية الـ 14 الفردية («نص حكيم قاطع له سر» - اضغط لتنشيط الحرف واضغط مجدداً لإلغائه):
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {NOORANI_INDIVIDUAL_LETTERS.map(item => {
-              const isLetterActive = activeLetter === item.letter;
-              return (
-                <button
-                  type="button"
-                  key={item.letter}
-                  onClick={() => handleToggleLetter(item.letter)}
-                  className={`min-w-9 px-2.5 py-1.5 text-xs font-black rounded-xl border transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
-                    isLetterActive
-                      ? 'bg-emerald-800 text-amber-200 border-emerald-950 shadow-md ring-2 ring-emerald-500/60 scale-105'
-                      : 'bg-white hover:bg-amber-50 text-slate-800 border-slate-300 hover:border-amber-400'
-                  }`}
-                  title={`${item.letter} (جمل: ${item.jummal}) - ${isLetterActive ? 'انقر لإلغاء التنشيط' : 'انقر للتنشيط'}`}
-                >
-                  {isLetterActive && <Check className="w-3 h-3 text-amber-300" />}
-                  <span className="font-serif text-sm">{item.letter}</span>
-                  <span className="text-[9px] opacity-70 font-mono">({item.jummal})</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
       {/* Main Selection & Filter Controls */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#fdfcf7] p-5 border border-amber-200/80 rounded-2xl">
-        {/* Surah Dropdown */}
+        {/* Surah Dropdown: Starts on '0: اختيار سورة' rather than default Al-Baqarah */}
         <div className="space-y-1.5">
           <label htmlFor="noorani-surah-picker" className="block text-xs font-black text-slate-800">
             📖 السورة النورانية المستهدفة (من الـ 29):
@@ -627,9 +929,10 @@ export default function NooraniWordExplorer({
           <select
             id="noorani-surah-picker"
             value={selectedSurahId}
-            onChange={(e) => setSelectedSurahId(parseInt(e.target.value, 10))}
+            onChange={(e) => handleSelectSurah(parseInt(e.target.value, 10))}
             className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm"
           >
+            <option value={0}>اختيار سورة من الـ 29 سورة النورانية...</option>
             {NOORANI_SURAHS.map((s, idx) => (
               <option key={s.id} value={s.id}>
                 {idx + 1}. سورة {s.name} (رقم {s.id}) [الفاتحة: {s.letters} | المعامل: {s.digitalRoot}]
@@ -641,17 +944,22 @@ export default function NooraniWordExplorer({
         {/* Search Scope */}
         <div className="space-y-1.5">
           <label htmlFor="search-scope-picker" className="block text-xs font-black text-slate-800">
-            🔍 نطاق استخراج الكلمات:
+            🔍 نطاق البحث واستخراج المفردات:
           </label>
           <select
             id="search-scope-picker"
             value={searchScope}
             onChange={(e: any) => setSearchScope(e.target.value)}
-            className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm"
+            disabled={!activeSurah}
+            className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm disabled:opacity-60"
           >
-            <option value="single_surah">ضمن سورة {activeSurah.name} فقط</option>
+            <option value="single_surah">
+              {activeSurah ? `ضمن سورة ${activeSurah.name} فقط` : 'ضمن السورة المختارة فقط'}
+            </option>
             <option value="all_29">كافة السور الـ 29 النورانية مجتمعة</option>
-            <option value="all_quran">المصحف كاملاً (114 سورة) بالأحرف ({activeSurah.letters})</option>
+            <option value="all_quran">
+              {activeSurah ? `المصحف كاملاً (114 سورة) بالأحرف (${activeSurah.letters})` : 'المصحف كاملاً (114 سورة)'}
+            </option>
           </select>
         </div>
 
@@ -664,171 +972,469 @@ export default function NooraniWordExplorer({
             id="compatibility-mode-picker"
             value={onlyCompatible ? 'only_compatible' : 'all_words'}
             onChange={(e) => setOnlyCompatible(e.target.value === 'only_compatible')}
-            className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm"
+            disabled={!activeSurah}
+            className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm disabled:opacity-60"
           >
+            <option value="all_words">🌐 كافة الكلمات المحتوية على الحروف النورانية (الافتراضي)</option>
             <option value="only_compatible">✅ الكلمات المتوافقة رياضياً فقط (دون كسور)</option>
-            <option value="all_words">🌐 كافة الكلمات المحتوية على الأحرف النورانية</option>
           </select>
         </div>
       </div>
 
-      {/* Surah Al-Shura Parallel Track Selector */}
-      {selectedSurahId === 42 && searchScope === 'single_surah' && (
-        <div className="bg-amber-50/80 border border-amber-300 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <span className="font-black text-amber-950 flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-amber-600" />
-            سورة الشورى (مساران نورانيان مستقلان):
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShuraTrack('both')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                shuraTrack === 'both' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-white text-slate-700 border'
-              }`}
-            >
-              كلا المسارين (حم + عسق)
-            </button>
-            <button
-              onClick={() => setShuraTrack('hameem')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                shuraTrack === 'hameem' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-white text-slate-700 border'
-              }`}
-            >
-              مسار حم (معامل 3)
-            </button>
-            <button
-              onClick={() => setShuraTrack('asaq')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                shuraTrack === 'asaq' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-white text-slate-700 border'
-              }`}
-            >
-              مسار عسق (معامل 5)
-            </button>
+      {/* If NO Surah is selected yet, show clean guidance without duplicate surah list */}
+      {!activeSurah ? (
+        <div className="p-10 md:p-14 text-center bg-[#FAF8F5] border-2 border-dashed border-amber-300/80 rounded-2xl space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-900 text-amber-300 flex items-center justify-center mx-auto shadow-inner">
+            <Compass className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-base font-black text-emerald-950">
+              يرجى اختيار سورة نورانية من القائمة المنسدلة أعلاه 📖
+            </h4>
+            <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed font-semibold">
+              اختر السورة المستهدفة من القائمة المنسدلة بالأعلى للبدء في استعراض وفلترة حروفها النورانية المقطعة والآيات الجامعة للفواتح وتوافقاتها الحسابية.
+            </p>
           </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* DEDICATED SURAH NOORANI LETTERS FILTER BAR (فلترة حروف السورة النشطة) */}
+          <div className="p-4 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 rounded-2xl border-2 border-amber-500/60 text-amber-100 shadow-md space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-700/60 pb-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="p-1.5 bg-amber-500 text-slate-950 rounded-lg shadow-xs">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                <span className="text-xs font-black text-amber-300">
+                  فلاتر أحرف سورة {activeSurah.name} النورانية (« {activeSurah.letters} ») - المعامل: {activeSurah.digitalRoot}:
+                </span>
+              </div>
 
-      {/* Surah Info Card & Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-xl text-center">
-          <span className="text-[10px] text-emerald-800 font-bold block">الفاتحة النورانية</span>
-          <span className="text-xl font-black text-emerald-950 block mt-0.5 quran-font">
-            « {activeSurah.letters} »
-          </span>
-          <span className="text-[10px] text-emerald-700 font-semibold">
-            الجُمّل: {activeSurah.keyValue} | المعامل: {activeSurah.digitalRoot}
-          </span>
-        </div>
+              <div className="flex items-center gap-2">
+                {(activeSurahLetter || isGatheringVersesOnly || isWholeFormulaOnly || activeLetter || activeFormula) && (
+                  <button
+                    type="button"
+                    onClick={handleClearLettersActivation}
+                    className="px-2.5 py-1 bg-rose-900/80 hover:bg-rose-800 text-rose-200 font-black text-[11px] rounded-lg border border-rose-500 transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                    title="إلغاء تنشيط الفلاتر والعودة للوضع العام"
+                  >
+                    <X className="w-3 h-3" />
+                    <span>إلغاء التنشيط والعودة للعام</span>
+                  </button>
+                )}
+              </div>
+            </div>
 
-        <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-xl text-center">
-          <span className="text-[10px] text-amber-800 font-bold block">الكلمات المستخرجة</span>
-          <span className="text-xl font-black text-amber-950 block mt-0.5 font-mono">
-            {stats.total}
-          </span>
-          <span className="text-[10px] text-amber-700 font-semibold">
-            كلمة مطابقة للشروط
-          </span>
-        </div>
-
-        <div className="bg-teal-50/70 border border-teal-200 p-3.5 rounded-xl text-center">
-          <span className="text-[10px] text-teal-800 font-bold block">المتوافقة رياضياً ✅</span>
-          <span className="text-xl font-black text-teal-950 block mt-0.5 font-mono">
-            {stats.exactCount} ({stats.exactPct}%)
-          </span>
-          <span className="text-[10px] text-teal-700 font-semibold">
-            مضاعفات صحيحة للمعامل
-          </span>
-        </div>
-
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50/60 border-2 border-emerald-600/70 p-3 rounded-xl text-center flex flex-col justify-between shadow-xs">
-          <div>
-            <span className="text-[10px] text-emerald-950 font-black block">نقل الآيات للمخرجات</span>
-            <span className="text-xs text-slate-600 font-medium block mt-0.5">
-              {matchingVerseRefs.length > 0 ? `${matchingVerseRefs.length} آية متطابقة` : `سورة ${activeSurah.name}`}
-            </span>
-          </div>
-          <div className="space-y-1 mt-1.5">
-            <button
-              type="button"
-              onClick={handleTransferFilteredVerses}
-              className="w-full px-2 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-amber-300 font-black text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm active:scale-95"
-              title={
-                matchingVerseRefs.length > 0 
-                  ? `نقل الـ ${matchingVerseRefs.length} آية المفلترة إلى جدول شاشة المخرجات لتطبيق فلاتر إضافية`
-                  : `فتح كافة آيات سورة ${activeSurah.name} في شاشة المخرجات`
-              }
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>
-                {matchingVerseRefs.length > 0 
-                  ? `نقل الآيات (${matchingVerseRefs.length}) 🚀` 
-                  : 'فتح السورة كاملة ➡️'}
-              </span>
-            </button>
-            {matchingVerseRefs.length > 0 && onSelectSurahForAnalysis && (
+            {/* Letters Chips for Active Surah + Gathering Verses Badge */}
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              {/* General View Button */}
               <button
                 type="button"
-                onClick={() => onSelectSurahForAnalysis(activeSurah)}
-                className="text-[10px] text-slate-500 hover:text-slate-900 font-bold underline cursor-pointer block w-full text-center"
-                title="فتح كافة آيات السورة في شاشة المخرجات بدلاً من الآيات المفلترة فقط"
+                onClick={() => {
+                  setActiveSurahLetter(null);
+                  setIsGatheringVersesOnly(false);
+                  setIsWholeFormulaOnly(false);
+                  setActiveLetter(null);
+                  setActiveFormula(null);
+                }}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  !activeSurahLetter && !isGatheringVersesOnly && !isWholeFormulaOnly && !activeLetter && !activeFormula
+                    ? 'bg-amber-400 text-slate-950 border-amber-500 font-black shadow-md ring-2 ring-amber-300/60 scale-105'
+                    : 'bg-emerald-800/80 hover:bg-emerald-700 text-amber-200 border-emerald-700'
+                }`}
               >
-                أو فتح آيات السورة كاملة ➡️
+                <span>الكل (عرض عام)</span>
               </button>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Live Search Input within extracted results */}
-      <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setSearchQuery('');
-              }}
-              placeholder="ابحث في الكلمات المستخرجة أو نص وسياق الآية الكريمة أو رقم الآية أو حساب الجمل..."
-              className="w-full bg-white border-2 border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 rounded-xl pr-10 pl-24 py-3 text-xs font-bold text-slate-900 outline-none shadow-sm transition-all placeholder:text-slate-400"
-            />
-            <Search className="w-4 h-4 text-emerald-700 absolute right-3.5 top-1/2 -translate-y-1/2" />
-            
-            {/* Single clean clear button inside the input */}
-            {searchQuery && (
+              {/* Individual Letters of this Surah (e.g. ك, هـ, ي, ع, ص in Maryam) */}
+              {surahDistinctLetters.map(item => {
+                const isItemActive = activeSurahLetter === item.char || activeLetter === item.char;
+                const wordCount = surahLetterWordCounts[item.char] || surahLetterWordCounts[item.norm] || 0;
+
+                return (
+                  <button
+                    type="button"
+                    key={item.char}
+                    onClick={() => handleToggleSurahLetter(item.char)}
+                    className={`px-3 py-1.5 text-xs font-black rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isItemActive
+                        ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-md ring-2 ring-amber-300/60 scale-105 font-black'
+                        : 'bg-emerald-900/90 hover:bg-emerald-800 text-amber-200 border-emerald-600 hover:border-amber-400'
+                    }`}
+                    title={`فلترة الكلمات المشتملة على حرف [${item.char}] (جمل: ${item.jummal}) في سورة ${activeSurah.name}`}
+                  >
+                    {isItemActive && <Check className="w-3.5 h-3.5 text-slate-950" />}
+                    <span className="font-serif text-sm">{item.char}</span>
+                    <span className="text-[10px] bg-emerald-950/70 text-amber-300 px-1.5 py-0.5 rounded-full font-mono border border-emerald-700/50">
+                      {wordCount > 0 ? `${wordCount} كلمة` : `جمل: ${item.jummal}`}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {/* Whole formula in single word button */}
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-xs hover:scale-105 active:scale-95"
-                title="مسح وتفريغ مربع البحث (أو اضغط زر Esc)"
+                onClick={handleToggleWholeFormulaOnly}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isWholeFormulaOnly
+                    ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-md ring-2 ring-amber-300/60 scale-105 font-black'
+                    : 'bg-emerald-800/80 hover:bg-emerald-700 text-amber-200 border-emerald-700'
+                }`}
+                title={`حصر الكلمات المشتملة على كافة حروف (${activeSurah.letters}) مجتمعة في نفس اللفظ`}
               >
-                <X className="w-3.5 h-3.5" />
-                <span>مسح ✕</span>
+                {isWholeFormulaOnly && <Check className="w-3.5 h-3.5 text-slate-950" />}
+                <span>حروف «{activeSurah.letters}» كاملة في كلمة</span>
               </button>
-            )}
+
+              {/* Prominent Golden Button for Verses Gathering All Opening Letters (e.g. 11 verses in Maryam) */}
+              <button
+                type="button"
+                onClick={handleToggleGatheringVersesOnly}
+                className={`px-3.5 py-1.5 text-xs font-black rounded-xl border-2 transition-all cursor-pointer flex items-center gap-1.5 shadow-md ${
+                  isGatheringVersesOnly
+                    ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-200 shadow-lg scale-105 animate-pulse'
+                    : 'bg-gradient-to-r from-amber-500/20 via-amber-400/30 to-amber-500/20 text-amber-300 border-amber-400/70 hover:bg-amber-400/40 hover:border-amber-300'
+                }`}
+                title={`حصر وعرض الآيات التي تجمع كافة حروف (${activeSurah.letters}) الخمسة في سياق كل آية (${surahGatheringVerses.length} آية)`}
+              >
+                <Star className={`w-3.5 h-3.5 ${isGatheringVersesOnly ? 'text-amber-900 fill-amber-900' : 'text-amber-300 fill-amber-300'}`} />
+                <span>
+                  ⭐ الآيات الجامعة لكافة حروف ({activeSurah.letters}) [ {surahGatheringVerses.length} آية ]
+                </span>
+              </button>
+            </div>
           </div>
 
-          {/* Reset All Filters button */}
-          {(searchQuery || activeFormula || activeLetter || searchScope !== 'single_surah' || !onlyCompatible) && (
-            <button
-              type="button"
-              onClick={handleResetAll}
-              className="px-3.5 py-3 bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold text-xs rounded-xl border border-amber-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-              title="إعادة تعيين وتصفير البحث وكافة الفلاتر"
-            >
-              <Sparkles className="w-4 h-4 text-amber-700" />
-              <span>تصفير الكل</span>
-            </button>
+          {/* SPECIAL HIGHLIGHT CARD FOR GATHERING VERSES (عند تفعيل الآيات الجامعة) */}
+          {isGatheringVersesOnly && (
+            <div className="bg-gradient-to-br from-amber-50 via-yellow-50/50 to-amber-50 border-2 border-amber-400 p-5 rounded-2xl shadow-md space-y-4 animate-fade-in text-slate-900">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-300/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2.5 bg-amber-500 text-slate-950 rounded-xl shadow-xs">
+                    <Star className="w-5 h-5 fill-slate-950" />
+                  </span>
+                  <div>
+                    <h4 className="text-sm md:text-base font-black text-amber-950 flex items-center gap-2">
+                      الآيات القرآنية الجامعة لكافة حروف الفاتحة النورانية («{activeSurah.letters}»): {surahGatheringVerses.length} آية شريفة
+                    </h4>
+                    <p className="text-xs text-amber-900 font-semibold mt-0.5">
+                      هذه الآيات الكريمة اجتمعت في سياق ألفاظ كل آية منها كافة الأحرف النورانية الخمسة لسورة {activeSurah.name} كاملة ({surahDistinctLetters.map(l => l.char).join(' - ')}).
+                    </p>
+                  </div>
+                </div>
+
+                {/* Direct Export Buttons for Gathering Verses */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleExportGatheringVersesExcel}
+                    className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-amber-200 font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    title="تصدير الآيات الجامعة مباشرة لملف Excel"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+                    <span>تصدير الآيات لـ Excel 📊</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportGatheringVersesDocx}
+                    className="px-3 py-1.5 bg-emerald-950 hover:bg-slate-900 text-amber-200 font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    title="تصدير الآيات الجامعة مباشرة لمستند Word"
+                  >
+                    <FileText className="w-4 h-4 text-amber-300" />
+                    <span>تصدير الآيات لـ Word 📄</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTransferGatheringVersesToOutput}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    title="نقل الآيات الجامعة مباشرة لشاشة المخرجات لتطبيق كافة الفلاتر والرسوم البيانية"
+                  >
+                    <Sparkles className="w-4 h-4 text-slate-950" />
+                    <span>نقل للمخرجات 🚀</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyGatheringVerses}
+                    className="px-2.5 py-1.5 bg-white hover:bg-amber-100 text-slate-800 font-bold text-xs rounded-xl border border-amber-300 transition-all flex items-center gap-1 cursor-pointer"
+                    title="نسخ الآيات الجامعة"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-slate-600" />
+                    <span>نسخ الآيات</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick list of gathering verse numbers */}
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <span className="font-black text-amber-950">أرقام الآيات الجامعة ({surahGatheringVerses.length} آية):</span>
+                {surahGatheringVerses.map(v => (
+                  <span 
+                    key={v.verseNumber}
+                    className="px-2.5 py-1 bg-white border border-amber-300 text-amber-950 font-mono font-black rounded-lg shadow-2xs"
+                  >
+                    آية {v.verseNumber}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
-        </div>
 
-        {/* Live Filter Summary bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-semibold text-slate-500 px-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span>
-              {searchQuery.trim() || activeFormula || activeLetter || isTableManuallyOpen ? (
-                <>
+          {/* Surah Al-Shura Parallel Track Selector */}
+          {selectedSurahId === 42 && searchScope === 'single_surah' && (
+            <div className="bg-amber-50/80 border border-amber-300 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <span className="font-black text-amber-950 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                سورة الشورى (مساران نورانيان مستقلان):
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShuraTrack('both')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                    shuraTrack === 'both' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-white text-slate-700 border'
+                  }`}
+                >
+                  كلا المسارين (حم + عسق)
+                </button>
+                <button
+                  onClick={() => setShuraTrack('hameem')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                    shuraTrack === 'hameem' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-white text-slate-700 border'
+                  }`}
+                >
+                  مسار حم (معامل 3)
+                </button>
+                <button
+                  onClick={() => setShuraTrack('asaq')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                    shuraTrack === 'asaq' ? 'bg-amber-500 text-slate-950 font-black' : 'bg-white text-slate-700 border'
+                  }`}
+                >
+                  مسار عسق (معامل 5)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* General 14 Individual Letters & 13 Formulas (Collapsible / Advanced) */}
+          <div className="space-y-3 bg-[#FAF8F5] p-4 rounded-2xl border border-amber-200/80 shadow-xs">
+            {/* Status bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-black text-emerald-950">
+                  ⚡ فلاتر الحروف والصيغ العامة الـ 14:
+                </span>
+                {activeFormula ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500 text-slate-950 border border-amber-600 shadow-xs">
+                    <Check className="w-3.5 h-3.5" />
+                    الصيغة المنشطة: « {activeFormula} » (انقر عليها مجدداً للإلغاء)
+                  </span>
+                ) : activeLetter ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-800 text-amber-200 border border-emerald-900 shadow-xs">
+                    <Check className="w-3.5 h-3.5" />
+                    الحرف المنشط: « {activeLetter} » (انقر عليه مجدداً للإلغاء)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-white text-slate-600 border border-slate-300">
+                    ⚪ يمكنك تفعيل أي من الأحرف الـ 14 العامة أدناه للبحث في كامل النطاق
+                  </span>
+                )}
+              </div>
+
+              {(activeFormula || activeLetter) && (
+                <button
+                  type="button"
+                  onClick={handleClearLettersActivation}
+                  className="self-start sm:self-auto px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-700 font-black text-[11px] rounded-lg border border-rose-300 transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                  title="إلغاء تنشيط الحروف والعودة للوضع الطبيعي"
+                >
+                  <X className="w-3 h-3" />
+                  <span>إلغاء تنشيط الحروف</span>
+                </button>
+              )}
+            </div>
+
+            {/* 14 Individual Letters */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-black text-slate-700">
+                • الأحرف النورانية الـ 14 الفردية («نص حكيم قاطع له سر»):
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {NOORANI_INDIVIDUAL_LETTERS.map(item => {
+                  const isLetterActive = activeLetter === item.letter || activeSurahLetter === item.letter;
+                  return (
+                    <button
+                      type="button"
+                      key={item.letter}
+                      onClick={() => handleToggleLetter(item.letter)}
+                      className={`min-w-9 px-2.5 py-1.5 text-xs font-black rounded-xl border transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                        isLetterActive
+                          ? 'bg-emerald-800 text-amber-200 border-emerald-950 shadow-md ring-2 ring-emerald-500/60 scale-105'
+                          : 'bg-white hover:bg-amber-50 text-slate-800 border-slate-300 hover:border-amber-400'
+                      }`}
+                      title={`${item.letter} (جمل: ${item.jummal}) - ${isLetterActive ? 'انقر لإلغاء التنشيط' : 'انقر للتنشيط'}`}
+                    >
+                      {isLetterActive && <Check className="w-3 h-3 text-amber-300" />}
+                      <span className="font-serif text-sm">{item.letter}</span>
+                      <span className="text-[9px] opacity-70 font-mono">({item.jummal})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Formula Pills */}
+            <div className="space-y-1.5 pt-2.5 border-t border-amber-200/60">
+              <label className="block text-[11px] font-black text-slate-700">
+                • الصيغ النورانية المركبة في الـ 29 سورة:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {formulaGroups.map(fg => {
+                  const isGroupActive = activeFormula === fg.formula;
+                  return (
+                    <button
+                      type="button"
+                      key={fg.formula}
+                      onClick={() => handleToggleFormula(fg.formula, fg.surahIds)}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                        isGroupActive 
+                          ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-md font-black ring-2 ring-amber-400/60 scale-105' 
+                          : 'bg-white hover:bg-emerald-50 text-slate-700 border-slate-300 hover:border-emerald-400'
+                      }`}
+                      title={isGroupActive ? 'انقر لإلغاء تنشيط هذه الصيغة' : 'انقر لتنشيط هذه الصيغة'}
+                    >
+                      {isGroupActive && <Check className="w-3.5 h-3.5 text-slate-950 shrink-0" />}
+                      <span>{fg.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Surah Info Card & Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-xl text-center">
+              <span className="text-[10px] text-emerald-800 font-bold block">الفاتحة النورانية</span>
+              <span className="text-xl font-black text-emerald-950 block mt-0.5 quran-font">
+                « {activeSurah.letters} »
+              </span>
+              <span className="text-[10px] text-emerald-700 font-semibold">
+                الجُمّل: {activeSurah.keyValue} | المعامل: {activeSurah.digitalRoot}
+              </span>
+            </div>
+
+            <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-xl text-center">
+              <span className="text-[10px] text-amber-800 font-bold block">الكلمات المعروضة</span>
+              <span className="text-xl font-black text-amber-950 block mt-0.5 font-mono">
+                {stats.total}
+              </span>
+              <span className="text-[10px] text-amber-700 font-semibold">
+                ضمن {matchingVerseRefs.length} آية
+              </span>
+            </div>
+
+            <div className="bg-teal-50/70 border border-teal-200 p-3.5 rounded-xl text-center">
+              <span className="text-[10px] text-teal-800 font-bold block">المتوافقة رياضياً ✅</span>
+              <span className="text-xl font-black text-teal-950 block mt-0.5 font-mono">
+                {stats.exactCount} ({stats.exactPct}%)
+              </span>
+              <span className="text-[10px] text-teal-700 font-semibold">
+                مضاعفات صحيحة للمعامل
+              </span>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50/60 border-2 border-emerald-600/70 p-3 rounded-xl text-center flex flex-col justify-between shadow-xs">
+              <div>
+                <span className="text-[10px] text-emerald-950 font-black block">نقل الآيات للمخرجات</span>
+                <span className="text-xs text-slate-600 font-medium block mt-0.5">
+                  {matchingVerseRefs.length > 0 ? `${matchingVerseRefs.length} آية مفلترة` : `سورة ${activeSurah.name}`}
+                </span>
+              </div>
+              <div className="space-y-1 mt-1.5">
+                <button
+                  type="button"
+                  onClick={handleTransferFilteredVerses}
+                  className="w-full px-2 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-amber-300 font-black text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm active:scale-95"
+                  title={
+                    matchingVerseRefs.length > 0 
+                      ? `نقل الـ ${matchingVerseRefs.length} آية المفلترة إلى جدول شاشة المخرجات لتطبيق فلاتر إضافية`
+                      : `فتح كافة آيات سورة ${activeSurah.name} في شاشة المخرجات`
+                  }
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>
+                    {matchingVerseRefs.length > 0 
+                      ? `نقل الآيات (${matchingVerseRefs.length}) 🚀` 
+                      : 'فتح السورة كاملة ➡️'}
+                  </span>
+                </button>
+                {matchingVerseRefs.length > 0 && onSelectSurahForAnalysis && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectSurahForAnalysis(activeSurah)}
+                    className="w-full px-2 py-1 bg-white hover:bg-emerald-50 text-emerald-900 font-bold text-[10px] rounded-lg border border-emerald-300 transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                    title={`فتح وتنشيط كافة آيات سورة ${activeSurah.name} بالكامل بالعدد الأصلي`}
+                  >
+                    <BookOpen className="w-3 h-3 text-emerald-700" />
+                    <span>تنشيط السورة كاملة بالعدد الأصلي 📖</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Live Search Input within extracted results */}
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setSearchQuery('');
+                  }}
+                  placeholder="ابحث بالحرف (مثل: ص أو ك) أو بالكلمة أو سياق الآية الكريمة أو رقم الآية أو حساب الجمل..."
+                  className="w-full bg-white border-2 border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/30 rounded-xl pr-10 pl-24 py-3 text-xs font-bold text-slate-900 outline-none shadow-sm transition-all placeholder:text-slate-400"
+                />
+                <Search className="w-4 h-4 text-emerald-700 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                
+                {/* Single clean clear button inside the input */}
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-xs hover:scale-105 active:scale-95"
+                    title="مسح وتفريغ مربع البحث (أو اضغط زر Esc)"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>مسح ✕</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Reset All Filters button */}
+              {(searchQuery || activeFormula || activeLetter || activeSurahLetter || isGatheringVersesOnly || isWholeFormulaOnly || searchScope !== 'single_surah' || onlyCompatible) && (
+                <button
+                  type="button"
+                  onClick={handleResetAll}
+                  className="px-3.5 py-3 bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold text-xs rounded-xl border border-amber-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                  title="إعادة تعيين وتصفير البحث وكافة الفلاتر"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-700" />
+                  <span>تصفير الكل</span>
+                </button>
+              )}
+            </div>
+
+            {/* Live Filter Summary bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-semibold text-slate-500 px-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span>
                   عدد الكلمات المعروضة حالياً: <strong className="text-emerald-950 font-mono text-xs">{filteredWords.length}</strong> كلمة
                   {matchingVerseRefs.length > 0 && (
                     <span className="text-slate-600 mr-1.5 font-bold">
@@ -837,186 +1443,206 @@ export default function NooraniWordExplorer({
                   )}
                   {searchQuery && (
                     <span className="text-amber-800 mr-2 font-bold">
-                      (مصفاة بكلمة: «{searchQuery}»)
+                      (مصفاة ببحث: «{searchQuery}»)
                     </span>
                   )}
-                </>
-              ) : (
-                <span className="text-slate-500 font-medium">
-                  الجدول مغلق حالياً (اكتب في مربع البحث أعلاه أو فعّل حرفاً لفتحه وعرض النتائج)
+                  {isGatheringVersesOnly && (
+                    <span className="text-emerald-800 mr-2 font-black">
+                      (⭐ الآيات الجامعة لكافة حروف {activeSurah.letters})
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
 
-            {matchingVerseRefs.length > 0 && (searchQuery.trim() || activeFormula || activeLetter || isTableManuallyOpen) && (
+                {matchingVerseRefs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleTransferFilteredVerses}
+                    className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-900 text-amber-300 font-black text-[11px] rounded-lg shadow-xs cursor-pointer transition-all inline-flex items-center gap-1 active:scale-95"
+                    title="نقل هذه الآيات المختارة فقط إلى جدول شاشة المخرجات لتطبيق فلاتر إضافية"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-300" />
+                    <span>نقل الآيات المفلترة ({matchingVerseRefs.length} آية) إلى جدول المخرجات 🚀</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Toggle button to open/close table manually */}
               <button
                 type="button"
-                onClick={handleTransferFilteredVerses}
-                className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-900 text-amber-300 font-black text-[11px] rounded-lg shadow-xs cursor-pointer transition-all inline-flex items-center gap-1 active:scale-95"
-                title="نقل هذه الآيات المختارة فقط إلى جدول شاشة المخرجات لتطبيق فلاتر إضافية"
+                onClick={() => setIsTableManuallyOpen(!isTableManuallyOpen)}
+                className="text-emerald-800 hover:text-emerald-950 font-black cursor-pointer underline text-[11px] shrink-0"
               >
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                <span>نقل الآيات المفلترة ({matchingVerseRefs.length} آية) إلى جدول المخرجات 🚀</span>
+                {isTableManuallyOpen ? 'إغلاق الجدول 🔼' : 'فتح وعرض الجدول 🔽'}
               </button>
+            </div>
+          </div>
+
+          {/* Extracted Words Data Table */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
+            {!isTableManuallyOpen ? (
+              <div className="p-8 text-center bg-slate-50/80 space-y-2">
+                <h4 className="text-sm font-black text-slate-800">الجدول مطوي حالياً 🔽</h4>
+                <button
+                  type="button"
+                  onClick={() => setIsTableManuallyOpen(true)}
+                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-amber-300 font-black text-xs rounded-xl shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <span>فتح وعرض جدول الكلمات 🔽</span>
+                </button>
+              </div>
+            ) : filteredWords.length === 0 ? (
+              <div className="p-12 text-center bg-slate-50 space-y-2">
+                <Compass className="w-8 h-8 text-slate-400 mx-auto animate-pulse" />
+                <p className="text-xs font-black text-slate-700">
+                  لم يتم العثور على كلمات مطابقة لمعايير البحث في سورة {activeSurah.name}.
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  تأكد من كتابة الحرف بصورة صحيحة (مثل: «ص» أو «ك») أو اضغط على «تصفير الكل» لإظهار كافة مفردات وحروف السورة النورانية.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetAll}
+                  className="mt-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-xs cursor-pointer"
+                >
+                  تصفير البحث واستعراض الحروف والمفردات
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[560px]">
+                <table className="w-full text-right text-xs border-collapse">
+                  <thead className="bg-[#092b22] text-amber-200 sticky top-0 z-10 select-none text-[11px]">
+                    <tr>
+                      <th className="p-3 text-center border-b border-emerald-800 w-12 font-black">م</th>
+                      <th className="p-3 border-b border-emerald-800 font-black">السورة والآية</th>
+                      <th className="p-3 text-center border-b border-emerald-800 font-black">الجمع النوراني للآية</th>
+                      <th className="p-3 border-b border-emerald-800 font-black">الكلمة القرآنية</th>
+                      <th className="p-3 border-b border-emerald-800 font-black">الحروف النورانية</th>
+                      <th className="p-3 text-center border-b border-emerald-800 font-black">حساب الجمل</th>
+                      <th className="p-3 text-center border-b border-emerald-800 font-black">جمل الحروف</th>
+                      <th className="p-3 text-center border-b border-emerald-800 font-black">القسمة / المعامل</th>
+                      <th className="p-3 text-center border-b border-emerald-800 font-black">المطابقة</th>
+                      <th className="p-3 border-b border-emerald-800 font-black">سياق الآية الكريمة</th>
+                      <th className="p-3 text-center border-b border-emerald-800 w-16 font-black">نسخ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredWords.map((row, idx) => {
+                      const isEven = idx % 2 === 0;
+                      const rowKey = `${row.surahId}_${row.verseNumber}_${row.word}_${row.index}`;
+                      const isRowCopied = copiedRowId === rowKey;
+
+                      return (
+                        <tr 
+                          key={rowKey}
+                          className={`hover:bg-amber-50/70 transition-colors ${
+                            row.isGatheringAllVerse 
+                              ? (isEven ? 'bg-amber-50/50' : 'bg-amber-50/80')
+                              : row.isExact 
+                                ? (isEven ? 'bg-emerald-50/40' : 'bg-emerald-50/70') 
+                                : (isEven ? 'bg-slate-50/40' : 'bg-white')
+                          }`}
+                        >
+                          <td className="p-3 text-center font-mono text-[10px] text-slate-500 font-bold">
+                            {idx + 1}
+                          </td>
+
+                          <td className="p-3 font-bold text-slate-900 whitespace-nowrap">
+                            <span className="block text-emerald-950 font-black">{row.surahName}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">آية ({row.verseNumber})</span>
+                            {row.trackLabel && (
+                              <span className="block text-[9px] text-amber-800 font-bold">{row.trackLabel}</span>
+                            )}
+                          </td>
+
+                          {/* DEDICATED COLUMN: Noorani Verse Gathering Badge */}
+                          <td className="p-3 text-center whitespace-nowrap">
+                            {row.isGatheringAllVerse ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950 text-[10px] font-black rounded-lg border border-amber-500 shadow-xs">
+                                <Star className="w-3 h-3 text-amber-950 fill-amber-950 shrink-0" />
+                                جامعة لـ ({activeSurah.letters}) ⭐
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-semibold rounded-md border border-slate-200">
+                                {row.verseGatheringSummary}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-3 whitespace-nowrap">
+                            <span className="text-sm font-black text-emerald-950 bg-white border border-emerald-300 px-2.5 py-1 rounded-lg shadow-xs font-serif">
+                              {row.word}
+                            </span>
+                          </td>
+
+                          <td className="p-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1 font-mono font-black text-emerald-800 text-xs">
+                              {row.matchedLetters.map((l, lIdx) => (
+                                <span key={lIdx} className="bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-300">
+                                  {l}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+
+                          <td className="p-3 text-center font-mono font-black text-slate-900 text-xs">
+                            {row.wordJummal}
+                          </td>
+
+                          <td className="p-3 text-center font-mono text-slate-600 text-xs">
+                            {row.lettersJummal}
+                          </td>
+
+                          <td className="p-3 text-center font-mono text-xs whitespace-nowrap">
+                            <span className="font-black text-slate-900">{row.quotientStr}</span>
+                            <span className="text-[10px] text-slate-400 block">÷ {activeSurah.digitalRoot}</span>
+                          </td>
+
+                          <td className="p-3 text-center whitespace-nowrap">
+                            {row.isExact ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] font-black rounded-md border border-emerald-300">
+                                <Check className="w-3 h-3 text-emerald-700" />
+                                متوافقة ✅
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-semibold rounded-md border border-slate-200">
+                                كسر ⭕
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-3 text-slate-700 text-xs max-w-xs md:max-w-sm quran-font leading-relaxed">
+                            ( {row.verseText} )
+                          </td>
+
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleCopySingleRow(row)}
+                              className="p-1.5 bg-white hover:bg-emerald-100 border border-slate-200 hover:border-emerald-400 rounded-lg text-slate-700 hover:text-emerald-900 transition-all cursor-pointer shadow-xs"
+                              title="نسخ بيانات الكلمة"
+                            >
+                              {isRowCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
-
-          {/* Toggle button to open/close table manually */}
-          <button
-            type="button"
-            onClick={() => setIsTableManuallyOpen(!isTableManuallyOpen)}
-            className="text-emerald-800 hover:text-emerald-950 font-black cursor-pointer underline text-[11px] shrink-0"
-          >
-            {isTableManuallyOpen || searchQuery.trim() || activeFormula || activeLetter ? 'إغلاق الجدول 🔼' : 'فتح الجدول يدوياً 🔽'}
-          </button>
-        </div>
-      </div>
-
-      {/* Extracted Words Data Table / Closed State */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
-        {!(searchQuery.trim() || activeFormula || activeLetter || isTableManuallyOpen) ? (
-          <div className="p-10 text-center bg-slate-50/80 space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto shadow-xs border border-emerald-200">
-              <Search className="w-6 h-6 text-emerald-700" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-black text-slate-800">
-                الجدول مغلق في انتظار استدعاء البحث 🔍
-              </h4>
-              <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                يرجى كتابة كلمة أو مقطع قرآني في مربع البحث أعلاه (أو تفعيل أحد الحروف النورانية) لفتح الجدول واستعراض الكلمات المتوافقة فوراً.
-              </p>
-            </div>
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => setIsTableManuallyOpen(true)}
-                className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-amber-300 font-black text-xs rounded-xl shadow-xs cursor-pointer transition-all inline-flex items-center gap-1.5"
-              >
-                <span>فتح وعرض جدول الكلمات 🔽</span>
-              </button>
-            </div>
-          </div>
-        ) : filteredWords.length === 0 ? (
-          <div className="p-12 text-center bg-slate-50 space-y-2">
-            <Compass className="w-8 h-8 text-slate-400 mx-auto animate-pulse" />
-            <p className="text-xs font-black text-slate-700">
-              لم يتم العثور على كلمات مطابقة للمعايير المحددة في هذا النطاق.
-            </p>
-            <p className="text-[11px] text-slate-500">
-              جرب تغيير شرط التوافق إلى «كافة الكلمات المحتوية» أو توسيع نطاق البحث ليشمل «كافة السور الـ 29 النورانية».
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto max-h-[520px]">
-            <table className="w-full text-right text-xs border-collapse">
-              <thead className="bg-[#092b22] text-amber-200 sticky top-0 z-10 select-none text-[11px]">
-                <tr>
-                  <th className="p-3 text-center border-b border-emerald-800 w-12 font-black">م</th>
-                  <th className="p-3 border-b border-emerald-800 font-black">السورة والآية</th>
-                  <th className="p-3 border-b border-emerald-800 font-black">الكلمة القرآنية</th>
-                  <th className="p-3 border-b border-emerald-800 font-black">الحروف النورانية</th>
-                  <th className="p-3 text-center border-b border-emerald-800 font-black">حساب الجمل</th>
-                  <th className="p-3 text-center border-b border-emerald-800 font-black">جمل الحروف</th>
-                  <th className="p-3 text-center border-b border-emerald-800 font-black">القسمة / المعامل</th>
-                  <th className="p-3 text-center border-b border-emerald-800 font-black">المطابقة</th>
-                  <th className="p-3 border-b border-emerald-800 font-black">سياق الآية الكريمة</th>
-                  <th className="p-3 text-center border-b border-emerald-800 w-16 font-black">نسخ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filteredWords.map((row, idx) => {
-                  const isEven = idx % 2 === 0;
-                  const rowKey = `${row.surahId}_${row.verseNumber}_${row.word}_${row.index}`;
-                  const isRowCopied = copiedRowId === rowKey;
-
-                  return (
-                    <tr 
-                      key={rowKey}
-                      className={`hover:bg-amber-50/60 transition-colors ${
-                        row.isExact ? (isEven ? 'bg-emerald-50/40' : 'bg-emerald-50/70') : (isEven ? 'bg-slate-50/40' : 'bg-white')
-                      }`}
-                    >
-                      <td className="p-3 text-center font-mono text-[10px] text-slate-500 font-bold">
-                        {idx + 1}
-                      </td>
-
-                      <td className="p-3 font-bold text-slate-900 whitespace-nowrap">
-                        <span className="block text-emerald-950 font-black">{row.surahName}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">آية ({row.verseNumber})</span>
-                        {row.trackLabel && (
-                          <span className="block text-[9px] text-amber-800 font-bold">{row.trackLabel}</span>
-                        )}
-                      </td>
-
-                      <td className="p-3 whitespace-nowrap">
-                        <span className="text-sm font-black text-emerald-950 bg-white border border-emerald-300 px-2.5 py-1 rounded-lg shadow-xs font-serif">
-                          {row.word}
-                        </span>
-                      </td>
-
-                      <td className="p-3 whitespace-nowrap">
-                        <div className="flex items-center gap-1 font-mono font-black text-emerald-800 text-xs">
-                          {row.matchedLetters.map((l, lIdx) => (
-                            <span key={lIdx} className="bg-emerald-100/80 px-1.5 py-0.5 rounded border border-emerald-200">
-                              {l}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-
-                      <td className="p-3 text-center font-mono font-black text-slate-900 text-xs">
-                        {row.wordJummal}
-                      </td>
-
-                      <td className="p-3 text-center font-mono text-slate-600 text-xs">
-                        {row.lettersJummal}
-                      </td>
-
-                      <td className="p-3 text-center font-mono text-xs whitespace-nowrap">
-                        <span className="font-black text-slate-900">{row.quotientStr}</span>
-                        <span className="text-[10px] text-slate-400 block">÷ {activeSurah.digitalRoot}</span>
-                      </td>
-
-                      <td className="p-3 text-center whitespace-nowrap">
-                        {row.isExact ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] font-black rounded-md border border-emerald-300">
-                            <Check className="w-3 h-3 text-emerald-700" />
-                            متوافقة ✅
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-semibold rounded-md">
-                            كسر
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="p-3 text-slate-700 text-xs max-w-xs md:max-w-sm quran-font leading-relaxed">
-                        ( {row.verseText} )
-                      </td>
-
-                      <td className="p-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleCopySingleRow(row)}
-                          className="p-1.5 bg-white hover:bg-emerald-100 border border-slate-200 hover:border-emerald-400 rounded-lg text-slate-700 hover:text-emerald-900 transition-all cursor-pointer shadow-xs"
-                          title="نسخ بيانات الكلمة"
-                        >
-                          {isRowCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Concluding Note */}
       <div className="bg-[#FAF8F5] border border-amber-250 p-4 rounded-xl text-xs text-slate-600 leading-relaxed font-semibold">
-        💡 <strong>قاعدة الاستقصاء النوراني:</strong> يتم استخراج الكلمات التي تتضمن في بنيتها اللفظية كافة الحروف المقطعة لافتتاحية السورة النورانية المعنية، ثم يُحسب حساب الجمل الكبير للفظ ويُقسَم على المعامل النوراني (الاختزال الرقمي للفاتحة). في حال جاء الناتج عدداً صحيحاً دون كسر، تستقر الكلمة على رتبة التوافق التام ✅.
+        💡 <strong>قواعد الاستقصاء والجمع النوراني:</strong>
+        <ul className="list-disc list-inside mt-1 space-y-1 text-slate-700">
+          <li><strong>فلترة الحروف المنفردة:</strong> يمكنك استخراج كافة الكلمات المشتملة على أي من أحرف السورة بالضغط المباشر على الحرف (مثل: [ص] أو [ك] في سورة مريم) أو كتابة الحرف بمربع البحث.</li>
+          <li><strong>الآيات الجامعة للفواتح:</strong> الآيات التي تجمع في سياقها القرآني كافة الأحرف النورانية لافتتاحية السورة (مثل: الآيات الـ 11 في سورة مريم التي تجمع حروف «كهيعص» الخمسة كاملة: ك، هـ، ي، ع، ص). تم تمييزها بعمود وشارة ذهبية خاصة، مع إمكانية تصديرها بملف مستقل أو نقلها للمخرجات بنقرة واحدة.</li>
+          <li><strong>التوافق الرياضي:</strong> يُحسب حساب الجمل الكبير لللفظ ويُقسَم على المعامل النوراني (الاختزال الرقمي للفاتحة)، وتُميَّز الكلمات المتوافقة دون كسر برتبة التوافق التام ✅.</li>
+        </ul>
       </div>
 
       {/* نافذة تحديد اسم الملف والحفظ المخصصة للجوال واللابتوب */}

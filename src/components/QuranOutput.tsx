@@ -33,10 +33,12 @@ import AdvancedFilterBar, { AdvancedFilterState, initialFilterState } from './Ad
 import { copyToClipboard } from '../utils/clipboard';
 import { useGlobalProgress } from '../context/ProgressContext';
 import { safeStorage } from '../utils/safeStorage';
+import quranData from '../utils/quranData';
 
 interface QuranOutputProps {
   verses: Verse[];
   onReset?: () => void;
+  onReactivateFullSurah?: () => void;
   activeSurah?: NooraniSurah | null;
   previewChartInOutput?: boolean;
   setPreviewChartInOutput?: (val: boolean) => void;
@@ -54,6 +56,7 @@ interface QuranOutputProps {
 export default function QuranOutput({ 
   verses, 
   onReset, 
+  onReactivateFullSurah,
   activeSurah = null, 
   previewChartInOutput = false,
   setPreviewChartInOutput,
@@ -108,6 +111,20 @@ export default function QuranOutput({
   const [isCopied, setIsCopied] = useState(false);
   const [isTableCopied, setIsTableCopied] = useState(false);
   const [copiedVerseId, setCopiedVerseId] = useState<number | null>(null);
+
+  // Canonical total verse count of the active Surah
+  const originalSurahVersesCount = useMemo(() => {
+    if (!activeSurah || activeSurah.id <= 0) return 0;
+    const meta = getSurahMetadata(activeSurah.id);
+    if (meta && meta.totalVerses > 0) return meta.totalVerses;
+    const list = (quranData as any[]).filter((v: any) => v.surahId === activeSurah.id);
+    return list.length;
+  }, [activeSurah]);
+
+  const isSubsetTransferred = useMemo(() => {
+    if (!activeSurah || originalSurahVersesCount <= 0) return false;
+    return verses.length < originalSurahVersesCount;
+  }, [verses.length, originalSurahVersesCount, activeSurah]);
 
   const [isCompatibleCopied, setIsCompatibleCopied] = useState(false);
   const [isBreakdownCopied, setIsBreakdownCopied] = useState(false);
@@ -2209,8 +2226,57 @@ export default function QuranOutput({
           </div>
         </div>
 
+        {/* Banner for subset/transferred verses with button to reactivate the full original surah */}
+        {activeSurah && activeSurah.id > 0 && originalSurahVersesCount > 0 && (
+          <div className="p-3.5 bg-gradient-to-r from-amber-50 to-emerald-50 border-2 border-emerald-600/70 rounded-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-right shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 bg-emerald-900 text-amber-300 rounded-none shrink-0 shadow-xs">
+                <Sparkles className="w-4 h-4" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-black text-emerald-950">
+                    {isSubsetTransferred ? `مجموعة آيات منتقاة من سورة ${activeSurah.name}` : `سورة ${activeSurah.name} كاملة`}
+                  </span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-900 font-extrabold px-2 py-0.5 rounded-none border border-emerald-300">
+                    المعروض: {verses.length} آية | العدد الأصلي للسورة: {originalSurahVersesCount} آية
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 font-medium mt-0.5">
+                  {isSubsetTransferred 
+                    ? `أنت تتصفح حالياً (${verses.length}) آية منتقاة ومفلترة من سورة ${activeSurah.name}. يمكنك في أي وقت تنشيط السورة كاملة بعددها الأصلي (${originalSurahVersesCount} آية).`
+                    : `يتم حالياً استعراض كافة آيات سورة ${activeSurah.name} بعددها الأصلي التام (${originalSurahVersesCount} آية).`}
+                </p>
+              </div>
+            </div>
+
+            {isSubsetTransferred && onReactivateFullSurah && (
+              <button
+                type="button"
+                onClick={onReactivateFullSurah}
+                className="px-4 py-2 bg-emerald-900 hover:bg-emerald-950 text-amber-300 font-black text-xs rounded-none transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap active:scale-95 shrink-0 border border-emerald-700"
+                title={`تنشيط كافة آيات سورة ${activeSurah.name} بعددها الأصلي (${originalSurahVersesCount} آية)`}
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-amber-300" />
+                <span>تنشيط كامل آيات السورة بالعدد الأصلي ({originalSurahVersesCount} آية) 🔄</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Action Buttons Toolbar */}
         <div className="flex flex-wrap items-center justify-start gap-2 pt-3 border-t border-slate-100">
+          {isSubsetTransferred && onReactivateFullSurah && (
+            <button
+              type="button"
+              onClick={onReactivateFullSurah}
+              className="px-3.5 py-1.5 text-xs font-black bg-emerald-900 hover:bg-emerald-950 text-amber-300 border border-emerald-700 rounded-none flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
+              title={`تنشيط وعرض كافة آيات سورة ${activeSurah?.name} بعددها الأصلي (${originalSurahVersesCount} آية)`}
+            >
+              <RefreshCw className="w-4 h-4 text-amber-300" />
+              <span>تنشيط كامل السورة ({originalSurahVersesCount} آية) 🔄</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleExportExcel}

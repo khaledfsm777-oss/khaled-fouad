@@ -348,10 +348,10 @@ export default function HelpSection() {
                 <div className="absolute top-0 right-0 left-0 h-1 bg-amber-400 rounded-t-xl" />
                 <h4 className="font-black text-amber-950 text-sm flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-amber-600" />
-                  مستكشف الكلمات النورانية في السور الـ 29 (شاشة مخصصة)
+                  مستكشف الحروف النورانية في السور الـ 29 (شاشة مخصصة)
                 </h4>
                 <p className="text-slate-600 font-medium">
-                  شاشة بحث واستكشاف حصرية تستخرج كافة كلمات السور الـ 29 النورانية التي تشتمل على الأحرف النورانية (الـ 14 حرفاً: نص حكيم قاطع له سر)، مع تحديد حروف الفاتحة الخاصة بكل سورة، ونسبة الحروف النورانية، وحساب الجُمَّل، والجذر الرقمي لكل كلمة.
+                  شاشة بحث واستكشاف حصرية تستخرج كافة حروف وكلمات السور الـ 29 النورانية التي تشتمل على الأحرف النورانية (الـ 14 حرفاً: نص حكيم قاطع له سر)، مع تحديد حروف الفاتحة الخاصة بكل سورة، ونسبة الحروف النورانية، وحساب الجُمَّل، ورصد الآيات الجامعة للفواتح.
                 </p>
               </div>
 
@@ -360,7 +360,7 @@ export default function HelpSection() {
         )}
       </div>
 
-      {/* Accordion: Noorani Words Explorer Dedicated Guide */}
+      {/* Accordion: Noorani Letters Explorer Dedicated Guide */}
       <div className="bg-white border-2 border-amber-400 rounded-2xl overflow-hidden shadow-sm transition-all">
         <button
           type="button"
@@ -373,11 +373,11 @@ export default function HelpSection() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-black text-amber-950">✨ دليل شاشة مستكشف الكلمات النورانية (السور الـ 29)</h3>
+                <h3 className="text-base font-black text-amber-950">✨ دليل شاشة مستكشف وباحث الحروف النورانية (السور الـ 29)</h3>
                 <span className="bg-amber-200 text-amber-950 text-[10px] font-black px-2 py-0.5 rounded">جديد</span>
               </div>
               <p className="text-xs text-amber-800 font-medium mt-0.5">
-                طريقة استخراج وفلترة الكلمات المشتملة على الحروف النورانية وفواتح السور الـ 29
+                طريقة استخراج وفلترة الحروف المقطعة والكلمات المشتملة عليها ورصد الآيات الجامعة لفواتح السور الـ 29
               </p>
             </div>
           </div>
@@ -389,10 +389,10 @@ export default function HelpSection() {
             
             <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-950 space-y-2">
               <h4 className="text-sm font-black flex items-center gap-1.5">
-                <span>🎯 الهدف من شاشة الكلمات النورانية:</span>
+                <span>🎯 الهدف من شاشة الحروف النورانية:</span>
               </h4>
               <p className="font-semibold text-xs leading-relaxed text-slate-800">
-                بناءً على طلب الباحث، تم تخصيص هذه الشاشة لاستخراج ودراسة الكلمات القرآنية التي تشتمل على <strong>الحروف النورانية الـ 14</strong> المكونة للفواتح المقطعة (<span className="text-emerald-900 font-bold">ن ص ح ك ي م ق ط ع س خ ر غ هـ</span> / جملة: <em>«نص حكيم قاطع له سر»</em>)، أو المطابقة لحروف فاتحة سورة محددة من السور الـ 29 (مثل: أ-ل-م، أ-ل-ر، ط-س-م، ك-هـ-ي-ع-ص، ح-م، ق، ن).
+                بناءً على طلب الباحث، تم تخصيص هذه الشاشة لاستخراج ودراسة الحروف النورانية والكلمات القرآنية التي تشتمل على <strong>الحروف النورانية الـ 14</strong> المكونة للفواتح المقطعة (<span className="text-emerald-900 font-bold">ن ص ح ك ي م ق ط ع س خ ر غ هـ</span> / جملة: <em>«نص حكيم قاطع له سر»</em>)، أو المطابقة لحروف فاتحة سورة محددة من السور الـ 29 (مثل: أ-ل-م، أ-ل-ر، ط-س-م، ك-هـ-ي-ع-ص، ح-م، ق، ن)، مع رصد الآيات الجامعة للفواتح.
               </p>
             </div>
 
@@ -438,7 +438,7 @@ export default function HelpSection() {
                   4. التصدير المباشر للجداول:
                 </span>
                 <p className="text-slate-600 font-medium text-[11px]">
-                  تصدير قائمة الكلمات النورانية المفلترة مباشرة بصيغ Excel أو Word أو CSV مع إمكانية تسمية الملف يدوياً لتوثيق نتائج الاستقصاء.
+                  تصدير قائمة الحروف النورانية والآيات الجامعة للفواتح مباشرة بصيغ Excel أو Word مع إمكانية تسمية وتنزيل الملفات لتوثيق نتائج الاستقصاء.
                 </p>
               </div>
 

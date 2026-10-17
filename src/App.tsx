@@ -24,7 +24,7 @@ import {
 
 interface SavedSessionState {
   currentScreen: 'main' | 'portal' | 'mushaf';
-  activeTab: 'verses' | 'noorani_words' | 'charts' | 'ai' | 'guide';
+  activeTab: 'verses' | 'noorani_letters' | 'noorani_words' | 'charts' | 'ai' | 'guide';
   activeSurah: NooraniSurah | null;
   tableCurrentPage: number;
   tablePageSize: number;
@@ -96,9 +96,12 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'main' | 'portal' | 'mushaf'>(() => {
     return initialSession?.currentScreen || 'main';
   });
-  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_words' | 'charts' | 'ai' | 'guide'>(() => {
+  const [activeTab, setActiveTab] = useState<'verses' | 'noorani_letters' | 'noorani_words' | 'charts' | 'ai' | 'guide'>(() => {
     if ((initialSession?.activeTab as any) === 'calculator' || (initialSession?.activeTab as any) === 'metadata') {
       return 'verses';
+    }
+    if (initialSession?.activeTab === 'noorani_words' || initialSession?.activeTab === 'noorani_letters') {
+      return 'noorani_letters';
     }
     return (initialSession?.activeTab as any) || 'verses';
   });
@@ -326,7 +329,7 @@ export default function App() {
     }, 450);
   };
 
-  // Open surah from Noorani Word Explorer and immediately show the Output screen table
+  // Open surah from Noorani Letters Explorer and immediately show the Output screen table
   const handleOpenSurahInOutput = (surah: NooraniSurah) => {
     setActiveSurah(surah);
     setCurrentScreen('portal');
@@ -372,7 +375,7 @@ export default function App() {
     }
   };
 
-  // Transfer filtered verses from Noorani Word Explorer directly to Quran Output table
+  // Transfer filtered verses from Noorani Letters Explorer directly to Quran Output table
   const handleTransferFilteredVersesToOutput = (
     refs: { surahId: number; verseNumber: number }[],
     label: string,
@@ -779,11 +782,11 @@ export default function App() {
                   </div>
                 </button>
 
-                {/* Button 2: Noorani Words Explorer */}
+                {/* Button 2: Noorani Letters Explorer */}
                 <button
                   onClick={() => {
                     setCurrentScreen('portal');
-                    setActiveTab('noorani_words');
+                    setActiveTab('noorani_letters');
                   }}
                   className="bg-white border-2 border-amber-400/80 hover:border-amber-600 p-6 text-right transition-all group hover:bg-amber-50/40 cursor-pointer flex flex-col justify-between h-44 relative rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
@@ -793,8 +796,8 @@ export default function App() {
                     <span className="text-[10px] bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded-md">جديد وحصري</span>
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">مستكشف الكلمات النورانية (29 سورة)</h4>
-                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">حصر واستخراج الكلمات المشتملة على حروف الفواتح النورانية وتوافقها الرياضي التام مع إمكانية التصدير المستقل.</p>
+                    <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-900 transition-colors">مستكشف وباحث الحروف النورانية (29 سورة)</h4>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">استخراج وفلترة الحروف المقطعة والكلمات المشتملة عليها والآيات الجامعة للفواتح وتوافقها الرياضي التام.</p>
                   </div>
                 </button>
 
@@ -1013,7 +1016,7 @@ export default function App() {
                 <div className="text-xs text-slate-500 font-bold hidden md:block">
                   تصفح الآن: <span className="text-emerald-950 font-black">
                     {activeTab === 'verses' && 'الشاشة المتكاملة للتحليل والبحث ومخرجات الجداول'}
-                    {activeTab === 'noorani_words' && 'مستكشف الكلمات النورانية الشامل (29 سورة)'}
+                    {(activeTab === 'noorani_letters' || activeTab === 'noorani_words') && 'مستكشف وباحث الحروف النورانية (29 سورة)'}
                     {activeTab === 'charts' && 'الرسوم البيانية والموجات'}
                     {activeTab === 'ai' && 'مفسّر البنيان بالذكاء الاصطناعي'}
                     {activeTab === 'guide' && 'دليل العمل الأبجدي وقواعد البرنامج'}
@@ -1039,15 +1042,15 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={() => setActiveTab('noorani_words')}
+                onClick={() => setActiveTab('noorani_letters')}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-black transition-all rounded-xl whitespace-nowrap cursor-pointer ${
-                  activeTab === 'noorani_words'
+                  (activeTab === 'noorani_letters' || activeTab === 'noorani_words')
                     ? 'bg-amber-500 text-slate-950 shadow-md font-black border border-amber-400'
                     : 'text-amber-900 hover:bg-amber-100/70 font-black'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>الكلمات النورانية ✨</span>
+                <span>الحروف النورانية ✨</span>
               </button>
 
               <button
@@ -1127,6 +1130,7 @@ export default function App() {
                     <QuranOutput 
                       verses={verses} 
                       onReset={handleReset} 
+                      onReactivateFullSurah={() => activeSurah && handleOpenSurahInOutput(activeSurah)}
                       activeSurah={activeSurah}
                       previewChartInOutput={previewChartInOutput}
                       setPreviewChartInOutput={setPreviewChartInOutput}
@@ -1141,10 +1145,10 @@ export default function App() {
                 </div>
               )}
 
-              {activeTab === 'noorani_words' && (
+              {(activeTab === 'noorani_letters' || activeTab === 'noorani_words') && (
                 <div className="space-y-6">
                   <NooraniWordExplorer
-                    initialSurahId={activeSurah ? activeSurah.id : 2}
+                    initialSurahId={0}
                     onSelectSurahForAnalysis={handleOpenSurahInOutput}
                     onTransferVersesToOutput={handleTransferFilteredVersesToOutput}
                   />

@@ -1116,7 +1116,7 @@ export async function generateNooraniWordsDocxBlob(options: {
             spacing: { after: 120 },
             children: [
               new TextRun({
-                text: `مستكشف الكلمات النورانية - منظومة البنيان`,
+                text: `مستكشف وباحث الحروف النورانية - منظومة البنيان`,
                 bold: true,
                 size: 32,
                 color: '064E3B',
@@ -1131,7 +1131,7 @@ export async function generateNooraniWordsDocxBlob(options: {
             spacing: { after: 200 },
             children: [
               new TextRun({
-                text: `جدول استخراج الكلمات المشتملة على الحروف النورانية الافتتاحية (${openingLetters}) • ${surahTitle} (المعامل: ${digitalRoot}) • إجمالي الكلمات المستخرجة: ${words.length}`,
+                text: `جدول استخراج الحروف النورانية والكلمات المشتملة عليها (${openingLetters}) • ${surahTitle} (المعامل: ${digitalRoot}) • إجمالي الكلمات المستخرجة: ${words.length}`,
                 size: 20,
                 bold: true,
                 color: '334155',
@@ -1147,7 +1147,145 @@ export async function generateNooraniWordsDocxBlob(options: {
             spacing: { before: 240 },
             children: [
               new TextRun({
-                text: `«منظومة البنيان للقرآن الكريم» • تم تصدير جدول الكلمات النورانية بنجاح • تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`,
+                text: `«منظومة البنيان للقرآن الكريم» • تم تصدير جدول الحروف النورانية بنجاح • تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`,
+                size: 16,
+                color: '94A3B8',
+                font: FONT_NAME,
+                rightToLeft: true,
+              }),
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  return await Packer.toBlob(doc);
+}
+
+/**
+ * Generates a styled Word document (.docx) for the verses that gather all opening Noorani letters of a Surah (e.g. 11 verses in Maryam)
+ */
+export async function generateNooraniGatheringVersesDocxBlob(options: {
+  surahTitle: string;
+  surahNumber: number;
+  openingLetters: string;
+  digitalRoot: number;
+  verses: Array<{
+    index: number;
+    verseNumber: number | string;
+    verseText: string;
+    jummalValue: number;
+    wordCount: number;
+    letterCount: number;
+    matchedLetters: string[];
+    isExact: boolean;
+    quotientStr: string;
+  }>;
+}): Promise<Blob> {
+  const { surahTitle, surahNumber, openingLetters, digitalRoot, verses } = options;
+
+  const headerTitles = [
+    'م',
+    'الآية',
+    'النص القرآني الكريـم',
+    'حساب الجمل',
+    'الكلمات',
+    'الحروف',
+    'الحروف النورانية الجامعة',
+    'القسمة / المعامل',
+    'المطابقة'
+  ];
+
+  const tableHeaderRow = new TableRow({
+    tableHeader: true,
+    children: headerTitles.map((title) =>
+      createStyledCell({
+        text: title,
+        bold: true,
+        size: 19,
+        color: 'FFFFFF',
+        bgColor: '064E3B',
+        align: AlignmentType.CENTER,
+      })
+    ),
+  });
+
+  const tableDataRows = verses.map((v, idx) => {
+    const isEven = idx % 2 === 0;
+    const rowBg = v.isExact ? 'D1FAE5' : isEven ? 'F8FAFC' : 'FFFFFF';
+    const statusText = v.isExact ? 'متوافقة ✅' : 'كسر ⭕';
+    const statusColor = v.isExact ? '065F46' : '64748B';
+
+    return new TableRow({
+      children: [
+        createStyledCell({ text: String(v.index || idx + 1), size: 17, bgColor: rowBg, align: AlignmentType.CENTER }),
+        createStyledCell({ text: `(${v.verseNumber})`, bold: true, size: 18, bgColor: rowBg, align: AlignmentType.CENTER }),
+        createStyledCell({ text: v.verseText, bold: true, size: 19, color: '0F172A', bgColor: rowBg, align: AlignmentType.RIGHT }),
+        createStyledCell({ text: String(v.jummalValue), bold: true, size: 18, bgColor: rowBg, align: AlignmentType.CENTER }),
+        createStyledCell({ text: String(v.wordCount), size: 17, bgColor: rowBg, align: AlignmentType.CENTER }),
+        createStyledCell({ text: String(v.letterCount), size: 17, bgColor: rowBg, align: AlignmentType.CENTER }),
+        createStyledCell({ text: v.matchedLetters.join(' - '), bold: true, size: 18, color: 'B45309', bgColor: rowBg, align: AlignmentType.CENTER }),
+        createStyledCell({ text: `${v.quotientStr} (÷${digitalRoot})`, bold: true, size: 17, color: '0F172A', bgColor: rowBg, align: AlignmentType.CENTER }),
+        createStyledCell({ text: statusText, bold: true, size: 17, color: statusColor, bgColor: rowBg, align: AlignmentType.CENTER }),
+      ],
+    });
+  });
+
+  const versesTable = new Table({
+    alignment: AlignmentType.CENTER,
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [tableHeaderRow, ...tableDataRows],
+  });
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: 1200, bottom: 1200, left: 1200, right: 1200 },
+          },
+        },
+        children: [
+          new Paragraph({
+            heading: HeadingLevel.TITLE,
+            bidirectional: true,
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 },
+            children: [
+              new TextRun({
+                text: `الآيات القرآنية الجامعة لكافة حروف الفاتحة النورانية (${openingLetters})`,
+                bold: true,
+                size: 30,
+                color: '064E3B',
+                font: FONT_NAME,
+                rightToLeft: true,
+              }),
+            ],
+          }),
+          new Paragraph({
+            bidirectional: true,
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 200 },
+            children: [
+              new TextRun({
+                text: `${surahTitle} (سورة رقم ${surahNumber}) • حروف الفاتحة: «${openingLetters}» • المعامل: ${digitalRoot} • إجمالي الآيات الجامعة: ${verses.length} آية كريمة`,
+                size: 20,
+                bold: true,
+                color: '334155',
+                font: FONT_NAME,
+                rightToLeft: true,
+              }),
+            ],
+          }),
+          versesTable,
+          new Paragraph({
+            bidirectional: true,
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 240 },
+            children: [
+              new TextRun({
+                text: `«منظومة البنيان للقرآن الكريم» • تم تصدير الآيات الجامعة بنجاح • تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`,
                 size: 16,
                 color: '94A3B8',
                 font: FONT_NAME,
