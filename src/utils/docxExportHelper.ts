@@ -1053,11 +1053,13 @@ export async function generateNooraniWordsDocxBlob(options: {
     quotientStr: string;
     isExact: boolean;
     verseSnippet?: string;
+    verseWordCount?: number;
+    verseLetterCount?: number;
   }>;
 }): Promise<Blob> {
   const { surahTitle, openingLetters, digitalRoot, words } = options;
 
-  const headerTitles = ['م', 'السورة', 'الآية', 'الكلمة القرآنية', 'الحروف النورانية', 'جمل الكلمة', 'جمل الحروف', 'القسمة / المعامل', 'المطابقة'];
+  const headerTitles = ['م', 'السورة', 'الآية', 'الآية الكريمة', 'الكلمات', 'الحروف', 'الكلمة القرآنية', 'الحروف النورانية', 'جمل الكلمة', 'جمل الحروف', 'القسمة / المعامل', 'المطابقة'];
 
   const tableHeaderRow = new TableRow({
     tableHeader: true,
@@ -1084,6 +1086,9 @@ export async function generateNooraniWordsDocxBlob(options: {
         createStyledCell({ text: String(w.index || idx + 1), size: 17, bgColor: rowBg }),
         createStyledCell({ text: w.surahName, bold: true, size: 18, bgColor: rowBg }),
         createStyledCell({ text: String(w.verseNumber), bold: true, size: 18, bgColor: rowBg }),
+        createStyledCell({ text: w.verseSnippet || '', size: 17, align: AlignmentType.RIGHT, bgColor: rowBg }),
+        createStyledCell({ text: String(w.verseWordCount || ''), size: 17, bgColor: rowBg }),
+        createStyledCell({ text: String(w.verseLetterCount || ''), size: 17, bgColor: rowBg }),
         createStyledCell({ text: w.word, bold: true, size: 20, color: '064E3B', bgColor: rowBg }),
         createStyledCell({ text: w.matchedLetters.join(' - '), bold: true, size: 18, color: '047857', bgColor: rowBg }),
         createStyledCell({ text: String(w.wordJummal), bold: true, size: 18, bgColor: rowBg }),

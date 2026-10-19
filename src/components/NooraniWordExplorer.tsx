@@ -29,7 +29,8 @@ import {
   VerseNooraniGatheringResult,
   normalizeArabicForSearch,
   JUMMAL_MAP,
-  removeTashkeel
+  removeTashkeel,
+  cleanForCalculations
 } from '../utils/jummal';
 import quranData, { QuranVerse } from '../utils/quranData';
 import { copyToClipboard } from '../utils/clipboard';
@@ -54,6 +55,9 @@ interface ExtractedWordRow extends NooraniMatchedWordResult {
   surahName: string;
   verseNumber: number;
   verseText: string;
+  verseWordCount: number;
+  verseLetterCount: number;
+  wordLetterCount: number;
   trackLabel?: string;
   isGatheringAllVerse: boolean;
   verseGatheringLetters: string[];
@@ -364,113 +368,72 @@ export default function NooraniWordExplorer({
 
     targetVerses.forEach(verse => {
       const gatheringInfo = checkVerseNooraniGathering(verse.text, activeSurah.letters);
+      const verseWords = verse.text.split(/\s+/).filter((w: string) => w.trim().length > 0);
+      const verseWordCount = verseWords.length;
+      const cleanV = cleanForCalculations(verse.text);
+      let verseLetterCount = 0;
+      for (let i = 0; i < cleanV.length; i++) {
+        if (JUMMAL_MAP[cleanV[i]] !== undefined) {
+          verseLetterCount++;
+        }
+      }
+
+      const getWordLetterCount = (wordStr: string) => {
+        const cleanW = cleanForCalculations(wordStr);
+        let count = 0;
+        for (let i = 0; i < cleanW.length; i++) {
+          if (JUMMAL_MAP[cleanW[i]] !== undefined) {
+            count++;
+          }
+        }
+        return count;
+      };
+
+      const pushRow = (m: NooraniMatchedWordResult, trackLabel?: string) => {
+        results.push({
+          index: counter++,
+          surahId: verse.surahId,
+          surahName: verse.surahName,
+          verseNumber: verse.verseNumber,
+          verseText: verse.text,
+          verseWordCount,
+          verseLetterCount,
+          wordLetterCount: getWordLetterCount(m.word),
+          trackLabel,
+          isGatheringAllVerse: gatheringInfo.isGatheringAll,
+          verseGatheringLetters: gatheringInfo.matchedLetters,
+          verseGatheringSummary: gatheringInfo.summaryLabel,
+          ...m
+        });
+      };
 
       if (effectiveLetter) {
         // Individual letter match: matches any word having this letter
         const matches = getNooraniWordMatches(verse.text, effectiveLetter, activeSurah.digitalRoot, onlyCompatible, 'any_letter');
-        matches.forEach(m => {
-          results.push({
-            index: counter++,
-            surahId: verse.surahId,
-            surahName: verse.surahName,
-            verseNumber: verse.verseNumber,
-            verseText: verse.text,
-            trackLabel: `فلترة حرف [${effectiveLetter}]`,
-            isGatheringAllVerse: gatheringInfo.isGatheringAll,
-            verseGatheringLetters: gatheringInfo.matchedLetters,
-            verseGatheringSummary: gatheringInfo.summaryLabel,
-            ...m
-          });
-        });
+        matches.forEach(m => pushRow(m, `فلترة حرف [${effectiveLetter}]`));
       } else if (activeFormula) {
         // Compound formula from top pills
         const matches = getNooraniWordMatches(verse.text, activeFormula, activeSurah.digitalRoot, onlyCompatible, 'all_letters');
-        matches.forEach(m => {
-          results.push({
-            index: counter++,
-            surahId: verse.surahId,
-            surahName: verse.surahName,
-            verseNumber: verse.verseNumber,
-            verseText: verse.text,
-            trackLabel: `صيغة [${activeFormula}]`,
-            isGatheringAllVerse: gatheringInfo.isGatheringAll,
-            verseGatheringLetters: gatheringInfo.matchedLetters,
-            verseGatheringSummary: gatheringInfo.summaryLabel,
-            ...m
-          });
-        });
+        matches.forEach(m => pushRow(m, `صيغة [${activeFormula}]`));
       } else if (isWholeFormulaOnly) {
         // Whole formula in single word
         const matches = getNooraniWordMatches(verse.text, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible, 'all_letters');
-        matches.forEach(m => {
-          results.push({
-            index: counter++,
-            surahId: verse.surahId,
-            surahName: verse.surahName,
-            verseNumber: verse.verseNumber,
-            verseText: verse.text,
-            trackLabel: `حروف [${activeSurah.letters}] مجتمعة`,
-            isGatheringAllVerse: gatheringInfo.isGatheringAll,
-            verseGatheringLetters: gatheringInfo.matchedLetters,
-            verseGatheringSummary: gatheringInfo.summaryLabel,
-            ...m
-          });
-        });
+        matches.forEach(m => pushRow(m, `حروف [${activeSurah.letters}] مجتمعة`));
       } else if (activeSurah.id === 42 && searchScope === 'single_surah') {
         // Handle Surah Al-Shura tracks
         if (shuraTrack === 'both' || shuraTrack === 'hameem') {
           const matchesH = getNooraniWordMatches(verse.text, 'حم', 3, onlyCompatible, 'all_letters');
-          matchesH.forEach(m => {
-            results.push({
-              index: counter++,
-              surahId: verse.surahId,
-              surahName: verse.surahName,
-              verseNumber: verse.verseNumber,
-              verseText: verse.text,
-              trackLabel: 'مسار حم (معامل 3)',
-              isGatheringAllVerse: gatheringInfo.isGatheringAll,
-              verseGatheringLetters: gatheringInfo.matchedLetters,
-              verseGatheringSummary: gatheringInfo.summaryLabel,
-              ...m
-            });
-          });
+          matchesH.forEach(m => pushRow(m, 'مسار حم (معامل 3)'));
         }
         if (shuraTrack === 'both' || shuraTrack === 'asaq') {
           const matchesA = getNooraniWordMatches(verse.text, 'عسق', 5, onlyCompatible, 'all_letters');
-          matchesA.forEach(m => {
-            results.push({
-              index: counter++,
-              surahId: verse.surahId,
-              surahName: verse.surahName,
-              verseNumber: verse.verseNumber,
-              verseText: verse.text,
-              trackLabel: 'مسار عسق (معامل 5)',
-              isGatheringAllVerse: gatheringInfo.isGatheringAll,
-              verseGatheringLetters: gatheringInfo.matchedLetters,
-              verseGatheringSummary: gatheringInfo.summaryLabel,
-              ...m
-            });
-          });
+          matchesA.forEach(m => pushRow(m, 'مسار عسق (معامل 5)'));
         }
       } else {
-        // Default extraction:
-        // For formulas of length >= 4 (like كهيعص, المص, المر), match words containing ANY of the letters
-        // to prevent empty results, while formulas with 1-3 letters match all letters
+        // Default extraction
         const defaultMatchMode = activeSurah.letters.length >= 4 ? 'any_letter' : 'all_letters';
         const matches = getNooraniWordMatches(verse.text, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible, defaultMatchMode);
-        matches.forEach(m => {
-          results.push({
-            index: counter++,
-            surahId: verse.surahId,
-            surahName: verse.surahName,
-            verseNumber: verse.verseNumber,
-            verseText: verse.text,
-            isGatheringAllVerse: gatheringInfo.isGatheringAll,
-            verseGatheringLetters: gatheringInfo.matchedLetters,
-            verseGatheringSummary: gatheringInfo.summaryLabel,
-            ...m
-          });
-        });
+        matches.forEach(m => pushRow(m));
       }
     });
 
@@ -526,13 +489,37 @@ export default function NooraniWordExplorer({
       filteredWords.filter(w => w.isGatheringAllVerse).map(w => `${w.surahId}_${w.verseNumber}`)
     ).size;
 
+    // Map unique verses for accurate word and letter counts
+    const verseMap = new Map<string, { surahId: number; verseNumber: number; wordCount: number; letterCount: number }>();
+    filteredWords.forEach(w => {
+      const key = `${w.surahId}_${w.verseNumber}`;
+      if (!verseMap.has(key)) {
+        verseMap.set(key, {
+          surahId: w.surahId,
+          verseNumber: w.verseNumber,
+          wordCount: w.verseWordCount || 0,
+          letterCount: w.verseLetterCount || 0
+        });
+      }
+    });
+
+    const uniqueVerses = Array.from(verseMap.values());
+    const uniqueVersesCount = uniqueVerses.length;
+    const totalVerseWords = uniqueVerses.reduce((sum, v) => sum + v.wordCount, 0);
+    const totalVerseLetters = uniqueVerses.reduce((sum, v) => sum + v.letterCount, 0);
+    const totalWordLetters = filteredWords.reduce((sum, w) => sum + (w.wordLetterCount || 0), 0);
+
     return {
       total,
       exactCount,
       exactPct,
       totalJummal,
       avgJummal,
-      gatheringVersesCount
+      gatheringVersesCount,
+      uniqueVersesCount,
+      totalVerseWords,
+      totalVerseLetters,
+      totalWordLetters
     };
   }, [filteredWords]);
 
@@ -730,15 +717,17 @@ export default function NooraniWordExplorer({
     let textToCopy = `📋 نتائج استخراج الحروف النورانية والكلمات (${activeSurah.letters}) - سورة ${activeSurah.name}:\n`;
     textToCopy += `• المعامل النوراني الحاكم: ${activeSurah.digitalRoot} (جمل الفاتحة: ${activeSurah.keyValue})\n`;
     textToCopy += `• نطاق البحث: ${searchScope === 'single_surah' ? `سورة ${activeSurah.name}` : searchScope === 'all_29' ? 'كافة السور الـ 29 النورانية' : 'المصحف كاملاً 114 سورة'}\n`;
-    textToCopy += `• إجمالي الكلمات المستخرجة: ${stats.total} كلمة | الكلمات المتوافقة تماماً: ${stats.exactCount} (${stats.exactPct}%)\n`;
+    textToCopy += `• إحصائيات الجدول: عدد الآيات: ${stats.uniqueVersesCount} آية | عدد الكلمات: ${stats.total} مفردة (${stats.totalVerseWords} كلمة بالآيات) | عدد الحروف: ${stats.totalVerseLetters.toLocaleString()} حرف\n`;
+    textToCopy += `• الكلمات المتوافقة تماماً: ${stats.exactCount} (${stats.exactPct}%)\n`;
     textToCopy += `------------------------------------------------------------\n`;
 
     filteredWords.forEach((w, idx) => {
       textToCopy += `${idx + 1}. كلمة [${w.word}] | سورة ${w.surahName} آية (${w.verseNumber})\n`;
+      textToCopy += `   - الآية الكريمة: ( ${w.verseText} )\n`;
+      textToCopy += `   - عدد كلمات الآية: ${w.verseWordCount} | عدد حروف الآية: ${w.verseLetterCount}\n`;
       textToCopy += `   - الحروف النورانية فيها: [${w.matchedLetters.join(' - ')}] | حساب الجمل: ${w.wordJummal} | جمل الحروف: ${w.lettersJummal}\n`;
       textToCopy += `   - القسمة على المعامل (${activeSurah.digitalRoot}): ${w.quotientStr} ${w.isExact ? '✅ [متوافقة]' : '❌ [كسر]'}\n`;
-      textToCopy += `   - الجمع النوراني للآية: ${w.isGatheringAllVerse ? `⭐ آية جامعة لكافة حروف (${activeSurah.letters})` : w.verseGatheringSummary}\n`;
-      textToCopy += `   - نص الآية: ( ${w.verseText} )\n\n`;
+      textToCopy += `   - الجمع النوراني للآية: ${w.isGatheringAllVerse ? `⭐ آية جامعة لكافة حروف (${activeSurah.letters})` : w.verseGatheringSummary}\n\n`;
     });
 
     textToCopy += `«منظومة البنيان للقرآن الكريم» • تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`;
@@ -755,11 +744,12 @@ export default function NooraniWordExplorer({
     const rowKey = `${row.surahId}_${row.verseNumber}_${row.word}_${row.index}`;
     let text = `الكلمة القرآنية المستخرجة: [${row.word}]\n`;
     text += `• السورة: ${row.surahName} (آية ${row.verseNumber})\n`;
+    text += `• الآية الكريمة: ( ${row.verseText} )\n`;
+    text += `• عدد كلمات الآية: ${row.verseWordCount} | عدد حروف الآية: ${row.verseLetterCount}\n`;
     text += `• الحروف النورانية الشاملة: [${row.matchedLetters.join(' - ')}]\n`;
     text += `• حساب جمل الكلمة: ${row.wordJummal} | جمل الحروف: ${row.lettersJummal}\n`;
     text += `• القسمة على المعامل (${activeSurah.digitalRoot}): ${row.quotientStr} ${row.isExact ? '✅ متوافقة' : '❌ كسر'}\n`;
-    text += `• الجمع النوراني للآية: ${row.isGatheringAllVerse ? `⭐ آية جامعة لكافة حروف (${activeSurah.letters})` : row.verseGatheringSummary}\n`;
-    text += `• الآية الكريمة: ( ${row.verseText} )`;
+    text += `• الجمع النوراني للآية: ${row.isGatheringAllVerse ? `⭐ آية جامعة لكافة حروف (${activeSurah.letters})` : row.verseGatheringSummary}`;
 
     await copyToClipboard(text);
     setCopiedRowId(rowKey);
@@ -785,7 +775,9 @@ export default function NooraniWordExplorer({
           lettersJummal: w.lettersJummal,
           quotientStr: w.quotientStr,
           isExact: w.isExact,
-          verseSnippet: w.verseText
+          verseSnippet: w.verseText,
+          verseWordCount: w.verseWordCount,
+          verseLetterCount: w.verseLetterCount
         }))
       });
 
@@ -809,30 +801,34 @@ export default function NooraniWordExplorer({
       'م', 
       'السورة', 
       'رقم الآية', 
+      'الآية الكريمة',
+      'عدد كلمات الآية',
+      'عدد حروف الآية',
       'الجمع النوراني للآية',
       'الكلمة القرآنية', 
       'الحروف النورانية', 
       'حساب جمل الكلمة', 
       'جمل الحروف', 
+      'المعامل النوراني',
       'ناتج القسمة', 
-      'المعامل', 
-      'حالة التوافق', 
-      'نص الآية الكريمة'
+      'حالة التوافق'
     ];
-    const colWidths = [6, 16, 10, 22, 18, 18, 14, 14, 14, 12, 14, 68];
+    const colWidths = [6, 16, 10, 68, 14, 14, 22, 18, 18, 14, 14, 12, 14, 14];
     const rows = filteredWords.map((w, idx) => [
       idx + 1,
       w.surahName,
       w.verseNumber,
+      w.verseText,
+      w.verseWordCount,
+      w.verseLetterCount,
       w.isGatheringAllVerse ? `آية جامعة لكافة حروف (${activeSurah.letters}) ⭐` : w.verseGatheringSummary,
       w.word,
       w.matchedLetters.join(' '),
       w.wordJummal,
       w.lettersJummal,
-      w.quotientStr,
       activeSurah.digitalRoot,
-      w.isExact ? 'متوافقة' : 'غير متوافقة',
-      w.verseText
+      w.quotientStr,
+      w.isExact ? 'متوافقة' : 'غير متوافقة'
     ]);
 
     const excelBlob = await generateTableExcelBlob({
@@ -1432,26 +1428,40 @@ export default function NooraniWordExplorer({
             </div>
 
             {/* Live Filter Summary bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-semibold text-slate-500 px-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] font-semibold text-slate-600 px-1 py-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span>
-                  عدد الكلمات المعروضة حالياً: <strong className="text-emerald-950 font-mono text-xs">{filteredWords.length}</strong> كلمة
-                  {matchingVerseRefs.length > 0 && (
-                    <span className="text-slate-600 mr-1.5 font-bold">
-                      (ضمن <strong className="text-emerald-900 font-mono text-xs">{matchingVerseRefs.length}</strong> آية)
-                    </span>
+                <div className="flex items-center gap-1.5 bg-slate-100 text-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                  <span className="text-slate-500 font-bold">الآيات:</span>
+                  <strong className="text-slate-950 font-mono text-xs">{stats.uniqueVersesCount}</strong>
+                  <span className="text-slate-500 text-[10px]">آية</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
+                  <span className="text-emerald-700 font-bold">الكلمات:</span>
+                  <strong className="text-emerald-950 font-mono text-xs">{stats.total}</strong>
+                  <span className="text-emerald-700 text-[10px]">مفردة</span>
+                  {stats.totalVerseWords > 0 && (
+                    <span className="text-emerald-600 text-[10px] font-mono">({stats.totalVerseWords} بالآيات)</span>
                   )}
-                  {searchQuery && (
-                    <span className="text-amber-800 mr-2 font-bold">
-                      (مصفاة ببحث: «{searchQuery}»)
-                    </span>
-                  )}
-                  {isGatheringVersesOnly && (
-                    <span className="text-emerald-800 mr-2 font-black">
-                      (⭐ الآيات الجامعة لكافة حروف {activeSurah.letters})
-                    </span>
-                  )}
-                </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-indigo-50 text-indigo-950 px-2.5 py-1 rounded-lg border border-indigo-200 shadow-2xs">
+                  <span className="text-indigo-700 font-bold">الحروف:</span>
+                  <strong className="text-indigo-950 font-mono text-xs">{stats.totalVerseLetters.toLocaleString()}</strong>
+                  <span className="text-indigo-700 text-[10px]">حرف بالآيات</span>
+                  <span className="text-indigo-600 text-[10px] font-mono">({stats.totalWordLetters} بالمفردات)</span>
+                </div>
+
+                {searchQuery && (
+                  <span className="text-amber-800 mr-1 font-bold">
+                    (مصفاة ببحث: «{searchQuery}»)
+                  </span>
+                )}
+                {isGatheringVersesOnly && (
+                  <span className="text-emerald-800 mr-1 font-black">
+                    (⭐ الآيات الجامعة لكافة حروف {activeSurah.letters})
+                  </span>
+                )}
 
                 {matchingVerseRefs.length > 0 && (
                   <button
@@ -1508,21 +1518,24 @@ export default function NooraniWordExplorer({
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto max-h-[560px]">
-                <table className="w-full text-right text-xs border-collapse">
+              <div className="table-container overflow-x-auto max-h-[620px]">
+                <table className="w-full text-right border-collapse text-[11px] min-w-[1100px]">
                   <thead className="bg-[#092b22] text-amber-200 sticky top-0 z-10 select-none text-[11px]">
-                    <tr>
-                      <th className="p-3 text-center border-b border-emerald-800 w-12 font-black">م</th>
-                      <th className="p-3 border-b border-emerald-800 font-black">السورة والآية</th>
-                      <th className="p-3 text-center border-b border-emerald-800 font-black">الجمع النوراني للآية</th>
-                      <th className="p-3 border-b border-emerald-800 font-black">الكلمة القرآنية</th>
-                      <th className="p-3 border-b border-emerald-800 font-black">الحروف النورانية</th>
-                      <th className="p-3 text-center border-b border-emerald-800 font-black">حساب الجمل</th>
-                      <th className="p-3 text-center border-b border-emerald-800 font-black">جمل الحروف</th>
-                      <th className="p-3 text-center border-b border-emerald-800 font-black">القسمة / المعامل</th>
-                      <th className="p-3 text-center border-b border-emerald-800 font-black">المطابقة</th>
-                      <th className="p-3 border-b border-emerald-800 font-black">سياق الآية الكريمة</th>
-                      <th className="p-3 text-center border-b border-emerald-800 w-16 font-black">نسخ</th>
+                    <tr className="border-b-2 border-emerald-800 text-center font-bold">
+                      <th className="p-2 border border-emerald-800/80 number-column text-center font-black">م</th>
+                      <th className="p-2 border border-emerald-800/80 font-black text-center whitespace-nowrap">السورة</th>
+                      <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap">رقم الآية</th>
+                      <th className="p-2 border border-emerald-800/80 text-right verse-column font-black">الآية الكريمة</th>
+                      <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap" title="عدد كلمات الآية الكريمة">عدد الكلمات</th>
+                      <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap" title="عدد حروف الآية الكريمة">عدد الحروف</th>
+                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الجمع النوراني</th>
+                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الكلمة القرآنية</th>
+                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الحروف النورانية</th>
+                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">حساب الجمل</th>
+                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">جمل الحروف</th>
+                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">القسمة / المعامل</th>
+                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">المطابقة</th>
+                      <th className="p-2 border border-emerald-800/80 text-center w-14 font-black">نسخ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
@@ -1534,7 +1547,7 @@ export default function NooraniWordExplorer({
                       return (
                         <tr 
                           key={rowKey}
-                          className={`hover:bg-amber-50/70 transition-colors ${
+                          className={`hover:bg-amber-50/70 transition-colors text-center ${
                             row.isGatheringAllVerse 
                               ? (isEven ? 'bg-amber-50/50' : 'bg-amber-50/80')
                               : row.isExact 
@@ -1542,20 +1555,54 @@ export default function NooraniWordExplorer({
                                 : (isEven ? 'bg-slate-50/40' : 'bg-white')
                           }`}
                         >
-                          <td className="p-3 text-center font-mono text-[10px] text-slate-500 font-bold">
+                          {/* 1. التسلسل م */}
+                          <td className="p-2 border border-slate-100 text-center font-mono text-[10px] text-slate-500 font-bold number-column">
                             {idx + 1}
                           </td>
 
-                          <td className="p-3 font-bold text-slate-900 whitespace-nowrap">
+                          {/* 2. اسم السورة */}
+                          <td className="p-2 border border-slate-100 font-bold text-slate-800 text-xs whitespace-nowrap text-center">
                             <span className="block text-emerald-950 font-black">{row.surahName}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">آية ({row.verseNumber})</span>
                             {row.trackLabel && (
                               <span className="block text-[9px] text-amber-800 font-bold">{row.trackLabel}</span>
                             )}
                           </td>
 
-                          {/* DEDICATED COLUMN: Noorani Verse Gathering Badge */}
-                          <td className="p-3 text-center whitespace-nowrap">
+                          {/* 3. رقم الآية (مطابق لشكل عمود شاشة المخرجات) */}
+                          <td className="p-2 border border-slate-100 number-column text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="px-1.5 py-0.5 bg-slate-900 text-white font-black font-sans rounded-sm text-xs shadow-xs">
+                                {row.verseNumber}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 4. الآية الكريمة (مطابقة لشكل وحجم وخط واتجاه عمود جدول المخرجات والمدخلات) */}
+                          <td 
+                            className="p-2 border border-slate-100 text-right verse-column verse-text quran-font text-xs text-slate-900 font-black" 
+                            title={row.verseText}
+                          >
+                            <span className="leading-relaxed">
+                              ( {row.verseText} )
+                            </span>
+                          </td>
+
+                          {/* 5. عدد الكلمات للآية */}
+                          <td className="p-2 border border-slate-100 number-column text-center font-mono font-bold text-slate-800">
+                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-800 font-mono font-black rounded text-[11px] border border-slate-200">
+                              {row.verseWordCount}
+                            </span>
+                          </td>
+
+                          {/* 6. عدد الحروف للآية */}
+                          <td className="p-2 border border-slate-100 number-column text-center font-mono font-bold text-slate-800">
+                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-800 font-mono font-black rounded text-[11px] border border-slate-200">
+                              {row.verseLetterCount}
+                            </span>
+                          </td>
+
+                          {/* 7. الجمع النوراني للآية */}
+                          <td className="p-2 border border-slate-100 text-center whitespace-nowrap">
                             {row.isGatheringAllVerse ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950 text-[10px] font-black rounded-lg border border-amber-500 shadow-xs">
                                 <Star className="w-3 h-3 text-amber-950 fill-amber-950 shrink-0" />
@@ -1568,14 +1615,16 @@ export default function NooraniWordExplorer({
                             )}
                           </td>
 
-                          <td className="p-3 whitespace-nowrap">
+                          {/* 8. الكلمة القرآنية */}
+                          <td className="p-2 border border-slate-100 whitespace-nowrap text-center">
                             <span className="text-sm font-black text-emerald-950 bg-white border border-emerald-300 px-2.5 py-1 rounded-lg shadow-xs font-serif">
                               {row.word}
                             </span>
                           </td>
 
-                          <td className="p-3 whitespace-nowrap">
-                            <div className="flex items-center gap-1 font-mono font-black text-emerald-800 text-xs">
+                          {/* 9. الحروف النورانية */}
+                          <td className="p-2 border border-slate-100 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center gap-1 font-mono font-black text-emerald-800 text-xs">
                               {row.matchedLetters.map((l, lIdx) => (
                                 <span key={lIdx} className="bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-300">
                                   {l}
@@ -1584,20 +1633,24 @@ export default function NooraniWordExplorer({
                             </div>
                           </td>
 
-                          <td className="p-3 text-center font-mono font-black text-slate-900 text-xs">
+                          {/* 10. حساب الجمل */}
+                          <td className="p-2 border border-slate-100 text-center font-mono font-black text-slate-900 text-xs">
                             {row.wordJummal}
                           </td>
 
-                          <td className="p-3 text-center font-mono text-slate-600 text-xs">
+                          {/* 11. جمل الحروف */}
+                          <td className="p-2 border border-slate-100 text-center font-mono text-slate-600 text-xs">
                             {row.lettersJummal}
                           </td>
 
-                          <td className="p-3 text-center font-mono text-xs whitespace-nowrap">
+                          {/* 12. القسمة / المعامل */}
+                          <td className="p-2 border border-slate-100 text-center font-mono text-xs whitespace-nowrap">
                             <span className="font-black text-slate-900">{row.quotientStr}</span>
                             <span className="text-[10px] text-slate-400 block">÷ {activeSurah.digitalRoot}</span>
                           </td>
 
-                          <td className="p-3 text-center whitespace-nowrap">
+                          {/* 13. المطابقة */}
+                          <td className="p-2 border border-slate-100 text-center whitespace-nowrap">
                             {row.isExact ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-900 text-[10px] font-black rounded-md border border-emerald-300">
                                 <Check className="w-3 h-3 text-emerald-700" />
@@ -1610,16 +1663,13 @@ export default function NooraniWordExplorer({
                             )}
                           </td>
 
-                          <td className="p-3 text-slate-700 text-xs max-w-xs md:max-w-sm quran-font leading-relaxed">
-                            ( {row.verseText} )
-                          </td>
-
-                          <td className="p-3 text-center">
+                          {/* 14. نسخ */}
+                          <td className="p-2 border border-slate-100 text-center">
                             <button
                               type="button"
                               onClick={() => handleCopySingleRow(row)}
                               className="p-1.5 bg-white hover:bg-emerald-100 border border-slate-200 hover:border-emerald-400 rounded-lg text-slate-700 hover:text-emerald-900 transition-all cursor-pointer shadow-xs"
-                              title="نسخ بيانات الكلمة"
+                              title="نسخ بيانات الكلمة والآية"
                             >
                               {isRowCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
@@ -1628,6 +1678,50 @@ export default function NooraniWordExplorer({
                       );
                     })}
                   </tbody>
+                  <tfoot className="bg-[#092b22] text-amber-200 font-bold text-[11px] sticky bottom-0 z-10 border-t-2 border-emerald-700">
+                    <tr>
+                      <td className="p-2.5 text-center font-mono number-column">∑</td>
+                      <td className="p-2.5 text-center whitespace-nowrap font-black">الإجمالي</td>
+                      <td className="p-2.5 text-center number-column">
+                        <span className="px-1.5 py-0.5 bg-amber-400 text-slate-950 font-black rounded text-[10px]">
+                          {stats.uniqueVersesCount} آية
+                        </span>
+                      </td>
+                      <td className="p-2.5 text-right verse-column text-xs font-serif text-amber-100">
+                        إجمالي آيات وكلمات وحروف الجدول المعروض
+                      </td>
+                      <td className="p-2.5 text-center number-column font-mono font-black text-amber-300">
+                        {stats.totalVerseWords}
+                      </td>
+                      <td className="p-2.5 text-center number-column font-mono font-black text-amber-300">
+                        {stats.totalVerseLetters.toLocaleString()}
+                      </td>
+                      <td className="p-2.5 text-center whitespace-nowrap">
+                        {stats.gatheringVersesCount > 0 ? `${stats.gatheringVersesCount} آية جامعة` : '—'}
+                      </td>
+                      <td className="p-2.5 text-center whitespace-nowrap">
+                        <span className="text-amber-300 font-mono font-black">{stats.total}</span> مفردة
+                      </td>
+                      <td className="p-2.5 text-center whitespace-nowrap">
+                        <span className="text-amber-300 font-mono font-black">{stats.totalWordLetters}</span> حرف
+                      </td>
+                      <td className="p-2.5 text-center font-mono font-black text-amber-300">
+                        {stats.totalJummal.toLocaleString()}
+                      </td>
+                      <td className="p-2.5 text-center font-mono">
+                        —
+                      </td>
+                      <td className="p-2.5 text-center font-mono">
+                        —
+                      </td>
+                      <td className="p-2.5 text-center whitespace-nowrap text-amber-300">
+                        {stats.exactCount} متوافقة ({stats.exactPct}%)
+                      </td>
+                      <td className="p-2.5 text-center">
+                        —
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
