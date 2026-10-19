@@ -115,10 +115,10 @@ export default function QuranOutput({
   // Canonical total verse count of the active Surah
   const originalSurahVersesCount = useMemo(() => {
     if (!activeSurah || activeSurah.id <= 0) return 0;
-    const meta = getSurahMetadata(activeSurah.id);
-    if (meta && meta.totalVerses > 0) return meta.totalVerses;
     const list = (quranData as any[]).filter((v: any) => v.surahId === activeSurah.id);
-    return list.length;
+    if (list.length > 0) return list.length;
+    const meta = getSurahMetadata(activeSurah.id);
+    return meta?.totalVerses || 0;
   }, [activeSurah]);
 
   const isSubsetTransferred = useMemo(() => {

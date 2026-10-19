@@ -23,7 +23,7 @@ export interface JuzInfo {
 }
 
 // 25 undisputed Madani Surahs
-const MADANI_SURAH_IDS = new Set<number>([
+export const MADANI_SURAH_IDS = new Set<number>([
   2, 3, 4, 5, 8, 9, 22, 24, 33, 47, 48, 49, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 76, 98, 110
 ]);
 
@@ -80,7 +80,7 @@ export function getJuzForVerse(surahId: number, verseNum: number): number {
 }
 
 // Revelation orders standard scholarly sequence
-const REVELATION_ORDERS: Record<number, number> = {
+export const REVELATION_ORDERS: Record<number, number> = {
   1: 5, 2: 87, 3: 89, 4: 92, 5: 112, 6: 55, 7: 39, 8: 88, 9: 113, 10: 51,
   11: 52, 12: 53, 13: 96, 14: 72, 15: 54, 16: 70, 17: 50, 18: 69, 19: 44, 20: 45,
   21: 73, 22: 103, 23: 74, 24: 102, 25: 42, 26: 47, 27: 48, 28: 49, 29: 85, 30: 84,

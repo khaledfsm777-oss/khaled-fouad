@@ -1,5 +1,7 @@
 import { ALL_SURAHS } from './surahList';
 import { NOORANI_SURAHS, ALL_29_NOORANI_SURAH } from './jummal';
+import { quranData, QuranVerse } from './quranData';
+import { MADANI_SURAH_IDS, REVELATION_ORDERS, getJuzForVerse } from './mushafData';
 
 export interface SurahMetadata {
   id: number;
@@ -532,6 +534,85 @@ export const SURAH_METADATA: Record<number, SurahMetadata> = {
   }
 };
 
+function stripBismillahForMetadata(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\uFDFD/g, '')
+    .replace(/^\s*[\(\{\[﴿\uFD3E][\s\u200B]*(?:بسم\s+الله\s+الرحمن\s+الرحيم|﷽)[\s\u200B]*[\)\}\]﴾\uFD3F]\s*/, '')
+    .replace(/^(?:بِسۡمِ|بِسْمِ|بِسمِ|بسم)\s+(?:ٱللَّهِ|اللَّهِ|اللهِ|الله)\s+(?:ٱلرَّحۡمَٰنِ|ٱلرَّحْمَٰنِ|الرَّحْمَنِ|الرحمن)\s+(?:ٱلرَّحِيمِ|الرَّحِيمِ|الرحيم)\s*/, '')
+    .trim();
+}
+
+// Topic and context dictionary for common reference surahs outside SURAH_METADATA
+const SPECIAL_SURAH_TOPICS: Record<number, { reason: string; topic: string }> = {
+  4: {
+    reason: 'نزلت لتنظيم شؤون الأسرة والمجتمع وحماية حقوق المستضعفين واليتامى بعد معركة أحد.',
+    topic: 'حقوق النساء واليتامى، أحكام المواريث والأسرة، والعدل والتحذير من النفاق.'
+  },
+  5: {
+    reason: 'من أواخر ما نزل من القرآن، تضمنت إتمام الدين وأحكام العهود والمواثيق والحلال والحرام.',
+    topic: 'الوفاء بالعقود، أحكام الأطعمة والذبائح، عقائد أهل الكتاب، وتوثيق مائدة عيسى عليه السلام.'
+  },
+  6: {
+    reason: 'نزلت جملة واحدة ليلاً بمكة يشيعها سبعون ألف ملك، لترسيخ أصول التوحيد وإبطال الشرك.',
+    topic: 'تقرير عقيدة التوحيد والربوبية والألوهية ومحاجة المشركين ومناقشة سنن الخلق.'
+  },
+  8: {
+    reason: 'نزلت بعد معركة بدر الكبرى لتنظيم أحكام الغنائم والسلم والحرب ومظاهر النصر الإلهي.',
+    topic: 'أسباب النصر الحقيقي، طاعة الله ورسوله، وأحكام الغنائم والأسرى والإعداد.'
+  },
+  9: {
+    reason: 'نزلت في أواخر العهد النبوي عام غزوة تبوك لإعلان البراءة من المشركين وفضح المنافقين.',
+    topic: 'البراءة من عهود المشركين، كشف خفايا المنافقين، وفرائض الصدقة والجهاد.'
+  },
+  18: {
+    reason: 'نزلت جواباً لأسئلة مشركي مكة بالتنسيق مع اليهود عن الفتية وذي القرنين والروح.',
+    topic: 'العصمة من الفتن الأربع (الدين، المال، العلم، السلطة) عبر قصص الكهف وصاحب الجنتين وموسى والخضر وذي القرنين.'
+  },
+  67: {
+    reason: 'سورة تبارك المانعة من عذاب القبر والشفيعة لصاحبها، تحث على التدبر في ملكوت الله.',
+    topic: 'عظمة الملك الإلهي، حكمة الموت والحياة والابتلاء بالعمل الأحسن، وتأمل عوالم السماء والأرض.'
+  },
+  103: {
+    reason: 'سورة مكية عظيمة أقسم الله فيها بالدهر والزمن على خسران الإنسان إلا من استكمل شروط النجاة الأربعة.',
+    topic: 'قانون النجاة الشامل: الإيمان بالله، والعمل الصالح، والتواصي بالحق، والتواصي بالصبر.'
+  },
+  108: {
+    reason: 'نزلت تسلية للنبي ﷺ ورداً على المشركين حين زعموا انقطاع عقبه، فبشره الله بالكوثر.',
+    topic: 'البشارة بالخير العظيم والكوثر، وإخلاص الصلاة والنحر لله تعالى، وقطع دابر كل شانئ.'
+  },
+  112: {
+    reason: 'نزلت جواباً للمشركين حين سألوا النبي ﷺ أن ينسب لهم ربه، فأنزل الله سورة الإخلاص المحضة.',
+    topic: 'إثبات الوحدانية التامة والأحدية والصمدية لله تعالى وتنزيهه عن الوالد والولد والشريك.'
+  },
+  113: {
+    reason: 'سورة المعوذة الأولى نزلت للتحصن والاعتصام برب الفلق من شرور المخلوقات والظلمات والسحرة والحاسدين.',
+    topic: 'الاستعاذة برب الصبح من شر ما خلق، ومن شر غاسق إذا وقب، وحاسد إذا حسد.'
+  },
+  114: {
+    reason: 'خاتمة المصحف الشريف والمعوذة الثانية، نزلت للالتجاء إلى ملك الناس وإلههم من وسوسة الشياطين الخفية.',
+    topic: 'الاستعاذة بربوبية الله وملكه وألوهيته من شر الوسواس الخناس من الجنة والناس.'
+  }
+};
+
+// Canonical official verse counts of all 114 Surahs (Hafs / Kufic standard)
+export const CANONICAL_VERSE_COUNTS: Record<number, number> = {
+  1: 7, 2: 286, 3: 200, 4: 176, 5: 120, 6: 165, 7: 206, 8: 75, 9: 129, 10: 109,
+  11: 123, 12: 111, 13: 43, 14: 52, 15: 99, 16: 128, 17: 111, 18: 110, 19: 98, 20: 135,
+  21: 112, 22: 78, 23: 118, 24: 64, 25: 77, 26: 227, 27: 93, 28: 88, 29: 69, 30: 60,
+  31: 34, 32: 30, 33: 73, 34: 54, 35: 45, 36: 83, 37: 182, 38: 88, 39: 75, 40: 85,
+  41: 54, 42: 53, 43: 89, 44: 59, 45: 37, 46: 35, 47: 38, 48: 29, 49: 18, 50: 45,
+  51: 60, 52: 49, 53: 62, 54: 55, 55: 78, 56: 96, 57: 29, 58: 22, 59: 24, 60: 13,
+  61: 14, 62: 11, 63: 11, 64: 18, 65: 12, 66: 12, 67: 30, 68: 52, 69: 52, 70: 44,
+  71: 28, 72: 28, 73: 20, 74: 56, 75: 40, 76: 31, 77: 50, 78: 40, 79: 46, 80: 42,
+  81: 29, 82: 19, 83: 36, 84: 25, 85: 22, 86: 17, 87: 19, 88: 26, 89: 30, 90: 20,
+  91: 15, 92: 21, 93: 11, 94: 8, 95: 8, 96: 19, 97: 5, 98: 8, 99: 8, 100: 11,
+  101: 11, 102: 8, 103: 3, 104: 9, 105: 5, 106: 4, 107: 7, 108: 3, 109: 6, 110: 3,
+  111: 5, 112: 4, 113: 5, 114: 6
+};
+
+const DYNAMIC_SURAH_CACHE: Record<number, SurahMetadata> = {};
+
 /**
  * Robust getter providing authentic metadata for any Surah ID (1 to 114)
  */
@@ -540,28 +621,68 @@ export function getSurahMetadata(surahId: number): SurahMetadata {
     return SURAH_METADATA[surahId];
   }
 
-  // Lookup in general Surah list
+  if (DYNAMIC_SURAH_CACHE[surahId]) {
+    return DYNAMIC_SURAH_CACHE[surahId];
+  }
+
   const found = ALL_SURAHS.find(s => s.id === surahId);
   const name = found ? found.name : `السورة ${surahId}`;
 
-  // Check if it's one of the 29 Noorani Surahs
   const nooraniIndex = NOORANI_SURAHS.findIndex(ns => ns.id === surahId);
   const nooraniOrder = nooraniIndex !== -1 ? nooraniIndex + 1 : 'غير نورانية';
 
-  // Fallback metadata calculation
-  return {
+  // Compute live accurate statistics from quranData
+  const surahVerses = (quranData as QuranVerse[]).filter(v => v.surahId === surahId);
+  const totalVerses = CANONICAL_VERSE_COUNTS[surahId] || surahVerses.length || 1;
+
+  let totalWords = 0;
+  let totalLetters = 0;
+
+  surahVerses.forEach((v, idx) => {
+    let t = v.text;
+    if (idx === 0 && surahId !== 1 && surahId !== 9) {
+      t = stripBismillahForMetadata(t);
+    }
+    const words = t.split(/\s+/).filter(Boolean);
+    totalWords += words.length;
+
+    const matchedLetters = t.match(/[\u0621-\u063A\u0641-\u064A\u0670]/g);
+    if (matchedLetters) {
+      totalLetters += matchedLetters.length;
+    }
+  });
+
+  const isMadani = MADANI_SURAH_IDS.has(surahId);
+  const revOrder = REVELATION_ORDERS[surahId] || surahId;
+
+  const startJuz = getJuzForVerse(surahId, 1);
+  const endJuz = getJuzForVerse(surahId, Math.max(1, totalVerses));
+  const juzStartEnd = startJuz === endJuz ? `الجزء ${startJuz}` : `الجزء ${startJuz} - ${endJuz}`;
+
+  const hizbStart = (startJuz - 1) * 2 + 1;
+  const hizbEnd = endJuz * 2;
+  const hizbStartEnd = hizbStart === hizbEnd ? `الحزب ${hizbStart}` : `الحزب ${hizbStart} - ${hizbEnd}`;
+
+  const special = SPECIAL_SURAH_TOPICS[surahId];
+  const revelationReason = special?.reason || `سورة قرآنية كريمة نزلت في العهد ${isMadani ? 'المدني' : 'المكي'} لتثبيت التوحيد وتعزيز مكارم الشريعة.`;
+  const briefTopic = special?.topic || `مقاصد القرآن الكريم ومحاور التوحيد والعبادة والسنن الإلهية ومكارم الأخلاق.`;
+
+  const meta: SurahMetadata = {
     id: surahId,
     name,
     orderInQuran: surahId,
     nooraniOrder,
-    revelationOrder: surahId,
-    revelationPlace: surahId <= 60 ? 'مكية' : 'مدنية',
-    juzStartEnd: `الجزء ${Math.min(30, Math.ceil(surahId / 4))}`,
-    hizbStartEnd: `الحزب ${Math.min(60, Math.ceil(surahId / 2))}`,
-    totalVerses: 50,
-    totalWords: 500,
-    totalLetters: 2200,
-    revelationReason: 'سورة قرآنية كريمة نزلت لتثبيت التوحيد وتعزيز مكارم الشريعة.',
-    briefTopic: 'مقاصد القرآن الكريم ومحاور التوحيد والعبادة والسنن الإلهية.'
+    revelationOrder: revOrder,
+    revelationPlace: isMadani ? 'مدنية' : 'مكية',
+    juzStartEnd,
+    hizbStartEnd,
+    totalVerses: totalVerses || 1,
+    totalWords: totalWords || 1,
+    totalLetters: totalLetters || 1,
+    revelationReason,
+    briefTopic
   };
+
+  DYNAMIC_SURAH_CACHE[surahId] = meta;
+  return meta;
 }

@@ -164,16 +164,20 @@ export default function QuranInput({ onAnalyze, onAnalyze29, onOpenSmartReport, 
     }
   };
 
-  const selectedSurahName = selectedSurahId !== '' 
-    ? (NOORANI_SURAHS.find(s => s.id === selectedSurahId)?.name || ALL_SURAHS.find(s => s.id === selectedSurahId)?.name || '')
+  const effectiveSurahId = selectedSurahId !== '' 
+    ? Number(selectedSurahId) 
+    : (activeSurah && activeSurah.id > 0 ? activeSurah.id : null);
+
+  const selectedSurahName = effectiveSurahId 
+    ? (NOORANI_SURAHS.find(s => s.id === effectiveSurahId)?.name || ALL_SURAHS.find(s => s.id === effectiveSurahId)?.name || '')
     : '';
 
-  const selectedNoorani = selectedSurahId !== '' 
-    ? NOORANI_SURAHS.find(s => s.id === selectedSurahId) 
+  const selectedNoorani = effectiveSurahId 
+    ? NOORANI_SURAHS.find(s => s.id === effectiveSurahId) 
     : null;
 
-  const selectedMeta = selectedSurahId !== '' 
-    ? getSurahMetadata(selectedSurahId as number) 
+  const selectedMeta = effectiveSurahId 
+    ? getSurahMetadata(effectiveSurahId) 
     : null;
 
   const currentSurahForCard: NooraniSurah | null = activeSurah || (

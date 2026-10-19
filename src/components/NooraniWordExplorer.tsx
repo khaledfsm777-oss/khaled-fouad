@@ -30,7 +30,8 @@ import {
   normalizeArabicForSearch,
   JUMMAL_MAP,
   removeTashkeel,
-  cleanForCalculations
+  cleanForCalculations,
+  stripBismillah
 } from '../utils/jummal';
 import quranData, { QuranVerse } from '../utils/quranData';
 import { copyToClipboard } from '../utils/clipboard';
@@ -38,6 +39,20 @@ import { generateNooraniWordsDocxBlob, generateNooraniGatheringVersesDocxBlob } 
 import { generateTableExcelBlob } from '../utils/excelExportHelper';
 import { handleSafeExport } from '../utils/exportHelper';
 import { ExportModal } from './ExportModal';
+
+/**
+ * Returns authentic verse text stripped of opening Basmalah for Surahs 2..114 (except 9),
+ * preserving pure Quranic text without Basmalah interference in calculations.
+ */
+export function getPureVerseText(v: { surahId: number; verseNumber: number | string; text: string }): string {
+  if (!v || !v.text) return '';
+  const num = typeof v.verseNumber === 'string' ? parseInt(v.verseNumber, 10) : v.verseNumber;
+  if (num === 1) {
+    if (v.surahId === 9) return v.text;
+    return stripBismillah(v.text);
+  }
+  return v.text;
+}
 
 interface NooraniWordExplorerProps {
   initialSurahId?: number | null;
@@ -153,7 +168,9 @@ export default function NooraniWordExplorer({
     if (!activeSurah) return [];
     const versesInSurah = (quranData as QuranVerse[]).filter(v => v.surahId === activeSurah.id);
     return versesInSurah.filter(v => {
-      const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
+      const vText = getPureVerseText(v);
+      if (!vText || vText.trim().length === 0) return false;
+      const g = checkVerseNooraniGathering(vText, activeSurah.letters);
       return g.isGatheringAll;
     });
   }, [activeSurah]);
@@ -167,7 +184,9 @@ export default function NooraniWordExplorer({
     surahDistinctLetters.forEach(l => {
       let count = 0;
       versesInSurah.forEach(v => {
-        const matches = getNooraniWordMatches(v.text, l.char, activeSurah.digitalRoot, false, 'any_letter');
+        const vText = getPureVerseText(v);
+        if (!vText || vText.trim().length === 0) return;
+        const matches = getNooraniWordMatches(vText, l.char, activeSurah.digitalRoot, false, 'any_letter');
         count += matches.length;
       });
       counts[l.norm] = count;
@@ -355,7 +374,9 @@ export default function NooraniWordExplorer({
     // Filter to gathering verses if gathering filter is active
     if (isGatheringVersesOnly) {
       targetVerses = targetVerses.filter(v => {
-        const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
+        const vText = getPureVerseText(v);
+        if (!vText || vText.trim().length === 0) return false;
+        const g = checkVerseNooraniGathering(vText, activeSurah.letters);
         return g.isGatheringAll;
       });
     }
@@ -367,10 +388,14 @@ export default function NooraniWordExplorer({
     const effectiveLetter = activeSurahLetter || activeLetter;
 
     targetVerses.forEach(verse => {
-      const gatheringInfo = checkVerseNooraniGathering(verse.text, activeSurah.letters);
-      const verseWords = verse.text.split(/\s+/).filter((w: string) => w.trim().length > 0);
+      // Pure verse text without Basmalah prefix on verse 1
+      const vText = getPureVerseText(verse);
+      if (!vText || vText.trim().length === 0) return;
+
+      const gatheringInfo = checkVerseNooraniGathering(vText, activeSurah.letters);
+      const verseWords = vText.split(/\s+/).filter((w: string) => w.trim().length > 0);
       const verseWordCount = verseWords.length;
-      const cleanV = cleanForCalculations(verse.text);
+      const cleanV = cleanForCalculations(vText);
       let verseLetterCount = 0;
       for (let i = 0; i < cleanV.length; i++) {
         if (JUMMAL_MAP[cleanV[i]] !== undefined) {
@@ -390,12 +415,18 @@ export default function NooraniWordExplorer({
       };
 
       const pushRow = (m: NooraniMatchedWordResult, trackLabel?: string) => {
+        // Defensive check: prevent any opening Basmalah words from appearing in results
+        const cleanW = cleanForCalculations(m.word);
+        if (cleanW === 'بسم' || (verse.verseNumber === 1 && (cleanW === 'الرحمن' || cleanW === 'الرحيم'))) {
+          return;
+        }
+
         results.push({
           index: counter++,
           surahId: verse.surahId,
           surahName: verse.surahName,
           verseNumber: verse.verseNumber,
-          verseText: verse.text,
+          verseText: vText,
           verseWordCount,
           verseLetterCount,
           wordLetterCount: getWordLetterCount(m.word),
@@ -409,30 +440,30 @@ export default function NooraniWordExplorer({
 
       if (effectiveLetter) {
         // Individual letter match: matches any word having this letter
-        const matches = getNooraniWordMatches(verse.text, effectiveLetter, activeSurah.digitalRoot, onlyCompatible, 'any_letter');
+        const matches = getNooraniWordMatches(vText, effectiveLetter, activeSurah.digitalRoot, onlyCompatible, 'any_letter');
         matches.forEach(m => pushRow(m, `فلترة حرف [${effectiveLetter}]`));
       } else if (activeFormula) {
         // Compound formula from top pills
-        const matches = getNooraniWordMatches(verse.text, activeFormula, activeSurah.digitalRoot, onlyCompatible, 'all_letters');
+        const matches = getNooraniWordMatches(vText, activeFormula, activeSurah.digitalRoot, onlyCompatible, 'all_letters');
         matches.forEach(m => pushRow(m, `صيغة [${activeFormula}]`));
       } else if (isWholeFormulaOnly) {
         // Whole formula in single word
-        const matches = getNooraniWordMatches(verse.text, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible, 'all_letters');
+        const matches = getNooraniWordMatches(vText, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible, 'all_letters');
         matches.forEach(m => pushRow(m, `حروف [${activeSurah.letters}] مجتمعة`));
       } else if (activeSurah.id === 42 && searchScope === 'single_surah') {
         // Handle Surah Al-Shura tracks
         if (shuraTrack === 'both' || shuraTrack === 'hameem') {
-          const matchesH = getNooraniWordMatches(verse.text, 'حم', 3, onlyCompatible, 'all_letters');
+          const matchesH = getNooraniWordMatches(vText, 'حم', 3, onlyCompatible, 'all_letters');
           matchesH.forEach(m => pushRow(m, 'مسار حم (معامل 3)'));
         }
         if (shuraTrack === 'both' || shuraTrack === 'asaq') {
-          const matchesA = getNooraniWordMatches(verse.text, 'عسق', 5, onlyCompatible, 'all_letters');
+          const matchesA = getNooraniWordMatches(vText, 'عسق', 5, onlyCompatible, 'all_letters');
           matchesA.forEach(m => pushRow(m, 'مسار عسق (معامل 5)'));
         }
       } else {
         // Default extraction
         const defaultMatchMode = activeSurah.letters.length >= 4 ? 'any_letter' : 'all_letters';
-        const matches = getNooraniWordMatches(verse.text, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible, defaultMatchMode);
+        const matches = getNooraniWordMatches(vText, activeSurah.letters, activeSurah.digitalRoot, onlyCompatible, defaultMatchMode);
         matches.forEach(m => pushRow(m));
       }
     });
@@ -595,8 +626,9 @@ export default function NooraniWordExplorer({
     const colWidths = [6, 16, 12, 60, 16, 14, 14, 24, 14, 16, 16, 26];
     
     const rows = surahGatheringVerses.map((v, idx) => {
-      const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
-      const cleanW = removeTashkeel(v.text).split(/\s+/).filter(Boolean);
+      const vText = getPureVerseText(v);
+      const g = checkVerseNooraniGathering(vText, activeSurah.letters);
+      const cleanW = removeTashkeel(vText).split(/\s+/).filter(Boolean);
       let vJummal = 0;
       cleanW.forEach(w => {
         const clean = w.replace(/[^\u0621-\u064A]/g, '');
@@ -612,10 +644,10 @@ export default function NooraniWordExplorer({
         idx + 1,
         v.surahName,
         v.verseNumber,
-        v.text,
+        vText,
         vJummal,
         cleanW.length,
-        v.text.replace(/[^\u0621-\u064A]/g, '').length,
+        vText.replace(/[^\u0621-\u064A]/g, '').length,
         g.matchedLetters.join(' - '),
         activeSurah.digitalRoot,
         quotientStr,
@@ -646,8 +678,9 @@ export default function NooraniWordExplorer({
     if (!activeSurah || surahGatheringVerses.length === 0) return;
     try {
       const versesData = surahGatheringVerses.map((v, idx) => {
-        const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
-        const cleanW = removeTashkeel(v.text).split(/\s+/).filter(Boolean);
+        const vText = getPureVerseText(v);
+        const g = checkVerseNooraniGathering(vText, activeSurah.letters);
+        const cleanW = removeTashkeel(vText).split(/\s+/).filter(Boolean);
         let vJummal = 0;
         cleanW.forEach(w => {
           const clean = w.replace(/[^\u0621-\u064A]/g, '');
@@ -662,10 +695,10 @@ export default function NooraniWordExplorer({
         return {
           index: idx + 1,
           verseNumber: v.verseNumber,
-          verseText: v.text,
+          verseText: vText,
           jummalValue: vJummal,
           wordCount: cleanW.length,
-          letterCount: v.text.replace(/[^\u0621-\u064A]/g, '').length,
+          letterCount: vText.replace(/[^\u0621-\u064A]/g, '').length,
           matchedLetters: g.matchedLetters,
           isExact,
           quotientStr
@@ -701,8 +734,9 @@ export default function NooraniWordExplorer({
     text += `• المعامل النوراني: ${activeSurah.digitalRoot} | جمل الفاتحة: ${activeSurah.keyValue}\n`;
     text += `------------------------------------------------------------\n`;
     surahGatheringVerses.forEach((v, idx) => {
-      const g = checkVerseNooraniGathering(v.text, activeSurah.letters);
-      text += `${idx + 1}. [آية ${v.verseNumber}]: ( ${v.text} )\n`;
+      const vText = getPureVerseText(v);
+      const g = checkVerseNooraniGathering(vText, activeSurah.letters);
+      text += `${idx + 1}. [آية ${v.verseNumber}]: ( ${vText} )\n`;
       text += `   - الحروف المتوفرة: [${g.matchedLetters.join(' - ')}] (كاملة ⭐)\n\n`;
     });
     text += `«منظومة البنيان الرقمي للقرآن الكريم» • تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`;
