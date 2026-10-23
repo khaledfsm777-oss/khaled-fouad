@@ -1566,7 +1566,7 @@ export function getNooraniWordMatches(
   const matches: NooraniMatchedWordResult[] = [];
 
   words.forEach(word => {
-    const cleanW = word.replace(/[^\u0621-\u064A]/g, '');
+    const cleanW = word.replace(/[^\u0621-\u064A\u0671\u0670]/g, '');
     if (!cleanW) return;
 
     const wordNormalizedSet = new Set(cleanW.split('').map(normalizeChar));

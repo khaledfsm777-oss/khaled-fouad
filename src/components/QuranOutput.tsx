@@ -1683,7 +1683,7 @@ export default function QuranOutput({
     }[] = [];
 
     words.forEach(word => {
-      const cleanW = word.replace(/[^\u0621-\u064A]/g, '');
+      const cleanW = word.replace(/[^\u0621-\u064A\u0671\u0670]/g, '');
       if (!cleanW) return;
 
       const wordNormalizedSet = new Set(cleanW.split('').map(normalizeChar));
@@ -2266,17 +2266,6 @@ export default function QuranOutput({
 
         {/* Action Buttons Toolbar */}
         <div className="flex flex-wrap items-center justify-start gap-2 pt-3 border-t border-slate-100">
-          {isSubsetTransferred && onReactivateFullSurah && (
-            <button
-              type="button"
-              onClick={onReactivateFullSurah}
-              className="px-3.5 py-1.5 text-xs font-black bg-emerald-900 hover:bg-emerald-950 text-amber-300 border border-emerald-700 rounded-none flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
-              title={`تنشيط وعرض كافة آيات سورة ${activeSurah?.name} بعددها الأصلي (${originalSurahVersesCount} آية)`}
-            >
-              <RefreshCw className="w-4 h-4 text-amber-300" />
-              <span>تنشيط كامل السورة ({originalSurahVersesCount} آية) 🔄</span>
-            </button>
-          )}
           <button
             type="button"
             onClick={handleExportExcel}

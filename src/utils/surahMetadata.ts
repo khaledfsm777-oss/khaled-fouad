@@ -646,7 +646,7 @@ export function getSurahMetadata(surahId: number): SurahMetadata {
     const words = t.split(/\s+/).filter(Boolean);
     totalWords += words.length;
 
-    const matchedLetters = t.match(/[\u0621-\u063A\u0641-\u064A\u0670]/g);
+    const matchedLetters = t.match(/[\u0621-\u063A\u0641-\u064A\u0670\u0671]/g);
     if (matchedLetters) {
       totalLetters += matchedLetters.length;
     }

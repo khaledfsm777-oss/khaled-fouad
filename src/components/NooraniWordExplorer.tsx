@@ -631,7 +631,7 @@ export default function NooraniWordExplorer({
       const cleanW = removeTashkeel(vText).split(/\s+/).filter(Boolean);
       let vJummal = 0;
       cleanW.forEach(w => {
-        const clean = w.replace(/[^\u0621-\u064A]/g, '');
+        const clean = w.replace(/[^\u0621-\u064A\u0671\u0670]/g, '');
         for (const ch of clean) {
           vJummal += JUMMAL_MAP[ch] || 0;
         }
@@ -647,7 +647,7 @@ export default function NooraniWordExplorer({
         vText,
         vJummal,
         cleanW.length,
-        vText.replace(/[^\u0621-\u064A]/g, '').length,
+        vText.replace(/[^\u0621-\u064A\u0671\u0670]/g, '').length,
         g.matchedLetters.join(' - '),
         activeSurah.digitalRoot,
         quotientStr,
@@ -683,7 +683,7 @@ export default function NooraniWordExplorer({
         const cleanW = removeTashkeel(vText).split(/\s+/).filter(Boolean);
         let vJummal = 0;
         cleanW.forEach(w => {
-          const clean = w.replace(/[^\u0621-\u064A]/g, '');
+          const clean = w.replace(/[^\u0621-\u064A\u0671\u0670]/g, '');
           for (const ch of clean) {
             vJummal += JUMMAL_MAP[ch] || 0;
           }
@@ -698,7 +698,7 @@ export default function NooraniWordExplorer({
           verseText: vText,
           jummalValue: vJummal,
           wordCount: cleanW.length,
-          letterCount: vText.replace(/[^\u0621-\u064A]/g, '').length,
+          letterCount: vText.replace(/[^\u0621-\u064A\u0671\u0670]/g, '').length,
           matchedLetters: g.matchedLetters,
           isExact,
           quotientStr
