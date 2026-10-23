@@ -12,7 +12,20 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    css: {
+      transformer: 'lightningcss',
+      lightningcss: {
+        targets: {
+          chrome: 100 << 16,
+          edge: 100 << 16,
+          safari: 15 << 16,
+          firefox: 100 << 16,
+        },
+      },
+    },
     build: {
+      target: 'chrome100',
+      cssMinify: 'lightningcss',
       outDir: 'dist',
       emptyOutDir: true,
       chunkSizeWarningLimit: 2000,
