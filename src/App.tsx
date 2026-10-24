@@ -647,23 +647,13 @@ export default function App() {
                     ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md ring-2 ring-amber-300/40' 
                     : 'bg-gradient-to-r from-emerald-950 to-[#072c21] text-amber-200 border-emerald-700 hover:border-amber-400 hover:bg-emerald-900'
                 }`}
-                title="المصحف الشريف للقراءة والتلاوة المباركة (114 سورة كاملة متصلة أوفلاين)"
+                title="المصحف الشريف للقراءة فقط (114 سورة كاملة متصلة تعمل أوفلاين بدون إنترنت)"
               >
                 <BookOpen className="w-3.5 h-3.5 text-amber-300" />
-                <span>المصحف الشريف للقراءة 🕌</span>
-                <span className="text-[9px] bg-amber-400 text-slate-950 px-1 py-0.2 rounded font-black hidden lg:inline">
-                  أوفلاين
+                <span>المصحف الشريف للقراءة فقط 🕌</span>
+                <span className="text-[10px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-black">
+                  يعمل أوفلاين
                 </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowOfflineModal(true)}
-                className="px-3.5 py-2 text-xs font-black transition-all border border-amber-400/80 bg-gradient-to-r from-amber-500/25 to-emerald-800/40 hover:from-amber-500 hover:to-amber-600 hover:text-slate-950 text-amber-300 rounded-xl outline-none cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
-                title="تثبيت التطبيق على هاتف أندرويد أو تحميل النسخة المستقلة أوفلاين"
-              >
-                <Smartphone className="w-3.5 h-3.5 text-amber-300" />
-                <span>تطبيق أندرويد & أوفلاين</span>
-                <span className="text-[10px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-black">📲 APK/تطبيق</span>
               </button>
               <button
                 type="button"
@@ -727,42 +717,8 @@ export default function App() {
             <div className="space-y-4">
               <h3 className="text-xs font-black text-emerald-800 uppercase tracking-widest block">البوابة الإلكترونية الموحدة - لوحة التحكم والتحليل الاستراتيجي:</h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 
-                {/* Special Master Card: Holy Quran Mushaf Reading (114 Surahs offline) */}
-                <button
-                  onClick={() => setCurrentScreen('mushaf')}
-                  className="bg-gradient-to-br from-[#06241b] via-[#0a3828] to-[#041a13] border-2 border-amber-400 hover:border-yellow-300 p-6 text-right transition-all group cursor-pointer flex flex-col justify-between h-48 md:h-44 relative rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-0.5 duration-300 text-white col-span-1 md:col-span-3"
-                >
-                  <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-500 rounded-t-2xl" />
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 w-full">
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl group-hover:scale-110 transition-transform">🕌📖</span>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-md inline-block shadow-sm">
-                            المصحف الشريف للقراءة والتلاوة فقط (114 سورة كاملة)
-                          </span>
-                          <span className="text-[10px] bg-emerald-900/90 text-amber-200 border border-amber-400/40 px-2 py-0.5 rounded font-bold">
-                            أوفلاين 100% وبدون أي مساحة إضافية
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-xs font-black text-amber-300 bg-emerald-950/90 px-3 py-1 rounded-xl border border-amber-500/50 shadow-inner">
-                      قراءة متصلة بنمط ورقة المصحف 📜
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <h4 className="text-base font-black text-amber-200 group-hover:text-yellow-100 transition-colors">
-                      قراءة سور القرآن الكريم كاملةً غير مجزأة
-                    </h4>
-                    <p className="text-xs text-slate-200 mt-1 leading-relaxed">
-                      عرض سور القرآن الكريم متصلة بتنسيق ورقة المصحف الشريف للقراءة فقط؛ خط عثماني فاخر، فواصل الآيات ﴿١﴾، ترويسات السور، فهارس السور والأجزاء الثلاثين، علامات الحفظ المرجعية، والبحث الفوري الشامل.
-                    </p>
-                  </div>
-                </button>
-
                 {/* Button 1: Master Verses Input & Output & Search */}
                 <button
                   onClick={() => {
@@ -1000,16 +956,6 @@ export default function App() {
                   <ChevronLeft className="w-4 h-4 text-emerald-800" />
                   العودة للشاشة الرئيسية للبرنامج 🏛️
                 </button>
-                <span className="text-slate-300">|</span>
-                <button
-                  type="button"
-                  onClick={() => setCurrentScreen('mushaf')}
-                  className="text-xs font-black text-amber-900 hover:text-amber-700 flex items-center gap-1.5 transition-all cursor-pointer"
-                  title="الانتقال للمصحف الشريف للقراءة والتلاوة"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-                  المصحف الشريف للقراءة 🕌
-                </button>
               </div>
               
               <div className="flex items-center gap-3">
@@ -1228,6 +1174,15 @@ export default function App() {
             <span>بإشراف وتدقيق النظم التحليلية الموزونة - ابتكار الأستاذ خالد فؤاد السيد</span>
             <span className="hidden sm:inline text-slate-800">|</span>
             <span className="px-2 py-0.5 bg-[#0b1e3b] text-amber-200 border border-yellow-600/20 font-mono text-[10px]">AL-BUNYAN v3.0</span>
+          </div>
+          <div className="pt-1 flex justify-center items-center gap-4 text-xs">
+            <button
+              type="button"
+              onClick={() => setShowOfflineModal(true)}
+              className="text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer transition-colors"
+            >
+              📲 دليل تثبيت التطبيق على الهواتف والتشغيل أوفلاين
+            </button>
           </div>
         </div>
       </footer>

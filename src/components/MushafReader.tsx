@@ -437,6 +437,15 @@ export default function MushafReader({
               <Layers className="w-3.5 h-3.5 text-amber-500" />
               <span>الجزء {toArabicNumerals(currentSurah.startJuz)}</span>
             </button>
+
+            {/* Offline confirmation badge */}
+            <span 
+              className="hidden xl:inline-flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-lg border border-emerald-600/30 bg-emerald-500/10 text-emerald-800 select-none"
+              title="جميع سور وآيات المصحف الشريف مضمنة محلياً وتعمل بدون إنترنت 100%"
+            >
+              <span>⚡</span>
+              <span>يعمل أوفلاين 100%</span>
+            </span>
           </div>
 
           {/* Center Section: Quick Surah Prev / Next buttons */}
