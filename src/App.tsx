@@ -657,6 +657,16 @@ export default function App() {
               </button>
               <button
                 type="button"
+                onClick={() => setShowOfflineModal(true)}
+                className="px-3.5 py-2 text-xs font-black transition-all border border-amber-400/80 bg-gradient-to-r from-amber-500/25 to-emerald-800/40 hover:from-amber-500 hover:to-amber-600 hover:text-slate-950 text-amber-300 rounded-xl outline-none cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+                title="تثبيت وتسطيب برنامج البنيان على اللاب توب أو الهاتف (APK) للتشغيل أوفلاين"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-amber-300" />
+                <span>تثبيت التطبيق & APK</span>
+                <span className="text-[10px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-black">📲 للاب والموبايل</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleLogoExit}
                 className="p-2 px-4 text-xs bg-rose-950 border border-rose-900 hover:bg-rose-900 text-rose-100 font-bold flex items-center gap-1 cursor-pointer transition-all rounded-xl"
                 title="خروج من البرنامج"
