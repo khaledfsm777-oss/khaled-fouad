@@ -13,6 +13,7 @@ import { SURAH_METADATA, getSurahMetadata } from '../utils/surahMetadata';
 import { 
   getMukhtasarSurahOverview, 
   fetchMukhtasarVerseData, 
+  fetchMukhtasarSurahData,
   MUKHTASAR_29_SURAHS, 
   generateVerseBenefits, 
   generateVerseTadabburTouch 
@@ -217,18 +218,37 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
     }, 4000);
   };
 
-  // Verses to analyze: if parent passed verses from the active surah, use them; otherwise, load verses from quranData
+  // Verse display range control: 'all' (default: full surah), '10', '30', '50'
+  const [verseRangeLimit, setVerseRangeLimit] = useState<'all' | '10' | '30' | '50'>('all');
+
+  // Verses to analyze: load all verses of the selected surah from quranData (no 10-verse restriction)
   const displayVerses = useMemo(() => {
     if (!activeSurah) return [];
-    if (verses && verses.length > 0) {
-      // Check if verses belong to current surah or if user imported them
+
+    // Always get all verses of this surah from Quran data
+    const allSurahVerses = quranData.filter(v => v.surahId === activeSurah.id);
+    
+    // Check if parent passed verses specifically matching this surah and having full count
+    let sourceList: { text: string; verseNumber: number | string }[] = allSurahVerses;
+    if (verses && verses.length > 0 && verses[0]?.surahId === activeSurah.id && verses.length === allSurahVerses.length) {
+      sourceList = verses;
+    }
+
+    if (verseRangeLimit === '10') {
+      sourceList = sourceList.slice(0, 10);
+    } else if (verseRangeLimit === '30') {
+      sourceList = sourceList.slice(0, 30);
+    } else if (verseRangeLimit === '50') {
+      sourceList = sourceList.slice(0, 50);
+    }
+
+    if (verses && verses.length > 0 && verses[0]?.surahId === activeSurah.id && verseRangeLimit === 'all' && verses.length === allSurahVerses.length) {
       return verses;
     }
-    // Fallback: load first 10 verses of the selected surah from quranData
-    const surahRaw = quranData.filter(v => v.surahId === activeSurah.id).slice(0, 10);
-    const textLines = surahRaw.map(v => `${v.text} (${v.verseNumber})`).join('\n');
+
+    const textLines = sourceList.map(v => `${v.text} (${v.verseNumber})`).join('\n');
     return parseAndAnalyzeVerses(textLines, 'auto', false, activeSurah.id);
-  }, [verses, activeSurah]);
+  }, [verses, activeSurah, verseRangeLimit]);
 
   // Compute metrics and analysis for display verses
   const surahLetters = activeSurah?.letters || '';
@@ -306,6 +326,10 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
       if (!activeSurah || analyzedVerses.length === 0) return;
       setLoadingVersesTafseer(true);
 
+      // 1. Fetch entire surah concise tafsir in ONE fast batch request from QuranEnc API
+      const wholeSurahMap = await fetchMukhtasarSurahData(activeSurah.id);
+      if (isCancelled) return;
+
       const newDetails: Record<string, { tafseer: string; benefits: string[]; tadabbur: string; source: 'online' | 'offline' }> = {};
 
       for (const v of analyzedVerses) {
@@ -316,18 +340,29 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
           continue;
         }
 
-        try {
-          const num = typeof v.verseNumber === 'number' ? v.verseNumber : parseInt(String(v.verseNumber).replace(/\D/g, '')) || 1;
-          const res = await fetchMukhtasarVerseData(activeSurah.id, num, v.text, v.jummalValue);
-          newDetails[key] = res;
-        } catch (e) {
-          // Graceful fallback
+        const num = typeof v.verseNumber === 'number' ? v.verseNumber : parseInt(String(v.verseNumber).replace(/\D/g, '')) || 1;
+        const onlineText = wholeSurahMap[num];
+
+        if (onlineText) {
           newDetails[key] = {
-            tafseer: `تفسير الآية [${v.verseNumber}] من كتاب «المختصر في التفسير»: تبيّن الآية الكريمة حكماً جليلاً وتذكيراً بمقاصد التوحيد والإيمان.`,
-            benefits: generateVerseBenefits(v.text, v.verseNumber),
-            tadabbur: generateVerseTadabburTouch(v.text, v.verseNumber, v.jummalValue),
-            source: 'offline'
+            tafseer: onlineText,
+            benefits: generateVerseBenefits(v.text, num),
+            tadabbur: generateVerseTadabburTouch(v.text, num, v.jummalValue),
+            source: 'online'
           };
+        } else {
+          try {
+            const res = await fetchMukhtasarVerseData(activeSurah.id, num, v.text, v.jummalValue);
+            newDetails[key] = res;
+          } catch {
+            // Graceful fallback
+            newDetails[key] = {
+              tafseer: `تفسير الآية [${v.verseNumber}] من كتاب «المختصر في التفسير»: تبيّن الآية الكريمة حكماً جليلاً وتذكيراً بمقاصد التوحيد والإيمان.`,
+              benefits: generateVerseBenefits(v.text, v.verseNumber),
+              tadabbur: generateVerseTadabburTouch(v.text, v.verseNumber, v.jummalValue),
+              source: 'offline'
+            };
+          }
         }
       }
 
@@ -932,19 +967,69 @@ export default function AiAnalysis({ verses, activeSurah: parentActiveSurah, his
                     </button>
                     <Layers className="w-5 h-5 text-amber-600" />
                     <h4 className="text-sm font-black text-slate-900">
-                      📑 الباب الثاني: الآيات المعروضة وقت طلب التقرير ({analyzedVerses.length} آية كريمة)
+                      📑 الباب الثاني: تفسير وموازين آيات السورة ({analyzedVerses.length} آية كريمة{verseRangeLimit === 'all' ? ' - كامل السورة' : ''})
                     </h4>
                   </div>
-                  <div className="flex items-center gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2 text-xs flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    {/* Range Filter Controls */}
+                    <div className="flex items-center gap-1 bg-white border border-slate-300 p-0.5 text-[11px] font-bold">
+                      <span className="px-1 text-slate-500 text-[10px]">عرض:</span>
+                      <button
+                        type="button"
+                        onClick={() => setVerseRangeLimit('all')}
+                        className={`px-2 py-0.5 transition-all cursor-pointer ${
+                          verseRangeLimit === 'all'
+                            ? 'bg-amber-600 text-white font-black shadow-xs'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                        title="عرض كامل آيات السورة الكريمة دون اقتطاع"
+                      >
+                        كامل السورة ({quranData.filter(v => v.surahId === activeSurah.id).length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVerseRangeLimit('10')}
+                        className={`px-1.5 py-0.5 transition-all cursor-pointer ${
+                          verseRangeLimit === '10'
+                            ? 'bg-amber-600 text-white font-black shadow-xs'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                        title="معاينة 10 آيات"
+                      >
+                        10
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVerseRangeLimit('30')}
+                        className={`px-1.5 py-0.5 transition-all cursor-pointer ${
+                          verseRangeLimit === '30'
+                            ? 'bg-amber-600 text-white font-black shadow-xs'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                        title="معاينة 30 آية"
+                      >
+                        30
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVerseRangeLimit('50')}
+                        className={`px-1.5 py-0.5 transition-all cursor-pointer ${
+                          verseRangeLimit === '50'
+                            ? 'bg-amber-600 text-white font-black shadow-xs'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                        title="معاينة 50 آية"
+                      >
+                        50
+                      </button>
+                    </div>
+
                     {loadingVersesTafseer && (
                       <span className="text-amber-700 font-bold flex items-center gap-1 animate-pulse">
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                         جاري جلب تفاسير وفوائد المختصر...
                       </span>
                     )}
-                    <span className="text-slate-500 font-bold hidden sm:inline">
-                      * التحليل البنيوي والتوافقات مع المعامل والرقم 14 الصريح
-                    </span>
                     <button
                       type="button"
                       onClick={() => setIsBab2Collapsed(!isBab2Collapsed)}

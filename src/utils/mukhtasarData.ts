@@ -529,6 +529,58 @@ export function generateVerseBenefits(verseText: string, verseNumber: number | s
 }
 
 /**
+ * جلب تفاسير السورة كاملة دفعة واحدة من كتاب «المختصر في التفسير»
+ * عبر استدعاء سحابي موحد وفائق السرعة لسورة كاملة من QuranEnc API
+ * مما يحمل سائر آيات السورة فوراً دون أي تجزئة أو اقتصار على 10 آيات
+ */
+export async function fetchMukhtasarSurahData(
+  surahId: number
+): Promise<Record<number, string>> {
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : false;
+  if (!isOnline) return {};
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+    const url = `https://quranenc.com/api/v1/translation/sura/arabic_mokhtasar/${surahId}`;
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      const list = data?.result;
+      if (Array.isArray(list)) {
+        const resultMap: Record<number, string> = {};
+        for (const item of list) {
+          const ayaNum = parseInt(item.aya, 10);
+          const translation = item.translation?.trim();
+          if (ayaNum && translation) {
+            resultMap[ayaNum] = translation;
+            const cacheKey = `mukhtasar_${surahId}_${ayaNum}`;
+            MUKHTASAR_IN_MEMORY_CACHE[cacheKey] = {
+              tafseer: translation,
+              benefits: generateVerseBenefits(item.arabic_text || '', ayaNum),
+              source: 'online'
+            };
+            try {
+              safeStorage.setJSON(`mukhtasar_cache_${surahId}_${ayaNum}`, {
+                tafseer: translation,
+                benefits: MUKHTASAR_IN_MEMORY_CACHE[cacheKey].benefits
+              });
+            } catch {}
+          }
+        }
+        return resultMap;
+      }
+    }
+  } catch {
+    // Fallback gracefully
+  }
+  return {};
+}
+
+/**
  * جلب تفسير الآية المختصر من كتاب «المختصر في التفسير»
  * يدعم العمل أونلاين عبر QuranEnc API، مع كاش محلي وتراجع فوري وسلس للأوفلاين
  */
