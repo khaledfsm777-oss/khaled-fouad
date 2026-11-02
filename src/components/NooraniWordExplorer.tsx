@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { 
   Sparkles, 
   Search, 
@@ -18,11 +18,17 @@ import {
   RotateCcw,
   Star,
   CheckCheck,
-  Bookmark
+  Bookmark,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { 
   NOORANI_SURAHS, 
   NooraniSurah, 
+  ALL_SURAHS,
+  getReductionExplanation,
   getNooraniWordMatches, 
   NooraniMatchedWordResult,
   checkVerseNooraniGathering,
@@ -79,6 +85,25 @@ interface ExtractedWordRow extends NooraniMatchedWordResult {
   verseGatheringSummary: string;
 }
 
+// 15 Comprehensive Noorani Opening Formulas & Key Combinations
+export const POPULAR_NOORANI_FORMULAS = [
+  { formula: 'كهيعص', label: 'كهيعص', jummal: 195, root: 6, hint: 'سورة مريم' },
+  { formula: 'طسم', label: 'طسم', jummal: 109, root: 1, hint: 'الشعراء والقصص' },
+  { formula: 'حم', label: 'حم', jummal: 48, root: 3, hint: 'الحواميم (7 سور)' },
+  { formula: 'طس', label: 'طس', jummal: 69, root: 6, hint: 'سورة النمل' },
+  { formula: 'الر', label: 'الر', jummal: 231, root: 6, hint: 'يونس، هود، يوسف، إبراهيم، الحجر' },
+  { formula: 'المر', label: 'المر', jummal: 271, root: 1, hint: 'سورة الرعد' },
+  { formula: 'الم', label: 'الم', jummal: 71, root: 8, hint: 'البقرة، آل عمران، العنكبوت، الروم، لقمان، السجدة' },
+  { formula: 'المص', label: 'المص', jummal: 161, root: 8, hint: 'سورة الأعراف' },
+  { formula: 'طه', label: 'طه', jummal: 14, root: 5, hint: 'سورة طه' },
+  { formula: 'يس', label: 'يس', jummal: 70, root: 7, hint: 'سورة يس' },
+  { formula: 'ص', label: 'ص', jummal: 90, root: 9, hint: 'سورة ص' },
+  { formula: 'ق', label: 'ق', jummal: 100, root: 1, hint: 'سورة ق' },
+  { formula: 'ن', label: 'ن', jummal: 50, root: 5, hint: 'سورة القلم' },
+  { formula: 'عسق', label: 'عسق', jummal: 230, root: 5, hint: 'سورة الشورى' },
+  { formula: 'حم عسق', label: 'حم عسق', jummal: 278, root: 8, hint: 'سورة الشورى كاملة' },
+];
+
 // 14 Individual Noorani Letters ("نص حكيم قاطع له سر")
 export const NOORANI_INDIVIDUAL_LETTERS = [
   { letter: 'أ', jummal: 1 },
@@ -102,14 +127,27 @@ export default function NooraniWordExplorer({
   onSelectSurahForAnalysis,
   onTransferVersesToOutput
 }: NooraniWordExplorerProps) {
-  // Selected Noorani Surah (default to 0: اختيار سورة)
+  // Selected Surah ID (1..114 or 0: اختيار سورة)
   const [selectedSurahId, setSelectedSurahId] = useState<number>(initialSurahId || 0);
+  // Surah selector filter mode: all 114 Surahs or 29 Noorani Surahs
+  const [surahSelectMode, setSurahSelectMode] = useState<'all_114' | 'noorani_29'>('all_114');
+  // Selected Noorani formula (e.g. 'كهيعص', 'طسم', 'حم', 'طس', 'الر', etc.)
+  const [selectedFormula, setSelectedFormula] = useState<string>('كهيعص');
+  // Custom formula letters input (allows user to enter ANY combination of letters)
+  const [customFormulaLetters, setCustomFormulaLetters] = useState<string>('');
+
   const [searchScope, setSearchScope] = useState<'single_surah' | 'all_29' | 'all_quran'>('single_surah');
   
   // Default to false so all extracted words are visible by default and not filtered out to 0
   const [onlyCompatible, setOnlyCompatible] = useState<boolean>(false);
   
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
+  // Pagination for high performance and zero lag
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
+
   const [shuraTrack, setShuraTrack] = useState<'both' | 'hameem' | 'asaq'>('both');
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -130,13 +168,51 @@ export default function NooraniWordExplorer({
   // Control table visibility: open by default so users see data immediately
   const [isTableManuallyOpen, setIsTableManuallyOpen] = useState<boolean>(true);
 
-  // Find active Noorani Surah object (or null if selectedSurahId is 0)
-  const activeSurah = useMemo(() => {
-    if (!selectedSurahId || selectedSurahId <= 0) return null;
-    return NOORANI_SURAHS.find(s => s.id === selectedSurahId) || null;
-  }, [selectedSurahId]);
+  // Map total verse counts for all 114 Surahs
+  const surahVerseCounts = useMemo(() => {
+    const map: Record<number, number> = {};
+    (quranData as QuranVerse[]).forEach(v => {
+      map[v.surahId] = (map[v.surahId] || 0) + 1;
+    });
+    return map;
+  }, []);
 
-  // Extract distinct letters of the active Surah with their individual metadata
+  // Calculate active Surah profile dynamically for ANY of the 114 Surahs and ANY Noorani formula
+  const activeSurah = useMemo<NooraniSurah | null>(() => {
+    if (!selectedSurahId || selectedSurahId <= 0) return null;
+
+    const surahInfo = ALL_SURAHS.find(s => s.id === selectedSurahId);
+    const nativeNoorani = NOORANI_SURAHS.find(s => s.id === selectedSurahId);
+
+    // Determine the active formula letters to use:
+    // 1. If user typed custom letters, prioritize them
+    // 2. Otherwise use the selected formula
+    // 3. Fallback to native Noorani letters if available, or 'كهيعص'
+    let formulaStr = customFormulaLetters.trim() || selectedFormula;
+    if (!formulaStr) {
+      formulaStr = nativeNoorani ? nativeNoorani.letters : 'كهيعص';
+    }
+
+    // Clean for calculation according to strict Abjad rules
+    const cleanL = cleanForCalculations(formulaStr);
+    let jVal = 0;
+    for (let i = 0; i < cleanL.length; i++) {
+      jVal += JUMMAL_MAP[cleanL[i]] || 0;
+    }
+    const dRoot = getReductionExplanation(jVal).reduced || 1;
+
+    const surahName = surahInfo ? surahInfo.name : (nativeNoorani ? nativeNoorani.name : `سورة ${selectedSurahId}`);
+
+    return {
+      id: selectedSurahId,
+      name: surahName,
+      letters: formulaStr,
+      keyValue: jVal,
+      digitalRoot: dRoot
+    };
+  }, [selectedSurahId, selectedFormula, customFormulaLetters]);
+
+  // Extract distinct letters of the active Surah/Formula with their individual metadata
   const surahDistinctLetters = useMemo(() => {
     if (!activeSurah || !activeSurah.letters) return [];
     const normalizeChar = (char: string): string => {
@@ -163,17 +239,32 @@ export default function NooraniWordExplorer({
     return lettersList;
   }, [activeSurah]);
 
-  // Verses in this Surah that gather ALL distinct letters of the opening formula
+  // Friendly title for the active search scope
+  const scopeTitle = useMemo(() => {
+    if (searchScope === 'single_surah') return activeSurah ? `سورة ${activeSurah.name}` : 'السورة المختارة';
+    if (searchScope === 'all_29') return 'كافة السور الـ 29 النورانية';
+    return 'المصحف الشريف كاملاً (114 سورة)';
+  }, [searchScope, activeSurah]);
+
+  // Verses in the selected search scope that gather ALL distinct letters of the opening formula
   const surahGatheringVerses = useMemo(() => {
     if (!activeSurah) return [];
-    const versesInSurah = (quranData as QuranVerse[]).filter(v => v.surahId === activeSurah.id);
-    return versesInSurah.filter(v => {
+    let versesInScope: QuranVerse[] = [];
+    if (searchScope === 'single_surah') {
+      versesInScope = (quranData as QuranVerse[]).filter(v => v.surahId === activeSurah.id);
+    } else if (searchScope === 'all_29') {
+      const nooraniIdSet = new Set(NOORANI_SURAHS.map(s => s.id));
+      versesInScope = (quranData as QuranVerse[]).filter(v => nooraniIdSet.has(v.surahId));
+    } else {
+      versesInScope = quranData as QuranVerse[];
+    }
+    return versesInScope.filter(v => {
       const vText = getPureVerseText(v);
       if (!vText || vText.trim().length === 0) return false;
       const g = checkVerseNooraniGathering(vText, activeSurah.letters);
       return g.isGatheringAll;
     });
-  }, [activeSurah]);
+  }, [activeSurah, searchScope]);
 
   // Count words containing each letter in the current Surah
   const surahLetterWordCounts = useMemo(() => {
@@ -196,7 +287,7 @@ export default function NooraniWordExplorer({
     return counts;
   }, [activeSurah, surahDistinctLetters]);
 
-  // Handle Surah change: reset sub-filters cleanly
+  // Handle Surah change: reset sub-filters cleanly and adapt formula
   const handleSelectSurah = (id: number) => {
     setSelectedSurahId(id);
     setActiveSurahLetter(null);
@@ -205,10 +296,31 @@ export default function NooraniWordExplorer({
     setActiveLetter(null);
     setActiveFormula(null);
     setSearchQuery('');
+    setCurrentPage(1);
+
+    // If native Noorani Surah and no custom formula is written, adopt native formula
+    const native = NOORANI_SURAHS.find(s => s.id === id);
+    if (native && !customFormulaLetters.trim()) {
+      setSelectedFormula(native.letters);
+    }
+  };
+
+  // Handle formula selection pill click
+  const handleSelectFormula = (formula: string) => {
+    setSelectedFormula(formula);
+    setCustomFormulaLetters('');
+    setActiveSurahLetter(null);
+    setActiveLetter(null);
+    setActiveFormula(null);
+    setIsGatheringVersesOnly(false);
+    setIsWholeFormulaOnly(false);
+    setCurrentPage(1);
+    showToast(`تم تنشيط صيغة [${formula}] للبحث في سورة ${activeSurah?.name || 'المختارة'} ✨`);
   };
 
   const handleToggleSurahLetter = (letter: string) => {
     if (!activeSurah) return;
+    setCurrentPage(1);
     if (activeSurahLetter === letter) {
       setActiveSurahLetter(null);
       showToast(`تم إلغاء فلترة حرف [${letter}].`);
@@ -224,6 +336,7 @@ export default function NooraniWordExplorer({
 
   const handleToggleGatheringVersesOnly = () => {
     if (!activeSurah) return;
+    setCurrentPage(1);
     if (isGatheringVersesOnly) {
       setIsGatheringVersesOnly(false);
       showToast(`تم إلغاء حصر الآيات الجامعة والعودة للعرض العام.`);
@@ -233,7 +346,7 @@ export default function NooraniWordExplorer({
       setActiveLetter(null);
       setActiveFormula(null);
       setIsWholeFormulaOnly(false);
-      showToast(`تم حصر الآيات الجامعة لكافة حروف (${activeSurah.letters}) (${surahGatheringVerses.length} آية). ⭐`);
+      showToast(`تم حصر الآيات الجامعة لكافة حروف (${activeSurah.letters}) [${surahGatheringVerses.length} آية في ${scopeTitle}] ⭐`);
     }
   };
 
@@ -302,6 +415,13 @@ export default function NooraniWordExplorer({
     setSearchScope('single_surah');
     setOnlyCompatible(false);
     setIsTableManuallyOpen(true);
+    setCustomFormulaLetters('');
+    const native = NOORANI_SURAHS.find(s => s.id === selectedSurahId);
+    if (native) {
+      setSelectedFormula(native.letters);
+    } else {
+      setSelectedFormula('كهيعص');
+    }
     showToast('تم تفريغ مربع البحث وإعادة ضبط كافة الفلاتر بنجاح! ✨');
   };
 
@@ -381,11 +501,30 @@ export default function NooraniWordExplorer({
       });
     }
 
+    // Performance safeguard for wide scopes (29 Surahs or All Quran) to prevent UI freeze:
+    const effectiveLetter = activeSurahLetter || activeLetter;
+    const isExpandedScope = searchScope !== 'single_surah';
+
+    if (isExpandedScope && !isGatheringVersesOnly && !effectiveLetter && !activeFormula && !isWholeFormulaOnly) {
+      if (deferredSearchQuery.trim()) {
+        const normQ = normalizeArabicForSearch(deferredSearchQuery.trim());
+        targetVerses = targetVerses.filter(v => {
+          const vText = getPureVerseText(v);
+          return normalizeArabicForSearch(vText).includes(normQ) || v.surahName.includes(deferredSearchQuery.trim());
+        });
+      } else {
+        // By default in expanded mode, focus on the gathering verses so the user gets instant, meaningful numerical results
+        targetVerses = targetVerses.filter(v => {
+          const vText = getPureVerseText(v);
+          if (!vText || vText.trim().length === 0) return false;
+          const g = checkVerseNooraniGathering(vText, activeSurah.letters);
+          return g.isGatheringAll;
+        });
+      }
+    }
+
     const results: ExtractedWordRow[] = [];
     let counter = 1;
-
-    // Check what letter or formula is effective
-    const effectiveLetter = activeSurahLetter || activeLetter;
 
     targetVerses.forEach(verse => {
       // Pure verse text without Basmalah prefix on verse 1
@@ -478,13 +617,14 @@ export default function NooraniWordExplorer({
     activeLetter, 
     activeSurahLetter, 
     isGatheringVersesOnly, 
-    isWholeFormulaOnly
+    isWholeFormulaOnly,
+    deferredSearchQuery
   ]);
 
   // Robust live search across extracted words and Quranic text
   const filteredWords = useMemo(() => {
-    if (!searchQuery.trim()) return extractedWords;
-    const qRaw = searchQuery.trim();
+    if (!deferredSearchQuery.trim()) return extractedWords;
+    const qRaw = deferredSearchQuery.trim();
     const qLower = qRaw.toLowerCase();
     const normQ = normalizeArabicForSearch(qRaw);
 
@@ -507,7 +647,31 @@ export default function NooraniWordExplorer({
 
       return false;
     });
-  }, [extractedWords, searchQuery]);
+  }, [extractedWords, deferredSearchQuery]);
+
+  // Fast pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredWords.length / pageSize));
+  const paginatedWords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredWords.slice(start, start + pageSize);
+  }, [filteredWords, currentPage, pageSize]);
+
+  // Reset pagination on filter or scope change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    selectedSurahId,
+    selectedFormula,
+    customFormulaLetters,
+    searchScope,
+    deferredSearchQuery,
+    onlyCompatible,
+    activeSurahLetter,
+    activeLetter,
+    activeFormula,
+    isGatheringVersesOnly,
+    isWholeFormulaOnly
+  ]);
 
   // Statistics calculation
   const stats = useMemo(() => {
@@ -895,14 +1059,14 @@ export default function NooraniWordExplorer({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg md:text-xl font-black text-emerald-950">
-                مستكشف وباحث الحروف النورانية (29 سورة)
+                مستكشف وباحث الحروف النورانية في سور القرآن الكريم
               </h3>
-              <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-full border border-amber-300">
-                محرك الاستقصاء المباشر
+              <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2.5 py-0.5 rounded-full border border-amber-300">
+                114 سورة ومجموعات الفواتح
               </span>
             </div>
             <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              استخراج وفلترة الحروف المقطعة والكلمات المشتملة عليها والآيات الجامعة للفواتح وتوافقاتها الرياضية بدقة
+              استخراج وفلترة الحروف المقطعة وصيغها (كهيعص، طسم، حم، طس، الر...) في أي سورة قرآنية أو في المصحف كاملاً
             </p>
           </div>
         </div>
@@ -950,85 +1114,257 @@ export default function NooraniWordExplorer({
       )}
 
       {/* Main Selection & Filter Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#fdfcf7] p-5 border border-amber-200/80 rounded-2xl">
-        {/* Surah Dropdown: Starts on '0: اختيار سورة' rather than default Al-Baqarah */}
-        <div className="space-y-1.5">
-          <label htmlFor="noorani-surah-picker" className="block text-xs font-black text-slate-800">
-            📖 السورة النورانية المستهدفة (من الـ 29):
-          </label>
-          <select
-            id="noorani-surah-picker"
-            value={selectedSurahId}
-            onChange={(e) => handleSelectSurah(parseInt(e.target.value, 10))}
-            className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm"
-          >
-            <option value={0}>اختيار سورة من الـ 29 سورة النورانية...</option>
-            {NOORANI_SURAHS.map((s, idx) => (
-              <option key={s.id} value={s.id}>
-                {idx + 1}. سورة {s.name} (رقم {s.id}) [الفاتحة: {s.letters} | المعامل: {s.digitalRoot}]
+      <div className="bg-[#fdfcf7] p-5 border border-amber-200/80 rounded-2xl space-y-4">
+        {/* Row 1: Surah Picker, Scope, and Compatibility */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Surah Dropdown with Mode Switcher */}
+          <div className="space-y-1.5 md:col-span-1">
+            <div className="flex items-center justify-between gap-1">
+              <label htmlFor="noorani-surah-picker" className="block text-xs font-black text-slate-800">
+                📖 السورة القرآنية المستهدفة:
+              </label>
+              {/* Tab toggler between 114 Surahs and 29 Noorani Surahs */}
+              <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setSurahSelectMode('all_114')}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                    surahSelectMode === 'all_114' ? 'bg-emerald-900 text-amber-300 font-black shadow-2xs' : 'text-slate-700 hover:text-slate-900'
+                  }`}
+                  title="عرض كافة سور القرآن الـ 114 للاختيار"
+                >
+                  كافة السور (114)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSurahSelectMode('noorani_29')}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                    surahSelectMode === 'noorani_29' ? 'bg-emerald-900 text-amber-300 font-black shadow-2xs' : 'text-slate-700 hover:text-slate-900'
+                  }`}
+                  title="حصر الاختيار في السور الـ 29 النورانية ذات الفواتح"
+                >
+                  النورانية (29)
+                </button>
+              </div>
+            </div>
+
+            <select
+              id="noorani-surah-picker"
+              value={selectedSurahId}
+              onChange={(e) => handleSelectSurah(parseInt(e.target.value, 10))}
+              className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm"
+            >
+              <option value={0}>
+                {surahSelectMode === 'all_114' 
+                  ? '-- اختر أي سورة من المصحف الشريف (114 سورة) --'
+                  : '-- اختر سورة من السور الـ 29 النورانية --'}
               </option>
-            ))}
-          </select>
+
+              {surahSelectMode === 'all_114' ? (
+                ALL_SURAHS.map((s) => {
+                  const nooraniObj = NOORANI_SURAHS.find(ns => ns.id === s.id);
+                  const vCount = surahVerseCounts[s.id] || 0;
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {s.id}. سورة {s.name} ({vCount} آية) {nooraniObj ? `[فاتحة نورانية: ${nooraniObj.letters}]` : ''}
+                    </option>
+                  );
+                })
+              ) : (
+                NOORANI_SURAHS.map((s, idx) => (
+                  <option key={s.id} value={s.id}>
+                    {idx + 1}. سورة {s.name} (رقم {s.id}) [الفاتحة: {s.letters} | المعامل: {s.digitalRoot}]
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          {/* Search Scope */}
+          <div className="space-y-1.5 md:col-span-1">
+            <label htmlFor="search-scope-picker" className="block text-xs font-black text-slate-800">
+              🔍 نطاق البحث واستخراج المفردات:
+            </label>
+            <select
+              id="search-scope-picker"
+              value={searchScope}
+              onChange={(e: any) => {
+                const newScope = e.target.value;
+                setSearchScope(newScope);
+                setCurrentPage(1);
+                if (newScope !== 'single_surah') {
+                  setIsGatheringVersesOnly(true);
+                  showToast(
+                    newScope === 'all_29'
+                      ? `تم التبديل للسور الـ 29 النورانية وحصر الآيات الجامعة لصيغة («${activeSurah?.letters || ''}») بنجاح! ✨`
+                      : `تم التبديل للمصحف كاملاً وحصر الآيات الجامعة لصيغة («${activeSurah?.letters || ''}») بنجاح! ✨`
+                  );
+                } else {
+                  setIsGatheringVersesOnly(false);
+                  showToast(`تم التبديل لسورة ${activeSurah?.name || ''} فقط.`);
+                }
+              }}
+              disabled={!activeSurah}
+              className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm disabled:opacity-60"
+            >
+              <option value="single_surah">
+                {activeSurah ? `ضمن سورة ${activeSurah.name} فقط (${surahVerseCounts[activeSurah.id] || 0} آية)` : 'ضمن السورة المختارة فقط'}
+              </option>
+              <option value="all_29">
+                {activeSurah ? `كافة السور الـ 29 النورانية مجتمعة («${activeSurah.letters}»)` : 'كافة السور الـ 29 النورانية مجتمعة'}
+              </option>
+              <option value="all_quran">
+                {activeSurah ? `المصحف كاملاً (114 سورة) بالصيغة («${activeSurah.letters}»)` : 'المصحف كاملاً (114 سورة)'}
+              </option>
+            </select>
+          </div>
+
+          {/* Compatibility Filter Mode */}
+          <div className="space-y-1.5 md:col-span-1">
+            <label htmlFor="compatibility-mode-picker" className="block text-xs font-black text-slate-800">
+              ⚖️ شرط التوافق والتحقق الرياضي:
+            </label>
+            <select
+              id="compatibility-mode-picker"
+              value={onlyCompatible ? 'only_compatible' : 'all_words'}
+              onChange={(e) => setOnlyCompatible(e.target.value === 'only_compatible')}
+              disabled={!activeSurah}
+              className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm disabled:opacity-60"
+            >
+              <option value="all_words">🌐 كافة الكلمات المحتوية على الحروف (الافتراضي)</option>
+              <option value="only_compatible">✅ الكلمات المتوافقة رياضياً فقط (دون كسور)</option>
+            </select>
+          </div>
         </div>
 
-        {/* Search Scope */}
-        <div className="space-y-1.5">
-          <label htmlFor="search-scope-picker" className="block text-xs font-black text-slate-800">
-            🔍 نطاق البحث واستخراج المفردات:
-          </label>
-          <select
-            id="search-scope-picker"
-            value={searchScope}
-            onChange={(e: any) => setSearchScope(e.target.value)}
-            disabled={!activeSurah}
-            className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm disabled:opacity-60"
-          >
-            <option value="single_surah">
-              {activeSurah ? `ضمن سورة ${activeSurah.name} فقط` : 'ضمن السورة المختارة فقط'}
-            </option>
-            <option value="all_29">كافة السور الـ 29 النورانية مجتمعة</option>
-            <option value="all_quran">
-              {activeSurah ? `المصحف كاملاً (114 سورة) بالأحرف (${activeSurah.letters})` : 'المصحف كاملاً (114 سورة)'}
-            </option>
-          </select>
-        </div>
+        {/* Row 2: Prominent Noorani Formula Selection Bar */}
+        <div className="pt-3 border-t border-amber-200/70 space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="p-1.5 bg-amber-500 text-slate-950 rounded-lg shadow-xs">
+                <Sparkles className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-xs font-black text-emerald-950">
+                🎯 اختيار صيغة الحروف النورانية المستهدفة للبحث (في سورة {activeSurah ? activeSurah.name : 'المختارة'} أو المصحف):
+              </span>
+            </div>
 
-        {/* Compatibility Filter Mode */}
-        <div className="space-y-1.5">
-          <label htmlFor="compatibility-mode-picker" className="block text-xs font-black text-slate-800">
-            ⚖️ شرط التوافق والتحقق الرياضي:
-          </label>
-          <select
-            id="compatibility-mode-picker"
-            value={onlyCompatible ? 'only_compatible' : 'all_words'}
-            onChange={(e) => setOnlyCompatible(e.target.value === 'only_compatible')}
-            disabled={!activeSurah}
-            className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl p-2.5 text-xs font-black text-slate-900 cursor-pointer outline-none shadow-sm disabled:opacity-60"
-          >
-            <option value="all_words">🌐 كافة الكلمات المحتوية على الحروف النورانية (الافتراضي)</option>
-            <option value="only_compatible">✅ الكلمات المتوافقة رياضياً فقط (دون كسور)</option>
-          </select>
+            {activeSurah && (
+              <div className="flex items-center gap-2 text-[11px] font-bold bg-amber-100 text-amber-950 px-2.5 py-1 rounded-lg border border-amber-300">
+                <span>الصيغة النشطة:</span>
+                <span className="font-black font-serif text-sm text-emerald-900">« {activeSurah.letters} »</span>
+                <span className="text-slate-600 font-mono">(جمل: {activeSurah.keyValue} | معامل: {activeSurah.digitalRoot})</span>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Formula Pills */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {POPULAR_NOORANI_FORMULAS.map(item => {
+              const isSelected = (activeSurah?.letters === item.formula) && !customFormulaLetters.trim();
+              return (
+                <button
+                  type="button"
+                  key={item.formula}
+                  onClick={() => handleSelectFormula(item.formula)}
+                  className={`px-2.5 py-1.5 text-xs rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-amber-400 text-slate-950 border-amber-500 font-black shadow-sm ring-2 ring-amber-300 scale-105'
+                      : 'bg-white hover:bg-emerald-50 text-slate-800 border-slate-300 hover:border-emerald-400'
+                  }`}
+                  title={`${item.label} (جمل: ${item.jummal} | معامل: ${item.root}) - ${item.hint}`}
+                >
+                  {isSelected && <Check className="w-3.5 h-3.5 text-slate-950 shrink-0" />}
+                  <span className="font-serif font-black">{item.label}</span>
+                  <span className="text-[10px] opacity-75 font-mono">({item.root})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom Formula Letters Input */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+            <span className="text-[11px] font-black text-slate-700 whitespace-nowrap">
+              ✍️ أو اكتب أي حروف نورانية مخصصة:
+            </span>
+            <div className="relative flex-1 max-w-md">
+              <input
+                type="text"
+                value={customFormulaLetters}
+                onChange={(e) => {
+                  setCustomFormulaLetters(e.target.value);
+                  setActiveSurahLetter(null);
+                  setCurrentPage(1);
+                }}
+                placeholder="مثال: كهيعص، طسم، حم، طس، الر، المر، المص، طه، يس، ص..."
+                className="w-full bg-white border border-amber-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 outline-none shadow-xs"
+              />
+              {customFormulaLetters && (
+                <button
+                  type="button"
+                  onClick={() => setCustomFormulaLetters('')}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 text-xs font-bold"
+                  title="مسح الحروف المخصصة"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {customFormulaLetters.trim() && (
+              <span className="text-[11px] bg-emerald-100 text-emerald-950 font-black px-2.5 py-1 rounded-lg border border-emerald-300">
+                حساب الجُمّل: {activeSurah?.keyValue} | المعامل: {activeSurah?.digitalRoot}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* If NO Surah is selected yet, show clean guidance without duplicate surah list */}
+      {/* If NO Surah is selected yet, show clean guidance with quick buttons */}
       {!activeSurah ? (
-        <div className="p-10 md:p-14 text-center bg-[#FAF8F5] border-2 border-dashed border-amber-300/80 rounded-2xl space-y-3">
+        <div className="p-8 md:p-12 text-center bg-[#FAF8F5] border-2 border-dashed border-amber-300/80 rounded-2xl space-y-4">
           <div className="w-14 h-14 rounded-2xl bg-emerald-900 text-amber-300 flex items-center justify-center mx-auto shadow-inner">
             <Compass className="w-7 h-7" />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <h4 className="text-base font-black text-emerald-950">
-              يرجى اختيار سورة نورانية من القائمة المنسدلة أعلاه 📖
+              يرجى اختيار سورة من سور القرآن الكريم للبدء في البحث والاستكشاف 📖
             </h4>
-            <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed font-semibold">
-              اختر السورة المستهدفة من القائمة المنسدلة بالأعلى للبدء في استعراض وفلترة حروفها النورانية المقطعة والآيات الجامعة للفواتح وتوافقاتها الحسابية.
+            <p className="text-xs text-slate-600 max-w-lg mx-auto leading-relaxed font-semibold">
+              يمكنك الآن اختيار <strong>أي سورة من سور القرآن الـ 114</strong> أو حصر الاختيار في السور الـ 29 النورانية، والبحث في سياقها عن <strong>أي صيغة من الحروف النورانية</strong> (مثل كهيعص، طسم، حم، طس، الر، المر، الم، وغيرها) واستخراج الآيات الجامعة والكلمات وتوافقاتها الرياضية بدقة متناهية.
             </p>
+          </div>
+
+          {/* Quick Start Surah Buttons */}
+          <div className="pt-2">
+            <span className="text-[11px] font-bold text-slate-500 block mb-2">أو اختر سورة للبدء المباشر:</span>
+            <div className="flex flex-wrap justify-center gap-2 max-w-xl mx-auto">
+              {[
+                { id: 19, name: 'مريم (كهيعص)' },
+                { id: 2, name: 'البقرة (الم)' },
+                { id: 18, name: 'الكهف (110 آيات)' },
+                { id: 26, name: 'الشعراء (طسم)' },
+                { id: 36, name: 'يس (يس)' },
+                { id: 20, name: 'طه (طه)' },
+                { id: 4, name: 'النساء (176 آية)' },
+                { id: 12, name: 'يوسف (الر)' },
+                { id: 40, name: 'غافر (حم)' },
+                { id: 1, name: 'الفاتحة (7 آيات)' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectSurah(item.id)}
+                  className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-950 font-bold text-xs rounded-xl border border-amber-300 shadow-2xs hover:border-emerald-600 transition-all cursor-pointer"
+                >
+                  سورة {item.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ) : (
         <>
-          {/* DEDICATED SURAH NOORANI LETTERS FILTER BAR (فلترة حروف السورة النشطة) */}
+          {/* DEDICATED SURAH NOORANI LETTERS FILTER BAR (فلترة حروف السورة والصيغة النشطة) */}
           <div className="p-4 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 rounded-2xl border-2 border-amber-500/60 text-amber-100 shadow-md space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-700/60 pb-2.5">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1036,7 +1372,7 @@ export default function NooraniWordExplorer({
                   <Sparkles className="w-4 h-4" />
                 </span>
                 <span className="text-xs font-black text-amber-300">
-                  فلاتر أحرف سورة {activeSurah.name} النورانية (« {activeSurah.letters} ») - المعامل: {activeSurah.digitalRoot}:
+                  فلاتر أحرف صيغة (« {activeSurah.letters} ») في سورة {activeSurah.name} - المعامل: {activeSurah.digitalRoot}:
                 </span>
               </div>
 
@@ -1146,10 +1482,10 @@ export default function NooraniWordExplorer({
                   </span>
                   <div>
                     <h4 className="text-sm md:text-base font-black text-amber-950 flex items-center gap-2">
-                      الآيات القرآنية الجامعة لكافة حروف الفاتحة النورانية («{activeSurah.letters}»): {surahGatheringVerses.length} آية شريفة
+                      الآيات القرآنية الجامعة لكافة حروف الفاتحة النورانية («{activeSurah.letters}») في {scopeTitle}: {surahGatheringVerses.length} آية شريفة
                     </h4>
                     <p className="text-xs text-amber-900 font-semibold mt-0.5">
-                      هذه الآيات الكريمة اجتمعت في سياق ألفاظ كل آية منها كافة الأحرف النورانية الخمسة لسورة {activeSurah.name} كاملة ({surahDistinctLetters.map(l => l.char).join(' - ')}).
+                      هذه الآيات الكريمة اجتمعت في سياق ألفاظ كل آية منها كافة الأحرف النورانية لافتتاحية سورة {activeSurah.name} كاملة ({surahDistinctLetters.map(l => l.char).join(' - ')}).
                     </p>
                   </div>
                 </div>
@@ -1199,16 +1535,21 @@ export default function NooraniWordExplorer({
               </div>
 
               {/* Quick list of gathering verse numbers */}
-              <div className="flex items-center gap-2 flex-wrap text-xs">
+              <div className="flex items-center gap-1.5 flex-wrap text-xs max-h-36 overflow-y-auto p-1">
                 <span className="font-black text-amber-950">أرقام الآيات الجامعة ({surahGatheringVerses.length} آية):</span>
-                {surahGatheringVerses.map(v => (
+                {surahGatheringVerses.slice(0, 60).map(v => (
                   <span 
-                    key={v.verseNumber}
-                    className="px-2.5 py-1 bg-white border border-amber-300 text-amber-950 font-mono font-black rounded-lg shadow-2xs"
+                    key={`${v.surahId}_${v.verseNumber}`}
+                    className="px-2 py-0.5 bg-white border border-amber-300 text-amber-950 font-mono font-bold rounded-md shadow-2xs text-[11px]"
                   >
-                    آية {v.verseNumber}
+                    {searchScope !== 'single_surah' ? `${v.surahName} ` : ''}آية {v.verseNumber}
                   </span>
                 ))}
+                {surahGatheringVerses.length > 60 && (
+                  <span className="px-2.5 py-0.5 bg-amber-200/90 text-amber-950 font-black rounded-md border border-amber-400 text-[11px]">
+                    + {surahGatheringVerses.length - 60} آية إضافية (متاحة بالجدول أدناه وبملفات التصدير)
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -1552,31 +1893,117 @@ export default function NooraniWordExplorer({
                 </button>
               </div>
             ) : (
-              <div className="table-container overflow-x-auto max-h-[620px]">
-                <table className="w-full text-right border-collapse text-[11px] min-w-[1100px]">
-                  <thead className="bg-[#092b22] text-amber-200 sticky top-0 z-10 select-none text-[11px]">
-                    <tr className="border-b-2 border-emerald-800 text-center font-bold">
-                      <th className="p-2 border border-emerald-800/80 number-column text-center font-black">م</th>
-                      <th className="p-2 border border-emerald-800/80 font-black text-center whitespace-nowrap">السورة</th>
-                      <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap">رقم الآية</th>
-                      <th className="p-2 border border-emerald-800/80 text-right verse-column font-black">الآية الكريمة</th>
-                      <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap" title="عدد كلمات الآية الكريمة">عدد الكلمات</th>
-                      <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap" title="عدد حروف الآية الكريمة">عدد الحروف</th>
-                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الجمع النوراني</th>
-                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الكلمة القرآنية</th>
-                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الحروف النورانية</th>
-                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">حساب الجمل</th>
-                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">جمل الحروف</th>
-                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">القسمة / المعامل</th>
-                      <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">المطابقة</th>
-                      <th className="p-2 border border-emerald-800/80 text-center w-14 font-black">نسخ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {filteredWords.map((row, idx) => {
-                      const isEven = idx % 2 === 0;
-                      const rowKey = `${row.surahId}_${row.verseNumber}_${row.word}_${row.index}`;
-                      const isRowCopied = copiedRowId === rowKey;
+              <>
+                {/* Pagination Controls Top */}
+                {filteredWords.length > pageSize && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-gradient-to-r from-slate-50 via-amber-50/40 to-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <span>عرض السجلات:</span>
+                      <span className="text-emerald-950 font-black font-mono">
+                        {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, filteredWords.length)}
+                      </span>
+                      <span>من أصل</span>
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 rounded font-black font-mono">
+                        {filteredWords.length.toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="px-2 py-1 rounded-lg border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-0.5"
+                        title="الصفحة الأولى"
+                      >
+                        <ChevronsRight className="w-3.5 h-3.5" />
+                        <span>الأولى</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-2 py-1 rounded-lg border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-0.5"
+                        title="الصفحة السابقة"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                        <span>السابق</span>
+                      </button>
+
+                      <span className="px-2.5 py-1 bg-emerald-900 text-amber-200 rounded-lg font-black font-mono text-xs">
+                        {currentPage} / {totalPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-2 py-1 rounded-lg border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-0.5"
+                        title="الصفحة التالية"
+                      >
+                        <span>التالي</span>
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="px-2 py-1 rounded-lg border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-0.5"
+                        title="الصفحة الأخيرة"
+                      >
+                        <span>الأخيرة</span>
+                        <ChevronsLeft className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="flex items-center gap-1 mr-2 border-r border-slate-300 pr-2">
+                        <span className="text-[11px] text-slate-500">لكل صفحة:</span>
+                        <select
+                          value={pageSize}
+                          onChange={(e) => {
+                            setPageSize(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold cursor-pointer outline-none"
+                        >
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                          <option value={250}>250</option>
+                          <option value={500}>500</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="table-container overflow-x-auto max-h-[620px]">
+                  <table className="w-full text-right border-collapse text-[11px] min-w-[1100px]">
+                    <thead className="bg-[#092b22] text-amber-200 sticky top-0 z-10 select-none text-[11px]">
+                      <tr className="border-b-2 border-emerald-800 text-center font-bold">
+                        <th className="p-2 border border-emerald-800/80 number-column text-center font-black">م</th>
+                        <th className="p-2 border border-emerald-800/80 font-black text-center whitespace-nowrap">السورة</th>
+                        <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap">رقم الآية</th>
+                        <th className="p-2 border border-emerald-800/80 text-right verse-column font-black">الآية الكريمة</th>
+                        <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap" title="عدد كلمات الآية الكريمة">عدد الكلمات</th>
+                        <th className="p-2 border border-emerald-800/80 number-column text-center font-black whitespace-nowrap" title="عدد حروف الآية الكريمة">عدد الحروف</th>
+                        <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الجمع النوراني</th>
+                        <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الكلمة القرآنية</th>
+                        <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">الحروف النورانية</th>
+                        <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">حساب الجمل</th>
+                        <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">جمل الحروف</th>
+                        <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">القسمة / المعامل</th>
+                        <th className="p-2 border border-emerald-800/80 text-center font-black whitespace-nowrap">المطابقة</th>
+                        <th className="p-2 border border-emerald-800/80 text-center w-14 font-black">نسخ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {paginatedWords.map((row, pIdx) => {
+                        const idx = ((currentPage - 1) * pageSize) + pIdx;
+                        const isEven = idx % 2 === 0;
+                        const rowKey = `${row.surahId}_${row.verseNumber}_${row.word}_${row.index}`;
+                        const isRowCopied = copiedRowId === rowKey;
 
                       return (
                         <tr 
@@ -1758,10 +2185,95 @@ export default function NooraniWordExplorer({
                   </tfoot>
                 </table>
               </div>
-            )}
-          </div>
-        </>
-      )}
+
+              {/* Pagination Controls Bottom */}
+              {filteredWords.length > pageSize && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-gradient-to-r from-slate-50 via-amber-50/40 to-slate-50 border-t border-slate-200 text-xs font-bold text-slate-700">
+                  <div className="flex items-center gap-2">
+                    <span>عرض السجلات:</span>
+                    <span className="text-emerald-950 font-black font-mono">
+                      {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, filteredWords.length)}
+                    </span>
+                    <span>من أصل</span>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-950 rounded font-black font-mono">
+                      {filteredWords.length.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="px-2 py-1 rounded-lg border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-0.5"
+                      title="الصفحة الأولى"
+                    >
+                      <ChevronsRight className="w-3.5 h-3.5" />
+                      <span>الأولى</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-2 py-1 rounded-lg border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-0.5"
+                      title="الصفحة السابقة"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                      <span>السابق</span>
+                    </button>
+
+                    <span className="px-2.5 py-1 bg-emerald-900 text-amber-200 rounded-lg font-black font-mono text-xs">
+                      {currentPage} / {totalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-2 py-1 rounded-lg border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-0.5"
+                      title="الصفحة التالية"
+                    >
+                      <span>التالي</span>
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="px-2 py-1 rounded-lg border bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-0.5"
+                      title="الصفحة الأخيرة"
+                    >
+                      <span>الأخيرة</span>
+                      <ChevronsLeft className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="flex items-center gap-1 mr-2 border-r border-slate-300 pr-2">
+                      <span className="text-[11px] text-slate-500">لكل صفحة:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold cursor-pointer outline-none"
+                      >
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                        <option value={250}>250</option>
+                        <option value={500}>500</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </>
+    )}
 
       {/* Concluding Note */}
       <div className="bg-[#FAF8F5] border border-amber-250 p-4 rounded-xl text-xs text-slate-600 leading-relaxed font-semibold">
