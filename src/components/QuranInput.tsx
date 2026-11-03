@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, FileText, Loader2, BookOpen, Compass, CheckCircle2, Calculator as CalcIcon, ChevronDown, ChevronUp } from 'lucide-react';
-import { NOORANI_SURAHS, ALL_SURAHS, NooraniSurah, stripBismillah, reduceDigitalRoot, ALL_29_NOORANI_SURAH } from '../utils/jummal';
+import { Sparkles, FileText, Loader2, BookOpen, CheckCircle2, Calculator as CalcIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { NOORANI_SURAHS, ALL_SURAHS, NooraniSurah, stripBismillah, reduceDigitalRoot } from '../utils/jummal';
 import { getSurahMetadata } from '../utils/surahMetadata';
 import quranData from '../utils/quranData';
 import QuranFontSizeControl from './QuranFontSizeControl';
@@ -9,14 +9,13 @@ import SurahCard from './SurahCard';
 
 interface QuranInputProps {
   onAnalyze: (text: string, separator: 'parentheses' | 'curly' | 'auto', excludeBismillah: boolean) => void;
-  onAnalyze29?: () => void;
   onOpenSmartReport?: (surahId?: number) => void;
   isLoading: boolean;
   activeSurah: NooraniSurah | null;
   setActiveSurah: (surah: NooraniSurah | null) => void;
 }
 
-export default function QuranInput({ onAnalyze, onAnalyze29, onOpenSmartReport, isLoading, activeSurah, setActiveSurah }: QuranInputProps) {
+export default function QuranInput({ onAnalyze, onOpenSmartReport, isLoading, activeSurah, setActiveSurah }: QuranInputProps) {
   const [inputScope, setInputScope] = useState<'noorani' | 'all114'>('noorani');
   const [selectedSurahId, setSelectedSurahId] = useState<number | ''>('');
   const [excludeBismillah, setExcludeBismillah] = useState(true);
@@ -56,14 +55,9 @@ export default function QuranInput({ onAnalyze, onAnalyze29, onOpenSmartReport, 
 
   // Fetch Surah when activeSurah changes
   useEffect(() => {
-    if (!activeSurah) {
+    if (!activeSurah || activeSurah.id <= 0) {
       setText('');
       setErrorMsg('');
-      return;
-    }
-
-    if (activeSurah.id === 0) {
-      // 29 Noorani Surahs batch handled directly via onAnalyze29
       return;
     }
 
@@ -388,46 +382,7 @@ export default function QuranInput({ onAnalyze, onAnalyze29, onOpenSmartReport, 
         )}
       </div>
 
-      {/* 2. Compact Action Card: 29 Noorani Surahs Batch Search */}
-      <div className="bg-slate-50 border border-slate-200 p-4 relative transition-all shadow-xs">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-base shadow-xs shrink-0">
-              <Compass className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-sm font-black text-slate-900">
-                  مجموعة السور النورانية (29 سورة) — التنقيب والبحث الشامل
-                </h4>
-                <span className="px-2 py-0.5 bg-slate-200 text-slate-800 text-[11px] font-black rounded-xs">
-                  2,743 آية
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 font-medium mt-0.5">
-                البحث والتنقيب التلقائي داخل السور الـ 29 واستخراج التوافقات التامة (5/6 إلى 6/6) والبصمة الأحادية.
-              </p>
-            </div>
-          </div>
 
-          <button
-            id="btn-batch-29-analyze"
-            type="button"
-            onClick={() => {
-              if (onAnalyze29) {
-                onAnalyze29();
-              } else {
-                setActiveSurah(ALL_29_NOORANI_SURAH);
-              }
-            }}
-            disabled={isLoading}
-            className="w-full md:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-black text-xs rounded-none shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
-          >
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span>تنشيط البحث الشامل لـ 29 سورة 🚀</span>
-          </button>
-        </div>
-      </div>
 
       {/* Loading state rendering */}
       {loadingText && (

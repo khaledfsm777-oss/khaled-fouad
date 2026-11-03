@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Verse } from './types';
-import { parseAndAnalyzeVerses, NOORANI_SURAHS, NooraniSurah, ALL_29_NOORANI_SURAH, getNoorani29Verses, stripBismillah, buildVersesFromReferenceList } from './utils/jummal';
+import { parseAndAnalyzeVerses, NOORANI_SURAHS, NooraniSurah, getNoorani29Verses, stripBismillah, buildVersesFromReferenceList } from './utils/jummal';
 import { ALL_SURAHS } from './utils/surahList';
 import quranData from './utils/quranData';
 import HelpSection from './components/HelpSection';
@@ -301,44 +301,12 @@ export default function App() {
     }, 400);
   };
 
-  // Trigger unified batch extraction across all 29 Noorani Surahs
-  const handleAnalyze29 = () => {
-    setIsLoading(true);
-    setCustomInputText('');
-    startProgress('التنقيب والبحث الشامل لـ 29 سورة نورانية', 'جارٍ فحص 2,743 آية قرآنية مع الفواتح...');
-    updateProgress(20, 'تحميل الفهارس وقواعد بيانات السور النورانية...');
-
-    setTimeout(() => {
-      try {
-        updateProgress(55, 'حساب الجُمّل الكبير واستخراج التوافقات المدمجة والبصمة...');
-        const results = getNoorani29Verses();
-        updateProgress(85, 'تنظيم السجلات والمسارات المزدوجة لسورة الشورى...');
-        setVerses(results);
-        setActiveSurah(ALL_29_NOORANI_SURAH);
-        setTableCurrentPage(1);
-        setSelectedVerseId(results[0]?.id || null);
-        setCurrentScreen('portal');
-        setActiveTab('verses');
-        finishProgress(`تم تجهيز وفهرسة ${results.length} آية بنجاح`);
-      } catch (err) {
-        console.error('Batch 29 Noorani analysis error:', err);
-        resetProgress();
-      } finally {
-        setIsLoading(false);
-      }
-    }, 450);
-  };
-
   // Open surah from Noorani Letters Explorer and immediately show the Output screen table
   const handleOpenSurahInOutput = (surah: NooraniSurah) => {
+    if (!surah || surah.id <= 0) return;
     setActiveSurah(surah);
     setCurrentScreen('portal');
     setActiveTab('verses');
-
-    if (surah.id === 0) {
-      handleAnalyze29();
-      return;
-    }
 
     setIsLoading(true);
     startProgress(`تحليل واستعراض سورة ${surah.name}`, 'جارٍ جلب الآيات الكريمة وضبط الموازين وفتح جدول المخرجات...');
@@ -1056,7 +1024,6 @@ export default function App() {
                   {verses.length === 0 ? (
                     <QuranInput 
                       onAnalyze={handleAnalyze} 
-                      onAnalyze29={handleAnalyze29}
                       onOpenSmartReport={(targetSurahId?: number) => {
                         if (targetSurahId) {
                           const matchedNoorani = NOORANI_SURAHS.find(s => s.id === targetSurahId);
