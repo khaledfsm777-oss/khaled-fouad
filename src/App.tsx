@@ -304,12 +304,6 @@ export default function App() {
   // Open surah from Noorani Letters Explorer and immediately show the Output screen table
   const handleOpenSurahInOutput = (surah: NooraniSurah) => {
     if (!surah || surah.id <= 0) return;
-    setActiveSurah(surah);
-    setCurrentScreen('portal');
-    setActiveTab('verses');
-
-    setIsLoading(true);
-    startProgress(`تحليل واستعراض سورة ${surah.name}`, 'جارٍ جلب الآيات الكريمة وضبط الموازين وفتح جدول المخرجات...');
 
     const surahVerses = (quranData as any[]).filter((v: any) => v.surahId === surah.id);
     if (surahVerses && surahVerses.length > 0) {
@@ -323,20 +317,24 @@ export default function App() {
         })
         .join(' ');
 
-      setTimeout(() => {
-        try {
-          const results = parseAndAnalyzeVerses(formatted, 'auto', true, surah.id);
-          setVerses(results);
-          setTableCurrentPage(1);
-          setSelectedVerseId(results[0]?.id || null);
-          finishProgress(`تم فتح جدول شاشة المخرجات لـ سورة ${surah.name} بنجاح (${results.length} آية)`);
-        } catch (err) {
-          console.error('Error opening surah in output table:', err);
-          resetProgress();
-        } finally {
-          setIsLoading(false);
-        }
-      }, 300);
+      try {
+        const results = parseAndAnalyzeVerses(formatted, 'auto', true, surah.id);
+        // Synchronously set verses FIRST so verses.length > 0 immediately
+        setVerses(results);
+        setActiveSurah(surah);
+        setCustomInputText('');
+        setTableCurrentPage(1);
+        setSelectedVerseId(results[0]?.id || null);
+        setCurrentScreen('portal');
+        setActiveTab('verses');
+        setIsLoading(false);
+        resetProgress();
+        finishProgress(`تم فتح جدول شاشة المخرجات لـ سورة ${surah.name} بنجاح (${results.length} آية)`);
+      } catch (err) {
+        console.error('Error opening surah in output table:', err);
+        resetProgress();
+        setIsLoading(false);
+      }
     } else {
       setIsLoading(false);
       resetProgress();
@@ -351,30 +349,24 @@ export default function App() {
   ) => {
     if (!refs || refs.length === 0) return;
 
-    setActiveSurah(surah);
-    setCurrentScreen('portal');
-    setActiveTab('verses');
-
-    setIsLoading(true);
-    startProgress(
-      `نقل ${refs.length} آية إلى شاشة المخرجات`,
-      `جارٍ استخراج وتجهيز الآيات المفلترة لـ ${label}...`
-    );
-
-    setTimeout(() => {
-      try {
-        const results = buildVersesFromReferenceList(refs);
-        setVerses(results);
-        setTableCurrentPage(1);
-        setSelectedVerseId(results[0]?.id || null);
-        finishProgress(`تم بنجاح نقل ${results.length} آية مطابقة إلى شاشة المخرجات! يمكنك الآن تطبيق فلاتر إضافية.`);
-      } catch (err) {
-        console.error('Error transferring filtered verses to output:', err);
-        resetProgress();
-      } finally {
-        setIsLoading(false);
-      }
-    }, 250);
+    try {
+      const results = buildVersesFromReferenceList(refs);
+      // Synchronously set verses FIRST so verses.length > 0 immediately on the first click
+      setVerses(results);
+      setActiveSurah(surah);
+      setCustomInputText('');
+      setTableCurrentPage(1);
+      setSelectedVerseId(results[0]?.id || null);
+      setCurrentScreen('portal');
+      setActiveTab('verses');
+      setIsLoading(false);
+      resetProgress();
+      finishProgress(`تم بنجاح نقل ${results.length} آية مطابقة إلى شاشة المخرجات! يمكنك الآن تطبيق فلاتر إضافية.`);
+    } catch (err) {
+      console.error('Error transferring filtered verses to output:', err);
+      resetProgress();
+      setIsLoading(false);
+    }
   };
 
   // Open surah from Mushaf Reader in numerical analysis engine
