@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, FileText, Loader2, BookOpen, CheckCircle2, Calculator as CalcIcon, ChevronDown, ChevronUp } from 'lucide-react';
-import { NOORANI_SURAHS, ALL_SURAHS, NooraniSurah, stripBismillah, reduceDigitalRoot } from '../utils/jummal';
+import { NOORANI_SURAHS, ALL_SURAHS, NooraniSurah, stripBismillah, reduceDigitalRoot, calculateNooraniHijaiStats } from '../utils/jummal';
 import { getSurahMetadata } from '../utils/surahMetadata';
 import quranData from '../utils/quranData';
 import QuranFontSizeControl from './QuranFontSizeControl';
@@ -354,16 +354,31 @@ export default function QuranInput({ onAnalyze, onOpenSmartReport, isLoading, ac
                   )}
                 </>
               )}
-              {selectedNoorani && (
-                <>
-                  <span className="px-2.5 py-1 bg-white border border-amber-300 text-amber-900 shadow-2xs">
-                    جُمّل الفاتحة: <strong className="text-amber-950 font-mono">{selectedNoorani.keyValue}</strong>
-                  </span>
-                  <span className="px-2.5 py-1 bg-white border border-amber-300 text-amber-900 shadow-2xs">
-                    المعامل الرقمي (الجذر): <strong className="text-amber-950 font-mono">{selectedNoorani.digitalRoot}</strong>
-                  </span>
-                </>
-              )}
+              {selectedNoorani && (() => {
+                const hijai = calculateNooraniHijaiStats(selectedNoorani.letters);
+                return (
+                  <>
+                    <span className="px-2.5 py-1 bg-white border border-amber-300 text-amber-900 shadow-2xs">
+                      جُمّل الفاتحة: <strong className="text-amber-950 font-mono">{selectedNoorani.keyValue}</strong>
+                    </span>
+                    <span className="px-2.5 py-1 bg-white border border-amber-300 text-amber-900 shadow-2xs">
+                      المعامل الرقمي (الجذر): <strong className="text-amber-950 font-mono">{selectedNoorani.digitalRoot}</strong>
+                    </span>
+                    <span
+                      className="px-2.5 py-1 bg-emerald-50 border border-emerald-300 text-emerald-950 shadow-2xs"
+                      title={hijai.breakdown}
+                    >
+                      قيمة الترتيب الهجائي (1–28): <strong className="text-emerald-900 font-mono">{hijai.totalValue}</strong>
+                    </span>
+                    <span
+                      className="px-2.5 py-1 bg-emerald-50 border border-emerald-300 text-emerald-950 shadow-2xs"
+                      title={hijai.reductionEquation}
+                    >
+                      المختزل الهجائي: <strong className="text-emerald-900 font-mono">{hijai.reducedValue}</strong>
+                    </span>
+                  </>
+                );
+              })()}
             </div>
 
             {/* Action buttons: Start Investigation & Toggle Full Card */}
@@ -418,11 +433,17 @@ export default function QuranInput({ onAnalyze, onOpenSmartReport, isLoading, ac
               <span className="text-lg md:text-xl font-black text-slate-950 font-serif">
                 ﴿ سورة {activeSurah.name} ﴾
               </span>
-              {activeSurah.letters && (
-                <span className="text-xs font-black text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-none">
-                  مفتتح: {activeSurah.letters} (الجُمّل: {activeSurah.keyValue} | المعامل: {activeSurah.digitalRoot})
-                </span>
-              )}
+              {activeSurah.letters && NOORANI_SURAHS.some(s => s.id === activeSurah.id) && (() => {
+                const hijai = calculateNooraniHijaiStats(activeSurah.letters);
+                return (
+                  <span
+                    className="text-xs font-black text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-none"
+                    title={hijai.breakdown}
+                  >
+                    مفتتح: {activeSurah.letters} (الجُمّل: {activeSurah.keyValue} | المعامل: {activeSurah.digitalRoot} | الهجائي: {hijai.totalValue} | المختزل الهجائي: {hijai.reducedValue})
+                  </span>
+                );
+              })()}
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">

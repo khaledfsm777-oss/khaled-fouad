@@ -1,6 +1,6 @@
 import React from 'react';
 import { SurahMetadata, getSurahMetadata } from '../utils/surahMetadata';
-import { NooraniSurah } from '../utils/jummal';
+import { NooraniSurah, NOORANI_SURAHS, calculateNooraniHijaiStats } from '../utils/jummal';
 import { BookOpen, Calendar, HelpCircle, Sparkles, Printer, Copy, FileText } from 'lucide-react';
 
 interface SurahCardProps {
@@ -22,6 +22,16 @@ export default function SurahCard({ activeSurah }: SurahCardProps) {
 
   // Retrieve additional academic metadata using helper
   const meta: SurahMetadata = getSurahMetadata(activeSurah.id);
+
+  // Strictly identify the 29 Noorani Surahs for opening-letter Hijai alphabetical order metrics (1-28)
+  const isNooraniSurah = Boolean(
+    activeSurah &&
+    activeSurah.id > 0 &&
+    NOORANI_SURAHS.some(s => s.id === activeSurah.id) &&
+    activeSurah.letters &&
+    activeSurah.letters.trim().length > 0
+  );
+  const hijaiStats = isNooraniSurah ? calculateNooraniHijaiStats(activeSurah.letters) : null;
 
   // Immediate print function triggering browser print dialogue
   const handlePrint = () => {
@@ -153,6 +163,15 @@ export default function SurahCard({ activeSurah }: SurahCardProps) {
                   <span class="label">القيمة الحسابية الكلية للأصل:</span>
                   <span class="value">قيمة حساب الجمل للمفتاح: ${activeSurah.keyValue} | جذر المفتاح: ${activeSurah.digitalRoot}</span>
                 </div>
+                ${isNooraniSurah && hijaiStats ? `
+                <div class="grid-item" style="grid-column: 1 / -1; background: #ecfdf5; border-color: #6ee7b7;">
+                  <span class="label">قيمة الحروف الافتتاحية في الترتيب الهجائي (1–28):</span>
+                  <span class="value">القيمة الكلية: ${hijaiStats.totalValue} | القيمة المختزلة: ${hijaiStats.reducedValue}</span>
+                  <div style="font-size: 11px; color: #065f46; margin-top: 4px; font-weight: bold;">
+                    تفصيل الحروف (أ=1 .. ي=28): ${hijaiStats.breakdown} | الاختزال: ${hijaiStats.reductionEquation}
+                  </div>
+                </div>
+                ` : ''}
               </div>
 
               <div class="block">
@@ -284,6 +303,45 @@ export default function SurahCard({ activeSurah }: SurahCardProps) {
                 <span className="font-bold text-slate-500">الجذر الاختزالي (البنيان):</span>
                 <span className="font-mono font-black text-slate-900">{activeSurah.digitalRoot}</span>
               </div>
+
+              {isNooraniSurah && hijaiStats && (
+                <div className="bg-emerald-50/90 border border-emerald-300 rounded-none p-3.5 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between border-b border-emerald-200 pb-1.5">
+                    <span className="font-black text-emerald-950 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>قيمة الفاتحة بالترتيب الهجائي (1–28):</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 border border-emerald-200">
+                      أ=1 .. ي=28
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-emerald-900">القيمة الهجائية الكلية:</span>
+                    <span className="font-mono font-black text-emerald-950 text-sm bg-white px-2.5 py-0.5 border border-emerald-200">
+                      {hijaiStats.totalValue}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-emerald-900">القيمة المختزلة (الترتيب الهجائي):</span>
+                    <span className="font-mono font-black text-emerald-950 text-sm bg-white px-2.5 py-0.5 border border-emerald-200">
+                      {hijaiStats.reducedValue}
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] font-bold text-emerald-800 bg-white/80 p-2 border border-emerald-200/80 space-y-1">
+                    <div>
+                      <span className="text-slate-600">تفصيل الترتيب: </span>
+                      <span className="font-mono text-emerald-950">{hijaiStats.breakdown}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">مسار الاختزال: </span>
+                      <span className="font-mono text-emerald-950">{hijaiStats.reductionEquation}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

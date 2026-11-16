@@ -334,6 +334,136 @@ export const ALL_29_NOORANI_SURAH: NooraniSurah = {
 };
 
 /**
+ * Standard 28-letter Arabic Hijai (Alphabetical / الألفبائي) order values from 1 (ا) to 28 (ي)
+ */
+export const HIJAI_ORDER_MAP: Record<string, number> = {
+  'ا': 1, 'أ': 1, 'إ': 1, 'آ': 1, 'ٱ': 1, '\u0670': 1, 'ء': 1,
+  'ب': 2,
+  'ت': 3, 'ة': 3,
+  'ث': 4,
+  'ج': 5,
+  'ح': 6,
+  'خ': 7,
+  'د': 8,
+  'ذ': 9,
+  'ر': 10,
+  'ز': 11,
+  'س': 12,
+  'ش': 13,
+  'ص': 14,
+  'ض': 15,
+  'ط': 16,
+  'ظ': 17,
+  'ع': 18,
+  'غ': 19,
+  'ف': 20,
+  'ق': 21,
+  'ك': 22,
+  'ل': 23,
+  'م': 24,
+  'ن': 25,
+  'ه': 26,
+  'و': 27, 'ؤ': 27,
+  'ي': 28, 'ى': 28, 'ئ': 28, '\u06CC': 28
+};
+
+export interface NooraniHijaiTrack {
+  label: string;
+  totalValue: number;
+  reducedValue: number;
+  reductionEquation: string;
+  breakdown: string;
+}
+
+export interface NooraniHijaiStats {
+  totalValue: number;
+  reducedValue: number;
+  reductionEquation: string;
+  breakdown: string;
+  tracks?: NooraniHijaiTrack[];
+}
+
+function reduceDigitsSimple(num: number): { reduced: number; equation: string } {
+  if (!num || isNaN(num) || num <= 0) {
+    return { reduced: 0, equation: '0' };
+  }
+  const val = Math.abs(Math.floor(num));
+  if (val <= 9) {
+    return { reduced: val, equation: `${val}` };
+  }
+  const steps: string[] = [`${val}`];
+  let current = val;
+  while (current > 9) {
+    const digits = current.toString().split('').map(d => parseInt(d, 10) || 0);
+    const nextVal = digits.reduce((a, b) => a + b, 0);
+    steps.push(`${digits.join(' + ')} = ${nextVal}`);
+    current = nextVal;
+  }
+  return { reduced: current, equation: steps.join(' → ') };
+}
+
+/**
+ * Calculates total and digital-root-reduced values for Noorani opening letters
+ * using the 28-letter Arabic Hijai alphabetical order (ا=1 ... ي=28).
+ */
+export function calculateNooraniHijaiStats(letters: string): NooraniHijaiStats {
+  try {
+    if (!letters || !letters.trim()) {
+      return { totalValue: 0, reducedValue: 0, reductionEquation: '0', breakdown: '' };
+    }
+
+    const computeSegment = (segment: string): NooraniHijaiTrack => {
+      const cleaned = segment.replace(/[\u0640\s\u064B-\u065F]/g, '');
+      const parts: string[] = [];
+      let sum = 0;
+
+      for (const ch of cleaned) {
+        const val = HIJAI_ORDER_MAP[ch];
+        if (val !== undefined) {
+          sum += val;
+          parts.push(`${ch === 'ه' ? 'هـ' : ch}(${val})`);
+        }
+      }
+
+      const red = reduceDigitsSimple(sum);
+      return {
+        label: segment.trim(),
+        totalValue: sum,
+        reducedValue: red.reduced,
+        reductionEquation: red.equation,
+        breakdown: parts.length > 0 ? `${parts.join(' + ')} = ${sum}` : '0'
+      };
+    };
+
+    if (letters.includes('/')) {
+      const segments = letters.split('/').map(s => s.trim()).filter(Boolean);
+      const tracks = segments.map(computeSegment);
+      const totalValue = tracks.reduce((acc, t) => acc + t.totalValue, 0);
+      const red = reduceDigitsSimple(totalValue);
+      const breakdown = tracks.map(t => `${t.label}: ${t.breakdown} [مختزل: ${t.reducedValue}]`).join(' | ');
+      return {
+        totalValue,
+        reducedValue: red.reduced,
+        reductionEquation: red.equation,
+        breakdown,
+        tracks
+      };
+    }
+
+    const single = computeSegment(letters);
+    return {
+      totalValue: single.totalValue,
+      reducedValue: single.reducedValue,
+      reductionEquation: single.reductionEquation,
+      breakdown: single.breakdown
+    };
+  } catch (err) {
+    console.error('Error computing Noorani Hijai stats:', err);
+    return { totalValue: 0, reducedValue: 0, reductionEquation: '0', breakdown: '' };
+  }
+}
+
+/**
  * Batch parses and structures all verses across the 29 Noorani Surahs
  */
 export function getNoorani29Verses(): Verse[] {
